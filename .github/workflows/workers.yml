@@ -1,7 +1,7 @@
 name: Cloudflare Workers Checks
 on:
   push:
-    branches: [cloudflare-workers]
+    branches: [main, cloudflare-workers]
     paths: ['workers/**', '.github/workflows/workers.yml']
   pull_request:
     paths: ['workers/**', '.github/workflows/workers.yml']
