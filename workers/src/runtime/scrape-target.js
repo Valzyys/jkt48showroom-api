@@ -30,11 +30,16 @@ export function createJKT48Transport(config={},fetcher=(input,init)=>globalThis.
   let base;try{base=new URL(scraper.endsWith('/')?scraper:scraper+'/');}catch{throw invalid();}
   const token=String(config.JKT48_SCRAPER_TOKEN||'');
   if(base.protocol!=='https:'||base.username||base.password||base.search||base.hash||token.length<32||token.length>256||!/^[\x21-\x7e]+$/.test(token))throw invalid();
-  return {base:base.href,fetcher:(url,init={})=>{
+  return {base:base.href,fetcher:async(url,init={})=>{
     const target=new URL(url);
     if(target.origin!==base.origin||!target.pathname.startsWith(base.pathname))throw invalid();
     const headers=new Headers(init.headers);
     headers.delete('Cookie');headers.delete('User-Agent');headers.set('Authorization','Bearer '+token);
-    return fetcher(target.href,{...init,headers,redirect:'error'});
+    const response=await fetcher(target.href,{...init,headers,redirect:'manual'});
+    if(response.status>=300&&response.status<400) {
+      await response.body?.cancel();
+      throw new JKT48SourceError('The private VPS scraper redirected the request. Configure its final HTTPS API URL.',{status:502,code:'JKT48_SCRAPER_REDIRECT_ERROR'});
+    }
+    return response;
   }};
 }

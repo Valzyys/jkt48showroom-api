@@ -72,8 +72,8 @@ test('private VPS transport adds bearer token only to its HTTPS origin and strip
   const client=createJKT48Client({...transport,headers:{Cookie:'private-upstream-cookie','User-Agent':'custom'}});
   await client('news',{page:1});
   assert.equal(calls[0].url,'https://scrape.jkt48connect.com/api/v1/news?lang=id&page=1');
-  assert.equal(calls[0].init.headers.get('Authorization'),'Bearer '+token);assert.equal(calls[0].init.headers.has('Cookie'),false);assert.equal(calls[0].init.redirect,'error');
-  assert.throws(()=>transport.fetcher('https://evil.test/api/v1/news'),/Configure/);
+  assert.equal(calls[0].init.headers.get('Authorization'),'Bearer '+token);assert.equal(calls[0].init.headers.has('Cookie'),false);assert.equal(calls[0].init.redirect,'manual');
+  await assert.rejects(transport.fetcher('https://evil.test/api/v1/news'),/Configure/);
 });
 test('private VPS mode fails closed without a valid token and does not change direct mode',()=>{
   assert.throws(()=>createJKT48Transport({JKT48_SCRAPER_URL:'https://scrape.jkt48connect.com/api/v1/'}),/TOKEN/);
@@ -84,4 +84,12 @@ test('VPS transport preserves the receiver required by the Workers native fetch 
   t.mock.method(globalThis,'fetch',function(){assert.equal(this,globalThis);return Promise.resolve(Response.json({status:true,data:[]}));});
   const transport=createJKT48Transport({JKT48_SCRAPER_URL:'https://scrape.test/api/v1/',JKT48_SCRAPER_TOKEN:'x'.repeat(64)});
   assert.equal((await transport.fetcher('https://scrape.test/api/v1/news')).status,200);
+});
+test('private VPS redirects are rejected without forwarding authentication to their destination',async()=>{
+  let calls=0;
+  const transport=createJKT48Transport({JKT48_SCRAPER_URL:'https://scrape.test/api/v1/',JKT48_SCRAPER_TOKEN:'x'.repeat(64)},async(_url,init)=>{
+    calls++;assert.equal(init.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://evil.test/'}});
+  });
+  await assert.rejects(transport.fetcher('https://scrape.test/api/v1/news'),error=>error.code==='JKT48_SCRAPER_REDIRECT_ERROR');
+  assert.equal(calls,1);
 });
