@@ -111,6 +111,19 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     assert.equal((await (await call('/api/news')).json()).total_count,1);
     blockNews=false;
   });
+  await t.test('cold news 403 is actionable, not cached, and preserves backoff until authorized retry',async()=>{
+    await DB.prepare("DELETE FROM documents WHERE collection_name='jkt48newnews'").run();
+    blockNews=true;
+    const init={method:'POST',headers:{Authorization:'Bearer '+accessToken}};
+    assert.equal((await call('/api/admin/jkt48_sync',init)).status,503);
+    const before=upstreamRequests.filter(row=>row.url.includes('/api/v1/news?')).length;
+    const response=await call('/api/news');assert.equal(response.status,503);
+    const data=await response.json();assert.equal(data.code,'JKT48_UPSTREAM_HTTP_ERROR');assert.equal(data.upstream_status,403);assert.ok(data.message.includes('JKT48_PROXY_URL'));
+    assert.equal(response.headers.get('Cache-Control'),'no-store');assert.ok(Number(response.headers.get('Retry-After'))>0);
+    assert.equal(upstreamRequests.filter(row=>row.url.includes('/api/v1/news?')).length,before);
+    blockNews=false;assert.equal((await call('/api/admin/jkt48_sync',init)).status,200);
+    assert.equal((await call('/api/news')).status,200);
+  });
   await t.test('likes belong to authenticated user even with forged user_id',async()=>{
     const headers={Authorization:'Bearer '+accessToken};
     const set=await call('/api/user/like?liked_id=live-one&type=2&user_id=999',{method:'PUT',headers});assert.equal(set.status,200,await set.clone().text());

@@ -1,6 +1,7 @@
 import { runWithEnv, env } from './runtime/env.js';
 import { streamProxy } from './runtime/proxy-core.js';
 import { ensureJKT48 } from './library/jkt48/scraper/sync.js';
+import { publicSyncError } from './runtime/sync-errors.js';
 export { LiveHub } from './live-hub.js';
 export { Coordinator } from './coordinator.js';
 
@@ -23,6 +24,8 @@ export function getApp() {
     app.route('/webhook',webhook);
     app.notFound(c=>c.json({status:404,message:'Endpoint not found!',path:c.req.path},404));
     app.onError((error,c)=>{
+      const sourceError=publicSyncError(error,c.req.path);
+      if(sourceError){c.header('Cache-Control','no-store');if(error.retryAfter)c.header('Retry-After',String(error.retryAfter));return c.json(sourceError,error.status);}
       const status=error instanceof ApiError?error.data.status:error.status||error.statusCode||500;
       const code=Number.isInteger(status)&&status>=400&&status<=599?status:500;
       const message=error instanceof ApiError?error.data.message:error instanceof FetchError?'Upstream request failed':code<500?error.message:'An error occurred!';
@@ -68,6 +71,8 @@ export default {
         if(url.pathname==='/api/beta' || /^\/api\/admin\/beta(?:_device)?(?:\/|$)/.test(url.pathname)) return bindings.COORDINATOR.get(bindings.COORDINATOR.idFromName('global')).fetch(request);
         return (await getApp()).fetch(request,bindings,execution);
       } catch(error) {
+        const sourceError=publicSyncError(error,url.pathname);
+        if(sourceError)return cors(Response.json(sourceError,{status:error.status,headers:{'Cache-Control':'no-store',...(error.retryAfter?{'Retry-After':String(error.retryAfter)}:{})}}),request,bindings);
         const status=error.status||500;
         const response=Response.json({status,message:status<500||status===502||status===504?error.message:'An error occurred!',path:url.pathname},{status});
         return url.pathname==='/api/stream'?cors(response,request,bindings):response;

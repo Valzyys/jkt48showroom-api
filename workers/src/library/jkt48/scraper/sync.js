@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { kebabCase } from 'lodash';
 import { binding,env } from '@/runtime/env';
-import { boundedInteger,createJKT48Client,detailData,normalizeSchedule,syncJKT48Dataset } from '@/runtime/jkt48-source';
+import { boundedInteger,createJKT48Client,detailData,JKT48SourceError,normalizeSchedule,syncJKT48Dataset } from '@/runtime/jkt48-source';
+import { syncIssue,unavailable } from '@/runtime/sync-errors';
 import News from '@/database/showroomDB/jkt48/JKT48NewNews';
 import Schedule from '@/database/showroomDB/jkt48/JKT48NewSchedule';
 import Event from '@/database/showroomDB/jkt48/JKT48Event';
@@ -11,14 +12,14 @@ import ProfileMember from '@/database/schema/48group/Member';
 import Setlist from '@/database/showroomDB/jkt48/Setlist';
 import EventDetail from '@/database/showroomDB/jkt48/EventDetail';
 import { getJKT48Headers } from './headers';
-import { scrapeTarget } from '@/runtime/scrape-target';
+import { jkt48SourceTarget } from '@/runtime/scrape-target';
 import { createSourceStore } from '@/runtime/source-store';
 
 const identity=(kind,id)=>createHash('sha256').update(`jkt48:${kind}:${id}`).digest('hex').slice(0,24);
 const upsert=(model,key,data)=>model.updateOne(key,{$set:data,$setOnInsert:{_id:identity(model.modelName,Object.values(key)[0])}},{upsert:true});
 export async function sourceClient() {
   let index=0;
-  return createJKT48Client({base:env.JKT48_API_BASE||'https://jkt48.com/api/v1/',headers:await getJKT48Headers(),timeout:env.UPSTREAM_TIMEOUT_MS,fetcher:(url,init)=>fetch(url.startsWith('https://jkt48.com/')?scrapeTarget(url,env,index++):url,init)});
+  return createJKT48Client({base:env.JKT48_API_BASE||'https://jkt48.com/api/v1/',headers:await getJKT48Headers(),timeout:env.UPSTREAM_TIMEOUT_MS,fetcher:(url,init)=>fetch(jkt48SourceTarget(url,env,index++),init)});
 }
 export async function createRepository(dataset) {
  const store=createSourceStore(binding('DB'));
@@ -68,21 +69,27 @@ export async function synchronize(dataset,storage,{force=false}={}) {
   const state=await storage.get('jkt48-sync')||{};
   const ttl=boundedInteger(env.JKT48_SYNC_SECONDS,3600,300,86400)*1000;
   if(!force&&state.attemptedAt&&Date.now()-state.attemptedAt<(state.error?300000:ttl)) {
-    if(state.error&&!await models[dataset].countDocuments({}))throw Object.assign(new Error('JKT48 data is unavailable; upstream synchronization failed'),{status:503});
+    if(state.error&&!await models[dataset].countDocuments({}))throw unavailable(state);
     return state;
   }
+  let phase='database';
   try {
     const repository=await createRepository(dataset);
-    const result=await syncJKT48Dataset(dataset,{client:await sourceClient(),repository,state,options:{newsPages:env.JKT48_NEWS_PAGES,scheduleMonths:env.JKT48_SCHEDULE_MONTHS,detailLimit:env.JKT48_DETAIL_LIMIT}});
+    const client=await sourceClient();phase='source';
+    const result=await syncJKT48Dataset(dataset,{client,repository,state,options:{newsPages:env.JKT48_NEWS_PAGES,scheduleMonths:env.JKT48_SCHEDULE_MONTHS,detailLimit:env.JKT48_DETAIL_LIMIT}});
+    phase='persist';
     await repository.flush();
-    const next={...result,attemptedAt:Date.now(),error:null};await storage.put('jkt48-sync',next);
+    const next={...result,attemptedAt:Date.now(),error:null,issue:null};
+    phase='cache';
     // Empty responses from the old deployment must not survive successful sync.
     await binding('DB').prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/news%' OR key LIKE '%/api/theater%' OR key LIKE '%/api/event%' OR key LIKE '%/api/jkt48event%' OR key LIKE '%/api/next_schedule%' OR key LIKE '%/api/setlist%' OR key LIKE '%/api/member%' OR key LIKE '%/api/birthday%' OR key LIKE '%memberv8' OR key LIKE '%birthday'").run();
+    await storage.put('jkt48-sync',next);
     return next;
   } catch(error) {
-    const next={...state,attemptedAt:Date.now(),error:error.message};await storage.put('jkt48-sync',next);
-    console.error({event:'jkt48-sync-failed',dataset,message:error.message});
-    if(!await models[dataset].countDocuments({}))throw Object.assign(new Error('JKT48 data is unavailable; upstream synchronization failed'),{status:503});
+    const issue=syncIssue(error,phase);
+    const next={...state,attemptedAt:Date.now(),error:issue.message,issue};await storage.put('jkt48-sync',next);
+    console.error({event:'jkt48-sync-failed',dataset,...issue,errorName:error.name});
+    if(!await models[dataset].countDocuments({}))throw unavailable(next);
     return next;
   }
 }
@@ -91,7 +98,10 @@ export async function ensureJKT48(dataset,{force=false}={}) {
   const coordinator=binding('COORDINATOR');
   const response=await coordinator.get(coordinator.idFromName(`jkt48-${dataset}`)).fetch('https://jkt48.internal/jkt48-sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dataset,force})});
   const data=await response.json();
-  if(!response.ok)throw Object.assign(new Error(data.message||'JKT48 synchronization failed'),{status:response.status});
+  if(!response.ok) {
+    if(typeof data.code==='string'&&data.code.startsWith('JKT48_'))throw new JKT48SourceError(data.message,{status:response.status,code:data.code,upstreamStatus:data.upstream_status,retryAfter:Number(response.headers.get('Retry-After'))||undefined});
+    throw new JKT48SourceError('JKT48 synchronization failed. Check Worker logs.',{status:response.status,code:'JKT48_SYNC_ERROR'});
+  }
   return data;
 }
 export async function fetchNewsDetail(id) {

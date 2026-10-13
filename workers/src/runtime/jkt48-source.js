@@ -1,4 +1,10 @@
-const failure=(message,status=502)=>Object.assign(new Error(message),{status});
+export class JKT48SourceError extends Error {
+  constructor(message,{status=502,code='JKT48_UPSTREAM_ERROR',upstreamStatus,retryAfter}={}) {
+    super(message);this.name='JKT48SourceError';this.status=status;this.code=code;
+    this.upstreamStatus=upstreamStatus;this.retryAfter=retryAfter;
+  }
+}
+const failure=(message,status=502,code,upstreamStatus)=>new JKT48SourceError(message,{status,code,upstreamStatus});
 export function boundedInteger(value,fallback,min,max) {
   const number=Number(value);
   return Number.isFinite(number)?Math.max(min,Math.min(max,Math.floor(number))):fallback;
@@ -9,7 +15,7 @@ export function pagination(page,perpage,total,max=30) {
 }
 export function createJKT48Client({base='https://jkt48.com/api/v1/',fetcher=fetch,headers={},timeout=15000}={}) {
   const origin=new URL(base.endsWith('/')?base:base+'/');
-  if(origin.protocol!=='https:'||origin.username||origin.password)throw failure('JKT48_API_BASE must be an HTTPS URL',503);
+  if(origin.protocol!=='https:'||origin.username||origin.password)throw failure('JKT48_API_BASE must be an HTTPS URL',503,'JKT48_SOURCE_CONFIGURATION_ERROR');
   return async(resource,query={})=>{
     const url=new URL(resource,origin);
     url.searchParams.set('lang','id');
@@ -18,16 +24,16 @@ export function createJKT48Client({base='https://jkt48.com/api/v1/',fetcher=fetc
     const timer=setTimeout(()=>controller.abort(),boundedInteger(timeout,15000,1000,30000));
     try {
       const response=await fetcher(url.href,{headers:{Accept:'application/json',...headers},signal:controller.signal});
-      if(!response.ok)throw failure(`JKT48 upstream returned HTTP ${response.status}`);
+      if(!response.ok)throw failure(`JKT48 upstream returned HTTP ${response.status}${response.status===403||response.status===429?'. Configure an authorized HTTPS relay with JKT48_PROXY_URL or an accessible JKT48_API_BASE.':''}`,502,'JKT48_UPSTREAM_HTTP_ERROR',response.status);
       const reader=response.body.getReader();let size=0;const chunks=[];
       while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>2*1024*1024){await reader.cancel();throw failure('JKT48 response exceeds 2 MB');}chunks.push(value);}
       const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
-      let payload;try{payload=JSON.parse(new TextDecoder().decode(bytes));}catch{throw failure('JKT48 upstream did not return valid JSON');}
+      let payload;try{payload=JSON.parse(new TextDecoder().decode(bytes));}catch{throw failure('JKT48 upstream did not return valid JSON',502,'JKT48_UPSTREAM_INVALID_JSON');}
       if(payload?.status!==true||payload.data==null)throw failure('JKT48 upstream reported an unsuccessful response');
       return payload;
     } catch(error) {
       if(error.status)throw error;
-      throw failure(controller.signal.aborted?'JKT48 upstream timed out':'JKT48 upstream request failed',controller.signal.aborted?504:502);
+      throw failure(controller.signal.aborted?'JKT48 upstream timed out':'JKT48 upstream request failed',controller.signal.aborted?504:502,controller.signal.aborted?'JKT48_UPSTREAM_TIMEOUT':'JKT48_UPSTREAM_NETWORK_ERROR');
     } finally {clearTimeout(timer);}
   };
 }

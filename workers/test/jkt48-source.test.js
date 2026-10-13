@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createJKT48Client,jakartaTime,normalizeSchedule,pagination,syncJKT48Dataset } from '../src/runtime/jkt48-source.js';
-import { scrapeTarget } from '../src/runtime/scrape-target.js';
+import { jkt48SourceTarget,scrapeTarget } from '../src/runtime/scrape-target.js';
 
 test('official JSON client preserves API paths, language and detail envelope',async()=>{
   const calls=[];
@@ -53,4 +53,16 @@ test('scrape relay falls back to official host and rotates each configured pool 
   assert.equal(scrapeTarget('https://jkt48.com/news'), 'https://jkt48.com/news');
   assert.equal(scrapeTarget('https://ssk.jkt48.com/2024/id/kandidat',{JKT48_SCRAPE_URL:'https://jkt.test/',SSK_SCRAPE_URL:'https://a.test/,https://b.test/'},1),'https://b.test/2024/id/kandidat');
   assert.throws(()=>scrapeTarget('https://evil.test/'),/Invalid/);
+});
+test('JSON scrape proxy supports raw URL prefixes and encoded URL templates without losing query parameters',()=>{
+  const url='https://jkt48.com/api/v1/news?lang=id&page=2';
+  assert.equal(jkt48SourceTarget(url,{JKT48_PROXY_URL:'https://relay.test/'}),'https://relay.test/'+url);
+  const result=new URL(jkt48SourceTarget(url,{JKT48_PROXY_URL:'https://relay.test/?url={url}'}));
+  assert.equal(result.searchParams.get('url'),url);assert.equal(result.searchParams.has('page'),false);
+});
+test('JSON scrape proxy does not use Showroom proxy implicitly and rejects insecure relays',()=>{
+  const url='https://jkt48.com/api/v1/members?lang=id';
+  assert.equal(jkt48SourceTarget(url,{PROXY_URL:'https://showroom.test/'}),url);
+  assert.throws(()=>jkt48SourceTarget(url,{JKT48_PROXY_URL:'http://relay.test/'}),/HTTPS/);
+  assert.throws(()=>jkt48SourceTarget(url,{JKT48_PROXY_URL:'https://user:password@relay.test/'}),/credentials/);
 });

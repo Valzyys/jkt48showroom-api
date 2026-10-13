@@ -24,6 +24,7 @@
     "IMAGE_PUBLIC_URL": "",
     "JKT48_AUTO_SYNC": "true",
     "JKT48_API_BASE": "https://jkt48.com/api/v1/",
+    "JKT48_PROXY_URL": "",
     "JKT48_SYNC_SECONDS": "3600",
     "JKT48_NEWS_PAGES": "3",
     "JKT48_SCHEDULE_MONTHS": "3",
