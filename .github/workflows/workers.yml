@@ -28,7 +28,9 @@ jobs:
           name: worker-build
           path: workers/dist
           if-no-files-found: ignore
-      - run: tar --exclude='node_modules/@cloudflare' --exclude='node_modules/@esbuild' --exclude='node_modules/wrangler' --exclude='node_modules/miniflare' -czf /tmp/worker-dependencies.tar.gz node_modules
+      - run: npm prune --omit=dev
+        if: always()
+      - run: tar -czf /tmp/worker-dependencies.tar.gz node_modules package-lock.json
         if: always()
       - uses: actions/upload-artifact@v4
         if: always()
