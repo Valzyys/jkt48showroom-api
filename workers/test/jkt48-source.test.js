@@ -80,3 +80,8 @@ test('private VPS mode fails closed without a valid token and does not change di
   assert.throws(()=>createJKT48Transport({JKT48_SCRAPER_URL:'http://scrape.test/',JKT48_SCRAPER_TOKEN:'x'.repeat(64)}),/HTTPS/);
   assert.equal(createJKT48Transport({}).base,'https://jkt48.com/api/v1/');
 });
+test('VPS transport preserves the receiver required by the Workers native fetch function',async t=>{
+  t.mock.method(globalThis,'fetch',function(){assert.equal(this,globalThis);return Promise.resolve(Response.json({status:true,data:[]}));});
+  const transport=createJKT48Transport({JKT48_SCRAPER_URL:'https://scrape.test/api/v1/',JKT48_SCRAPER_TOKEN:'x'.repeat(64)});
+  assert.equal((await transport.fetcher('https://scrape.test/api/v1/news')).status,200);
+});

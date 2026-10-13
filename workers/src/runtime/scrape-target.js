@@ -20,7 +20,7 @@ export function jkt48SourceTarget(input,config={},index=0) {
   if(relay.protocol!=='https:'||relay.username||relay.password)throw new Error('JKT48 proxy must use HTTPS without embedded credentials');
   return relay.href;
 }
-export function createJKT48Transport(config={},fetcher=fetch) {
+export function createJKT48Transport(config={},fetcher=(input,init)=>globalThis.fetch(input,init)) {
   const scraper=String(config.JKT48_SCRAPER_URL||'').trim();
   if(!scraper) {
     let index=0;
