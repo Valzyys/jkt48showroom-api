@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jkt48showroom-api-workers",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "vars": {
+    "NODE_ENV": "production",
+    "SHOWROOM_API": "https://www.showroom-live.com",
+    "MAX_QUERY_DOCUMENTS": "10000",
+    "UPSTREAM_TIMEOUT_MS": "15000",
+    "LIVE_REFRESH_SECONDS": "300",
+    "ORIGINS": "http://localhost:3000",
+    "DEFAULT_ORIGIN": "http://localhost:3000"
+  },
+  "d1_databases": [{ "binding": "DB", "database_name": "jkt48showroom", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "IMAGES_BUCKET", "bucket_name": "jkt48showroom-images" }],
+  "durable_objects": { "bindings": [{ "name": "LIVE_HUB", "class_name": "LiveHub" }, { "name": "COORDINATOR", "class_name": "Coordinator" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveHub", "Coordinator"] }],
+  "triggers": { "crons": ["*/5 * * * *", "0 * * * *"] },
+  "alias": { "mongoose": "./src/runtime/database.js", "cli-progress": "./src/runtime/progress.js" }
+}

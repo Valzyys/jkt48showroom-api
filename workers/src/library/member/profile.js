@@ -1,0 +1,167 @@
+import Showroom from '@schema/showroom/Showroom';
+import LiveLog from '@/database/live/schema/LiveLog';
+import IdolMember from '@/database/schema/48group/IdolMember';
+import { createError } from '@/utils/errorResponse';
+import { getTheaterList } from '../jkt48/theater';
+export async function getMemberDetails(slug) {
+    const escapedSlug = slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const slugRegex = new RegExp(`^${escapedSlug}$`, 'i');
+    let data = await IdolMember.findOne({
+        slug: slugRegex
+    }).populate('showroom').lean();
+    if (!data) {
+        const sr = await Showroom.findOne({
+            url: slugRegex
+        });
+        if (!sr) throw createError({
+            statusMessage: 'Data not found!',
+            statusCode: 404
+        });
+        data = await IdolMember.findOne({
+            showroom_id: sr.room_id
+        }).populate('showroom').lean();
+        if (!data) throw createError({
+            statusMessage: 'Data not found!',
+            statusCode: 404
+        });
+    }
+    let recentTheater = [];
+    let upcomingTheater = [];
+    if (data.group === 'jkt48' && data.jkt48id) {
+        const next = await getTheaterList(1, 4, {
+            'jkt48_member.member_id': {
+                $in: data.jkt48id
+            },
+            'type': {
+                $in: [
+                    'show',
+                    'event'
+                ]
+            },
+            'start_time': {
+                $gte: new Date()
+            }
+        }).catch(()=>null);
+        const recent = await getTheaterList(1, 4, {
+            'jkt48_member.member_id': {
+                $in: data.jkt48id
+            },
+            'type': {
+                $in: [
+                    'show',
+                    'event'
+                ]
+            },
+            'start_time': {
+                $lte: new Date()
+            }
+        }).catch(()=>null);
+        if (next) upcomingTheater = next.theater;
+        if (recent) recentTheater = recent.theater;
+    }
+    const most_gift = !data.showroom_id ? null : await LiveLog.findOne({
+        room_id: data.showroom_id,
+        is_dev: false
+    }).select({
+        data_id: 1,
+        c_gift: 1
+    }).sort({
+        c_gift: -1
+    }).catch(()=>null);
+    const last_live = !data.showroom_id ? null : await LiveLog.findOne({
+        room_id: data.showroom_id,
+        is_dev: false
+    }).select({
+        'data_id': 1,
+        'live_info.date': 1,
+        'created_at': 1
+    }).sort({
+        created_at: -1
+    }).catch(()=>null);
+    const longest_live = !data.showroom_id ? null : await LiveLog.findOne({
+        room_id: data.showroom_id,
+        is_dev: false
+    }).select({
+        'data_id': 1,
+        'live_info.duration': 1
+    }).sort({
+        'live_info.duration': -1
+    }).catch(()=>null);
+    const socials = data.info?.socials?.filter((i)=>{
+        try {
+            return !(new URL(i.url).host.includes('idn') || new URL(i.url).host.includes('showroom'));
+        } catch  {
+            return false;
+        }
+    }) ?? [];
+    if (data.idn?.link) {
+        socials.push({
+            title: 'IDN',
+            url: data.idn.link
+        });
+    }
+    if (data.showroom) {
+        socials.push({
+            title: 'Showroom',
+            url: `https://www.showroom-live.com/r/${data.showroom.url}`
+        });
+    }
+    return {
+        name: data.name,
+        stats: {
+            missing: {
+                showroom: data?.live_data?.missing?.showroom || 0,
+                idn: data?.live_data?.missing?.idn || 0
+            },
+            total_live: {
+                showroom: data.showroom_id ? await LiveLog.countDocuments({
+                    room_id: data.showroom_id,
+                    type: 'showroom',
+                    is_dev: false
+                }).catch(()=>0) : 0,
+                idn: data.showroom_id ? await LiveLog.countDocuments({
+                    room_id: data.showroom_id,
+                    type: 'idn',
+                    is_dev: false
+                }).catch(()=>0) : 0
+            },
+            most_gift: most_gift ? {
+                id: most_gift.data_id,
+                gift: most_gift.c_gift
+            } : undefined,
+            longest_live: longest_live ? {
+                id: longest_live.data_id,
+                duration: longest_live.live_info?.duration
+            } : undefined,
+            last_live: last_live ? {
+                id: last_live.data_id,
+                date: {
+                    start: last_live.live_info?.date?.start?.toISOString() || '',
+                    end: last_live.live_info?.date?.end?.toISOString() || ''
+                }
+            } : undefined
+        },
+        nickname: data.info?.nicknames?.length ? data.info.nicknames[0] : undefined,
+        fullname: data.name ?? 'No name!',
+        img: data.showroom?.img,
+        img_alt: data.info?.img ?? data.showroom?.img_square ?? data.showroom?.img,
+        banner: data.info?.banner ?? '',
+        description: data?.showroom?.description ?? data.info?.description ?? '',
+        group: data.group ?? '',
+        team: data.team,
+        jikosokai: data.info?.jikosokai ?? '',
+        generation: data.info?.generation,
+        showroom_id: data.showroom_id,
+        showroom_exists: data.showroom?.room_exists,
+        profile_video: data.info?.profile_video,
+        socials,
+        is_graduate: data.info?.is_graduate ?? false,
+        bloodType: data.info?.blood_type,
+        height: data.info?.height,
+        is_group: data.showroom?.is_group ?? false,
+        url: data.slug ?? data.showroom?.url,
+        birthdate: data.info?.birthdate,
+        recentTheater,
+        upcomingTheater
+    };
+}

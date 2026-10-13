@@ -1,0 +1,25 @@
+import { model, Schema } from 'mongoose';
+const giftSchema = new Schema({
+    gift_id: {
+        type: Number,
+        unique: true,
+        required: true
+    },
+    gift_name: {
+        type: String
+    },
+    is_delete_from_stage: {
+        type: Boolean
+    },
+    free: {
+        type: Boolean
+    },
+    image: {
+        type: String
+    },
+    point: {
+        type: Number,
+        default: 0
+    }
+});
+export default model('Showroom_Gift', giftSchema);

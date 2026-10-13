@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"], "@utils/*": ["src/utils/*"], "@schema/*": ["src/database/schema/*"], "@database/*": ["src/database/*"] },
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  }
+}

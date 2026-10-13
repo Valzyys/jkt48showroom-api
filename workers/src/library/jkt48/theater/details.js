@@ -1,0 +1,169 @@
+import { kebabCase } from 'lodash';
+import comparator from 'string-comparison';
+import IdolMember from '@/database/schema/48group/IdolMember';
+import EventDetail from '@/database/showroomDB/jkt48/EventDetail';
+import JKT48NewSchedule from '@/database/showroomDB/jkt48/JKT48NewSchedule';
+import Setlist from '@/database/showroomDB/jkt48/Setlist';
+import { createError } from '@/utils/errorResponse';
+const SIMILARITY_STRENGTH = 0.75;
+export function getNewTheaterUrl(code) {
+    return `https://jkt48.com/purchase/schedule/show?code=${code}`;
+}
+export async function getSetlist(set_list, title) {
+    let setlist;
+    const id = title?.toLowerCase()?.replaceAll(' ', '')?.trim();
+    if (set_list) {
+        setlist = await Setlist.findOne({
+            setlist_id: set_list
+        });
+        if (title) {
+            if (comparator.levenshtein.similarity(setlist?.title ?? '', title) < SIMILARITY_STRENGTH) {
+                setlist = await Setlist.findOne({
+                    id
+                });
+            }
+        }
+    } else if (title) {
+        setlist = await Setlist.findOne({
+            id
+        });
+    }
+    return setlist ?? await getEvent(set_list, title);
+}
+export async function getEvent(set_list, title) {
+    let setlist;
+    const id = title?.toLowerCase()?.replaceAll(' ', '')?.trim();
+    if (set_list) {
+        setlist = await EventDetail.findOne({
+            setlist_id: set_list
+        });
+        if (title) {
+            if (comparator.levenshtein.similarity(setlist?.title ?? '', title) < SIMILARITY_STRENGTH) {
+                setlist = await EventDetail.findOne({
+                    id
+                });
+            }
+        }
+    } else if (title) {
+        setlist = await EventDetail.findOne({
+            id
+        });
+    }
+    return setlist;
+}
+export function findSetlist(data, title, set_list_id) {
+    let setlist = data.find((i)=>i?.setlist_id === set_list_id);
+    if (!setlist || setlist && comparator.levenshtein.similarity(setlist?.title ?? '', title) < SIMILARITY_STRENGTH) {
+        setlist = data.find((i)=>{
+            return i?.id === title.toLowerCase()?.replaceAll(' ', '')?.trim();
+        });
+    }
+    return setlist;
+}
+export async function getTheaterDetail(c) {
+    const id = c.req.param('id');
+    const query = [
+        {
+            code: id
+        },
+        {
+            code: `OSH1-${id}`
+        },
+        {
+            code: `OSH2-${id}`
+        }
+    ];
+    if (!Number.isNaN(Number(id))) {
+        query.push({
+            'showroom.paid_live_id': id
+        });
+    } else {
+        query.push({
+            'idn_live.slug': id
+        });
+    }
+    const data = await JKT48NewSchedule.findOne({
+        type: {
+            $in: [
+                'show',
+                'event'
+            ]
+        },
+        $or: query
+    }).lean();
+    if (!data) throw createError({
+        statusMessage: 'Data not found!',
+        statusCode: 404
+    });
+    const memberList = data.jkt48_member;
+    const setlist = await getSetlist(data.set_list, data.title);
+    const memberDetails = await IdolMember.find({
+        jkt48id: {
+            $in: memberList.map((i)=>i.member_id)
+        }
+    }).select({
+        name: 1,
+        info: {
+            nicknames: 1,
+            img: 1
+        },
+        slug: 1,
+        team: 1,
+        showroom_id: 1,
+        jkt48id: 1
+    }).populate('showroom').lean();
+    return {
+        shows: [
+            {
+                id: data.code,
+                title: data.title,
+                url: data.link == null || data.link === '' ? null : getNewTheaterUrl(data.code),
+                setlist,
+                members: data.jkt48_member.map((i)=>{
+                    const detailedMember = memberDetails.find((m)=>{
+                        return m.jkt48id?.includes(String(i.member_id));
+                    });
+                    return {
+                        id: i.member_id,
+                        name: detailedMember?.info?.nicknames?.[0] || i.name,
+                        img: detailedMember?.info?.img ?? undefined,
+                        team: detailedMember?.team,
+                        jkt_key: kebabCase(`${detailedMember?.name?.toLowerCase()}-${detailedMember?.jkt48id?.[0]}`),
+                        url_key: detailedMember?.slug
+                    };
+                }),
+                seitansai: data.birthday_member?.map((i)=>{
+                    const detailedMember = memberDetails.find((m)=>{
+                        return m.jkt48id?.includes(String(i.member_id));
+                    });
+                    return {
+                        id: i.member_id,
+                        name: detailedMember?.info?.nicknames?.[0] || i.name,
+                        img: detailedMember?.info?.img ?? undefined,
+                        team: detailedMember?.team,
+                        jkt_key: kebabCase(`${detailedMember?.name?.toLowerCase()}-${detailedMember?.jkt48id?.[0]}`),
+                        url_key: detailedMember?.slug
+                    };
+                }),
+                graduation: data.graduation_member?.map((i)=>{
+                    const detailedMember = memberDetails.find((m)=>{
+                        return m.jkt48id?.includes(String(i.member_id));
+                    });
+                    return {
+                        id: i.member_id,
+                        name: detailedMember?.info?.nicknames?.[0] || i.name,
+                        img: detailedMember?.info?.img ?? undefined,
+                        team: detailedMember?.team,
+                        jkt_key: kebabCase(`${detailedMember?.name?.toLowerCase()}-${detailedMember?.jkt48id?.[0]}`),
+                        url_key: detailedMember?.slug
+                    };
+                }),
+                date: data.start_time ?? data.date,
+                team: data.jkt48_member_type,
+                showroomTheater: data.showroom,
+                idnTheater: data.idn_live
+            }
+        ],
+        date: new Date(data?.date ?? 0).toISOString()
+    };
+}

@@ -1,0 +1,179 @@
+import defu from 'defu';
+import IdolMember from '@/database/schema/48group/IdolMember';
+import EventDetail from '@/database/showroomDB/jkt48/EventDetail';
+import JKT48NewSchedule from '@/database/showroomDB/jkt48/JKT48NewSchedule';
+import Setlist from '@/database/showroomDB/jkt48/Setlist';
+import { notFound } from '@/utils/errorResponse';
+import { findSetlist, getNewTheaterUrl } from './details';
+export async function getTheaterList(page, perpage, query) {
+    const q = defu(query, {
+        type: 'show'
+    });
+    const total = await JKT48NewSchedule.countDocuments(q);
+    const theater = await JKT48NewSchedule.find(q).limit(perpage).skip((page - 1) * perpage).sort('-start_time').select('title date id jkt48_member jkt48_member_type birthday_member type code graduation_member set_list start_time end_time').lean();
+    const theaterSetlistIds = new Set();
+    const eventSetlistIds = new Set();
+    for (const item of theater){
+        const titleId = item.title.toLowerCase().replaceAll(' ', '');
+        if (item.type === 'event') {
+            eventSetlistIds.add(titleId);
+            if (item.set_list) eventSetlistIds.add(item.set_list);
+            continue;
+        }
+        theaterSetlistIds.add(titleId);
+        if (item.set_list) theaterSetlistIds.add(item.set_list);
+    }
+    const theaterSetlists = [
+        ...theaterSetlistIds
+    ];
+    const eventSetlists = [
+        ...eventSetlistIds
+    ];
+    const setlistData = theaterSetlists.length > 0 ? await Setlist.find({
+        $or: [
+            {
+                id: {
+                    $in: theaterSetlists
+                }
+            },
+            {
+                setlist_id: {
+                    $in: theaterSetlists
+                }
+            }
+        ]
+    }).lean() : [];
+    const eventsData = eventSetlists.length > 0 ? await EventDetail.find({
+        $or: [
+            {
+                id: {
+                    $in: eventSetlists
+                }
+            },
+            {
+                setlist_id: {
+                    $in: eventSetlists
+                }
+            }
+        ]
+    }).lean() : [];
+    const allData = [
+        ...setlistData,
+        ...eventsData
+    ];
+    const seitansai = theater.reduce((a, b)=>{
+        for (const m of b.birthday_member ?? []){
+            a.add(String(m.member_id));
+        }
+        for (const m of b.graduation_member ?? []){
+            a.add(String(m.member_id));
+        }
+        for (const m of b.jkt48_member ?? []){
+            a.add(String(m.member_id));
+        }
+        return a;
+    }, new Set());
+    let memberDetailData = [];
+    if (seitansai.size > 0) {
+        memberDetailData = await IdolMember.find({
+            jkt48id: {
+                $in: [
+                    ...seitansai.values()
+                ]
+            }
+        }).select({
+            name: 1,
+            info: {
+                nicknames: 1,
+                img: 1
+            },
+            slug: 1,
+            showroom_id: 1,
+            jkt48id: 1
+        }).populate('showroom').lean();
+    }
+    return {
+        theater: theater.map((i)=>{
+            const setlist = findSetlist(allData, i.title, i.set_list ?? '');
+            const birthdayMember = i.birthday_member?.map((s)=>{
+                const data = memberDetailData.find((m)=>m.jkt48id?.includes(String(s.member_id)));
+                return {
+                    id: String(s.member_id),
+                    name: data?.info.nicknames?.[0] ?? s.name,
+                    url_key: data?.slug ?? ''
+                };
+            });
+            const graduationMember = i.graduation_member?.map((s)=>{
+                const data = memberDetailData.find((m)=>m.jkt48id?.includes(String(s.member_id)));
+                return {
+                    id: String(s.member_id),
+                    name: data?.info.nicknames?.[0] ?? s.name,
+                    url_key: data?.slug ?? ''
+                };
+            });
+            const memberList = i.jkt48_member?.map((s)=>{
+                const data = memberDetailData.find((m)=>m.jkt48id?.includes(String(s.member_id)));
+                return {
+                    id: String(s.member_id),
+                    name: data?.info.nicknames?.[0] ?? s.name,
+                    url_key: data?.slug ?? ''
+                };
+            });
+            return {
+                id: i.code,
+                title: i.title.trim(),
+                banner: setlist?.banner,
+                poster: setlist?.poster,
+                member_count: i.jkt48_member?.length ?? 0,
+                member: i.jkt48_member?.length ?? 0,
+                team: i.jkt48_member_type,
+                start_date: new Date(i.start_time ?? 0).toISOString(),
+                end_date: new Date(i.end_time ?? 0).toISOString(),
+                seitansai: (birthdayMember?.length ?? 0) > 0 ? birthdayMember : undefined,
+                graduation: (graduationMember?.length ?? 0) > 0 ? graduationMember : undefined,
+                members: (memberList?.length ?? 0) > 0 ? memberList : undefined,
+                url: i.code,
+                date: i.date ?? new Date(0)
+            };
+        }),
+        page,
+        perpage,
+        total_count: total
+    };
+}
+export async function getTheater(c) {
+    const maxPerpage = 30;
+    let page = Number(c.req.query('page')) || 1;
+    let perpage = Number(c.req.query('perpage')) || 10;
+    const type = c.req.query('type') ? String(c.req.query('type')) : 'show';
+    if (perpage > maxPerpage) perpage = maxPerpage;
+    const query = [
+        {
+            type
+        }
+    ];
+    const total = await JKT48NewSchedule.countDocuments(...query);
+    const maxPage = Math.max(1, Math.ceil(total / perpage));
+    if (page < 1) page = 1;
+    if (page > maxPage) page = maxPage;
+    return await getTheaterList(page, perpage, {
+        type
+    });
+}
+export async function getTheaterById(id) {
+    const data = await JKT48NewSchedule.findOne({
+        code: id
+    }).lean();
+    if (!data) throw notFound();
+    return {
+        id: data.code,
+        date: data?.start_time ?? new Date(0),
+        title: data?.title,
+        url: getNewTheaterUrl(data.code),
+        setlistId: data?.set_list ?? '',
+        team: data.jkt48_member_type,
+        memberIds: data.jkt48_member.map((i)=>String(i.member_id)),
+        seitansaiIds: data.birthday_member?.map((i)=>String(i.member_id)) ?? [],
+        graduationIds: data.graduation_member?.map((i)=>String(i.member_id))
+    };
+}

@@ -1,0 +1,60 @@
+import EventDetail from '@/database/showroomDB/jkt48/EventDetail';
+import { createError } from '@/utils/errorResponse';
+import { uploadImageBuffer } from '@/utils/imageUpload';
+export async function addOrEditEvent(c) {
+    const data = await c.req.parseBody();
+    const dataId = data._id;
+    const poster = data.poster;
+    const banner = data.banner;
+    const id = String(data.id);
+    const title = String(data.title);
+    const title_alt = String(data.title_alt);
+    const description = String(data.description);
+    if (!id || !title) throw createError({
+        statusCode: 400,
+        statusMessage: 'Bad request!'
+    });
+    try {
+        const dataJson = {
+            id,
+            title,
+            title_alt,
+            description
+        };
+        if (poster) {
+            const img = await uploadImageBuffer(await poster.arrayBuffer());
+            const secure_url = img?.secure_url;
+            dataJson.poster = secure_url;
+        }
+        if (banner) {
+            const img = await uploadImageBuffer(await banner.arrayBuffer());
+            const secure_url = img?.secure_url;
+            dataJson.banner = secure_url;
+        }
+        const idObj = {};
+        if (dataId) {
+            idObj._id = String(dataId);
+        } else {
+            idObj.id = id;
+        }
+        await EventDetail.updateOne({
+            ...idObj
+        }, {
+            $set: dataJson
+        }, {
+            upsert: true,
+            setDefaultsOnInsert: true,
+            runValidators: true
+        });
+        return {
+            code: 200,
+            message: 'Success!'
+        };
+    } catch (e) {
+        console.error(e);
+        throw createError({
+            statusCode: 500,
+            statusMessage: 'An error occured!'
+        });
+    }
+}

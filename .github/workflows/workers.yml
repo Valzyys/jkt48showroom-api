@@ -1,0 +1,38 @@
+name: Cloudflare Workers Checks
+on:
+  push:
+    branches: [cloudflare-workers]
+    paths: ['workers/**', '.github/workflows/workers.yml']
+  pull_request:
+    paths: ['workers/**', '.github/workflows/workers.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:integration
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: worker-build
+          path: workers/dist
+          if-no-files-found: ignore
+      - run: tar --exclude='node_modules/@cloudflare' --exclude='node_modules/@esbuild' --exclude='node_modules/wrangler' --exclude='node_modules/miniflare' -czf /tmp/worker-dependencies.tar.gz node_modules
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: worker-dependencies
+          path: /tmp/worker-dependencies.tar.gz
+          retention-days: 1
