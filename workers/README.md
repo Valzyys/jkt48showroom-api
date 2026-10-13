@@ -42,10 +42,12 @@ Perintah ini menjalankan Wrangler 4.149.0 dengan konfigurasi `wrangler.jsonc`:
 
 1. Build hook `node scripts/prepare-env.js` menyiapkan environment lokal. Empat secret wajib dideklarasikan pada `secrets.required`: `SECRET` (32 karakter ASCII), `AUTH_SECRET`, `JWT_SECRET`, dan `API_KEY` (masing-masing 64 karakter hex acak). Nilainya independen, tidak ditampilkan di log, dan disimpan di `.setup/secrets.json` dengan izin file `0600`. Folder `.setup/` dan `.dev.vars` diabaikan Git.
 2. Script deploy memeriksa nama secret remote. Secret yang sudah ada dipertahankan; hanya yang belum ada dikirim lewat `--secrets-file`. Deployment pertama memasang keempat secret. Kegagalan autentikasi menghentikan proses, bukan dianggap Worker baru.
-3. Wrangler membuat database D1 untuk `DB` dan bucket R2 untuk `IMAGES_BUCKET` secara native karena ID/nama resource belum diisi. Nama resource mengikuti nama Worker; hasil provisioning ditulis kembali ke konfigurasi. Durable Objects `LIVE_HUB` dan `COORDINATOR` dibuat melalui migration Wrangler `v1`.
+3. Wrangler memakai database D1 untuk `DB` dan bucket R2 untuk `IMAGES_BUCKET` dari konfigurasi. Branch `main` kini menyimpan ID D1 dan nama R2 yang sudah dibuat pada deployment akun pemilik repository, agar checkout CI berikutnya menggunakan resource yang sama. Durable Objects `LIVE_HUB` dan `COORDINATOR` dibuat melalui migration Wrangler `v1`.
 4. Setelah deployment berhasil, script menjalankan migration D1 remote secara noninteraktif. Deployment dianggap selesai hanya jika migration juga berhasil. `/health` dapat sementara mengembalikan 503 sebelum migration selesai. Jika migration gagal, perbaiki penyebabnya lalu jalankan kembali perintah deploy.
 
 Simpan ID/nama resource yang ditulis Wrangler pada `wrangler.jsonc` untuk deployment berikutnya. Jangan menghapus ID resource yang sudah dipakai. Detail fitur native: [Automatic resource provisioning](https://developers.cloudflare.com/workers/wrangler/configuration/#automatic-resource-provisioning).
+
+Nama Worker di konfigurasi dan proyek Cloudflare harus sama: `jkt48showroom-api`. Override nama oleh Workers Builds berlaku pada deploy, tetapi command D1 dapat tetap memakai nama dari konfigurasi. Untuk clone di akun lain, ubah nama Worker sesuai proyek baru, hapus `database_id`, `database_name`, dan `bucket_name` milik akun ini, kemudian jalankan deploy agar Wrangler membuat resource baru. Jangan lakukan penghapusan tersebut pada deployment akun yang sudah berjalan.
 
 Login OAuth dilakukan sekali dengan `npx wrangler login`. Untuk CI, sediakan `CLOUDFLARE_API_TOKEN` dan `CLOUDFLARE_ACCOUNT_ID` dari akun sendiri; token memerlukan Workers Scripts Edit, D1 Edit, dan Workers R2 Storage Write serta akses ke akun tujuan. Kredensial akun tidak dapat dihasilkan oleh proyek.
 
@@ -57,7 +59,7 @@ Tambahkan `SAWERIA_KEY`, `YOUTUBE_KEY`, `YOUTUBE_JKT48`, `CLOUDINARY_API_KEY`, `
 
 Secret layanan pihak ketiga harus berasal dari penyedianya, misalnya `npx wrangler secret put CLOUDINARY_API_SECRET`; script tidak mengarang kredensial Cloudinary, YouTube, atau Saweria dan tidak mengganti secret tambahan tersebut. Domain publik R2 dan data MongoDB juga tidak dibuat/import otomatis.
 
-Cloudflare account/token, ID database, kredensial upstream dan data produksi tidak disertakan. Workflow GitHub hanya memeriksa kode; tidak melakukan deployment atau memindahkan data produksi.
+Cloudflare account/token, kredensial upstream dan data produksi tidak disertakan. ID D1 dan nama R2 dalam konfigurasi adalah identifier resource, bukan secret; akses tetap memerlukan autentikasi Cloudflare. Workflow GitHub hanya memeriksa kode; tidak melakukan deployment atau memindahkan data produksi.
 
 ## Proxy
 

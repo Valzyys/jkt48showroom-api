@@ -4,7 +4,7 @@ Pemeriksaan pada branch `cloudflare-workers` dilakukan melalui workflow `Cloudfl
 
 - `npm ci` menggunakan lockfile.
 - `npm audit --omit=dev` harus lulus.
-- 32 unit tests: D1 schema casting, populate, pagination, aggregation, optimistic concurrency, document limits, SQL filter/migration, Mongo export importer, proxy HLS/Range/HEAD/redirect/timeout, serta setup/deploy otomatis.
+- 33 unit tests: D1 schema casting, populate, pagination, aggregation, optimistic concurrency, document limits, SQL filter/migration, Mongo export importer, proxy HLS/Range/HEAD/redirect/timeout, serta setup/deploy otomatis dan identifier resource deployment.
 - Setup/deploy menggunakan mock Wrangler untuk menguji secret acak, izin file privat, idempotensi, preservasi secret remote, deployment pertama, dry-run tanpa perubahan resource, kegagalan autentikasi, rotasi eksplisit, dan urutan migration setelah deploy berhasil.
 - `wrangler deploy --dry-run`: bundle module Worker, binding D1/R2 dan kedua Durable Objects.
 - 14 hasil test runtime Miniflare (13 subtests dan parent): health/member, login/session proxy, refresh/invalid token, user likes, concurrent beta enrollment, live update/WebSocket CBOR, admin/API-key, CSRF, signature replay, Saweria, multipart image/R2, comment/follow/reorder, logout.

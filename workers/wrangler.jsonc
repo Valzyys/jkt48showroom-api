@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "jkt48showroom-api-workers",
+  "name": "jkt48showroom-api",
   "main": "src/worker.js",
   "compatibility_date": "2026-07-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -23,8 +23,8 @@
     "CLOUDINARY_CLOUD_NAME": "",
     "IMAGE_PUBLIC_URL": ""
   },
-  "d1_databases": [{ "binding": "DB", "migrations_dir": "migrations" }],
-  "r2_buckets": [{ "binding": "IMAGES_BUCKET" }],
+  "d1_databases": [{ "binding": "DB", "database_name": "jkt48showroom-api-db", "database_id": "d82f76e4-2bf9-4585-8a1f-c7d7dc870bac", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "IMAGES_BUCKET", "bucket_name": "jkt48showroom-api-images-bucket" }],
   "durable_objects": { "bindings": [{ "name": "LIVE_HUB", "class_name": "LiveHub" }, { "name": "COORDINATOR", "class_name": "Coordinator" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveHub", "Coordinator"] }],
   "triggers": { "crons": ["*/5 * * * *", "0 * * * *"] },

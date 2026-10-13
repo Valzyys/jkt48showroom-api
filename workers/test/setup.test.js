@@ -12,6 +12,15 @@ async function fixture(t) {
   await writeFile(path.join(root,'wrangler.jsonc'),await readFile(new URL('../wrangler.jsonc',import.meta.url)));
   return root;
 }
+test('deployment config reuses provisioned resources and matches the connected Worker name',async()=>{
+  const config=JSON.parse(await readFile(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
+  assert.equal(config.name,'jkt48showroom-api');
+  const db=config.d1_databases.find(item=>item.binding==='DB');
+  assert.equal(db.database_name,`${config.name}-db`);
+  assert.match(db.database_id,/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
+  assert.equal(db.migrations_dir,'migrations');
+  assert.equal(config.r2_buckets.find(item=>item.binding==='IMAGES_BUCKET').bucket_name,`${config.name}-images-bucket`);
+});
 test('setup generates independent valid secrets with private permissions and reuses them',async t=>{
   const root=await fixture(t), first=await prepareEnvironment({root,environment:{}}), second=await prepareEnvironment({root,environment:{}});
   assert.deepEqual(first.secrets,second.secrets);assert.equal(first.secrets.SECRET.length,32);assert.equal(new Set(Object.values(first.secrets)).size,4);
