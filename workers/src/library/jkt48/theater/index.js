@@ -5,6 +5,7 @@ import JKT48NewSchedule from '@/database/showroomDB/jkt48/JKT48NewSchedule';
 import Setlist from '@/database/showroomDB/jkt48/Setlist';
 import { notFound } from '@/utils/errorResponse';
 import { findSetlist, getNewTheaterUrl } from './details';
+import { pagination } from '@/runtime/jkt48-source';
 export async function getTheaterList(page, perpage, query) {
     const q = defu(query, {
         type: 'show'
@@ -142,20 +143,14 @@ export async function getTheaterList(page, perpage, query) {
     };
 }
 export async function getTheater(c) {
-    const maxPerpage = 30;
-    let page = Number(c.req.query('page')) || 1;
-    let perpage = Number(c.req.query('perpage')) || 10;
     const type = c.req.query('type') ? String(c.req.query('type')) : 'show';
-    if (perpage > maxPerpage) perpage = maxPerpage;
     const query = [
         {
             type
         }
     ];
     const total = await JKT48NewSchedule.countDocuments(...query);
-    const maxPage = Math.max(1, Math.ceil(total / perpage));
-    if (page < 1) page = 1;
-    if (page > maxPage) page = maxPage;
+    const {page,perpage}=pagination(c.req.query('page'),c.req.query('perpage'),total);
     return await getTheaterList(page, perpage, {
         type
     });

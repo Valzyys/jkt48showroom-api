@@ -120,6 +120,7 @@ Semua path diawali `/api/admin`. Selain `update_lives`, diperlukan access/refres
 | GET | `/setlist`, `/event`, `/stage48`, `/jkt48member`, `/member`, `/fans_list` | Data admin; fans pagination, stage/member optional group |
 | GET | `/member/data` | Query `room_id`; data untuk editor |
 | GET | `/theater/:id`, `/event/:id` | Data schedule/event untuk editor |
+| POST | `/jkt48_sync` | JWT admin; refresh news, schedules/theater/event dan members; hasil per dataset, status 503 jika ada kegagalan |
 | POST | `/set_memberdata` | Query `room_id`, `memberDataId`; relasi Showroom/member |
 | POST | `/set_graduate` | Query `id`, `value=true|false` |
 | POST | `/edit_showroom` | Query `_id`, name, room_id, img, description, generation, group, url |

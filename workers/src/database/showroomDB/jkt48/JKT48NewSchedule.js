@@ -3,6 +3,7 @@ import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { Schema } from 'mongoose';
 import { jkt48DB } from '../..';
+import { jakartaTime } from '@/runtime/jkt48-source';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 function normalizeScheduleType(type) {
@@ -83,8 +84,7 @@ function mapSalesPeriod(period) {
     };
 }
 export function replaceTime(isoString, timeString) {
-    const [hours, minutes] = timeString.split(':').map(Number);
-    return dayjs(isoString).hour(hours).minute(minutes).second(0).millisecond(0).tz('Asia/Jakarta').utc().toDate();
+    return new Date(jakartaTime(isoString,timeString));
 }
 export function mapJKT48ScheduleFromApi(raw) {
     const members = Array.isArray(raw.jkt48_member) ? raw.jkt48_member.map(mapMember).filter((member)=>member !== null) : [];

@@ -1,5 +1,6 @@
 import EventDetail from '@/database/showroomDB/jkt48/EventDetail';
 import JKT48Event from '@/database/showroomDB/jkt48/JKT48Event';
+import { pagination } from '@/runtime/jkt48-source';
 export async function getEventList(page, perpage, options) {
     const events = await JKT48Event.find(options ?? {}).limit(perpage).skip((page - 1) * perpage).sort('-date').select('title date label id eventId memberIds').lean();
     const eventIds = events.map((i)=>i.eventId);
@@ -24,14 +25,8 @@ export async function getEventList(page, perpage, options) {
     });
 }
 export async function getJKT48Event(c) {
-    const maxPerpage = 30;
-    let page = Number(c.req.query('page')) || 1;
-    let perpage = Number(c.req.query('perpage')) || 10;
-    if (perpage > maxPerpage) perpage = maxPerpage;
     const total = await JKT48Event.countDocuments({});
-    const maxPage = Math.ceil(total / perpage);
-    if (page < 1) page = 1;
-    if (page > maxPage) page = maxPage;
+    const {page,perpage}=pagination(c.req.query('page'),c.req.query('perpage'),total);
     const theaterList = await getEventList(page, perpage);
     return {
         events: theaterList,

@@ -1,5 +1,6 @@
 import { runWithEnv, env } from './runtime/env.js';
 import { streamProxy } from './runtime/proxy-core.js';
+import { ensureJKT48 } from './library/jkt48/scraper/sync.js';
 export { LiveHub } from './live-hub.js';
 export { Coordinator } from './coordinator.js';
 
@@ -55,6 +56,11 @@ export default {
           return cors(await streamProxy(request,bindings),request,bindings);
         }
         for(const name of ['SECRET','AUTH_SECRET','JWT_SECRET','API_KEY']) if(!bindings[name]) return Response.json({status:503,message:'Worker secrets are not configured',path:url.pathname},{status:503});
+        if(request.method==='GET') {
+          if(/^\/api\/news(?:\/|$)/.test(url.pathname))await ensureJKT48('news');
+          if(/^\/api\/(theater|event|jkt48event|next_schedule|setlist)(?:\/|$)/.test(url.pathname))await ensureJKT48('schedules');
+          if(/^\/api\/(member|birthday|48\/member|firstdata)(?:\/|$)/.test(url.pathname)&&(!url.searchParams.get('group')||url.searchParams.get('group')==='jkt48'))await ensureJKT48('members');
+        }
         if(url.pathname==='/ws' || url.pathname==='/ws/') {
           if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket') return new Response('WebSocket upgrade required',{status:426});
           return bindings.LIVE_HUB.get(bindings.LIVE_HUB.idFromName('global')).fetch(new Request(new URL('/ws'+url.search,request.url),request));
@@ -72,6 +78,7 @@ export default {
     return runWithEnv(bindings,execution,async()=>{
       execution.waitUntil(bindings.LIVE_HUB.get(bindings.LIVE_HUB.idFromName('global')).fetch('https://live.internal/refresh',{method:'POST'}));
       execution.waitUntil(bindings.DB.prepare('DELETE FROM cache_entries WHERE expires_at<=?').bind(Date.now()).run());
+      for(const dataset of ['news','schedules','members'])execution.waitUntil(ensureJKT48(dataset).catch(error=>console.error({event:'jkt48-cron-failed',dataset,message:error.message})));
       // The source leaves competition/monthly jobs disabled. Enable explicitly.
       if(bindings.ENABLE_COMPETITION_CRON==='true') execution.waitUntil((async()=>{await getApp(); const {scrapeAndStoreCompetitionRanking}=await import('./library/showroomCompetition/ranking.js'); await scrapeAndStoreCompetitionRanking();})());
     });

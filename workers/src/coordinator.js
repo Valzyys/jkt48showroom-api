@@ -1,5 +1,6 @@
 import { runWithEnv } from './runtime/env.js';
 import { getApp } from './worker.js';
+import { synchronize } from './library/jkt48/scraper/sync.js';
 
 export class Coordinator {
   constructor(ctx, env) { this.ctx=ctx; this.env=env; this.tail=Promise.resolve(); }
@@ -16,6 +17,10 @@ export class Coordinator {
   }
   fetch(request) {
     const action=async()=>runWithEnv({...this.env,LOCAL_COORDINATOR:this},this.ctx,async()=>{
+      if(new URL(request.url).pathname==='/jkt48-sync') {
+        try {const {dataset,force}=await request.json();return Response.json(await synchronize(dataset,this.ctx.storage,{force:force===true}));}
+        catch(error){return Response.json({message:error.message},{status:error.status||500});}
+      }
       if (new URL(request.url).pathname==='/security') return Response.json(await this.security(await request.json()));
       return (await getApp()).fetch(request,this.env,this.ctx);
     });

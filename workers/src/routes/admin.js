@@ -43,6 +43,7 @@ import { createJWT } from '@/utils/security/jwt';
 import { checkToken } from '@/utils/security/token';
 import { cache as wCache } from '../library/watch/index';
 import { webhookUpdateLive } from './websocket';
+import { ensureJKT48 } from '@/library/jkt48/scraper/sync';
 const app = new Hono();
 app.post('/update_lives', async (c)=>{
     const data = await c.req.json();
@@ -93,6 +94,14 @@ app.post('/update_lives', async (c)=>{
 app.use('*', useCORS('self'));
 app.use('*', checkToken(false));
 app.use('*', checkAdmin());
+app.post('/jkt48_sync',async c=>{
+    const results={};
+    for(const dataset of ['news','schedules','members']) {
+        try {results[dataset]=await ensureJKT48(dataset,{force:true});}
+        catch(error){results[dataset]={error:error.message};}
+    }
+    return c.json(results,Object.values(results).some(result=>result.error)?503:200);
+});
 app.get('/get_token', (c)=>{
     return c.text(createJWT({
         admin: true

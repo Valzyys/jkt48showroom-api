@@ -25,6 +25,7 @@ Dependensi runtime Hono, defu dan lodash memakai versi patch/minor yang telah di
 - Upload gambar memerlukan Cloudinary HTTP dan R2. Kegagalan penyimpanan tidak disamarkan.
 - Webhook Saweria invalid/malformed signature ditolak; penyimpanan gagal menghasilkan error, bukan success palsu. Callback berulang dengan ID sama bersifat idempotent.
 - Cron statistik/kompetisi yang dinonaktifkan pada sumber tidak diaktifkan otomatis. `ENABLE_COMPETITION_CRON=true` dapat mengaktifkan snapshot kompetisi setelah konfigurasi upstream siap.
+- Data publik JKT48 kini disinkronkan dari API JSON resmi ke koleksi yang dipakai handler, bukan scraper HTML lama yang menulis ke koleksi legacy. Refresh diserialisasi Coordinator, dijalankan lazy/cron, mempertahankan data lama saat upstream gagal, serta memiliki batas halaman/rentang bulan/detail. News dan event pagination tidak lagi menghasilkan page 0 atau limit negatif.
 
 ## Status Sumber
 

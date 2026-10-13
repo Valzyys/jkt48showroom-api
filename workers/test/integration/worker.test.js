@@ -12,6 +12,10 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
   assert.ok(worker,'Run npm run build first');
   const secret='12345678901234567890123456789012';
   const upstreamRequests=[];
+  let blockNews=false;
+  const newsRow={news_id:123,title:'Official News',category:'Theater',link:'official-news',valid_date_from:'2030-01-01T00:00:00Z'};
+  const officialMember={jkt48_member_id:1,name:'Test Member',photo:'https://img.test/member.png',birth_date:`2000-${String(new Date().getMonth()+1).padStart(2,'0')}-01`,nickname:'Test'};
+  const officialSchedules=[{schedule_id:11,type:'SHOW',reference_code:'SHOW11',title:'Test Setlist',date:'2030-01-01T17:00:00Z',start_time:'19:00',end_time:'21:00'},{schedule_id:12,type:'EVENT',reference_code:'EVENT12',title:'Test Event',date:'2030-01-01T17:00:00Z',start_time:'10:00',end_time:'12:00'}];
   const mf=new Miniflare({
     modules:[{type:'ESModule',path:new URL('../../dist/'+worker,import.meta.url).pathname}],
     compatibilityDate:'2026-07-01',compatibilityFlags:['nodejs_compat'],
@@ -21,6 +25,15 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     outboundService:async request=>{
       upstreamRequests.push({url:request.url,cookie:request.headers.get('Cookie'),method:request.method,body:['POST','PUT'].includes(request.method)?await request.text():''});
       const target=request.url.replace('https://relay.test/','');
+      const official=new URL(request.url);
+      if(official.hostname==='jkt48.com'&&official.pathname.startsWith('/api/v1/')) {
+        if(official.pathname==='/api/v1/news')return blockNews?new Response('Blocked',{status:403}):Response.json({status:true,data:[newsRow],_meta:{page:1,total_page:1}});
+        if(official.pathname==='/api/v1/news/official-news')return Response.json({status:true,data:{result:{...newsRow,content_body:'<p>Official content</p>'}}});
+        if(official.pathname==='/api/v1/members')return Response.json({status:true,data:[officialMember]});
+        if(official.pathname==='/api/v1/members/1')return Response.json({status:true,data:officialMember});
+        if(official.pathname==='/api/v1/schedules')return Response.json({status:true,data:officialSchedules});
+        if(official.pathname==='/api/v1/theater-shows/SHOW11'||official.pathname==='/api/v1/events/EVENT12')return Response.json({status:true,data:{code:official.pathname.endsWith('SHOW11')?'SHOW11':'EVENT12',jkt48_member:[{member_id:1,name:'Test Member'}],birthday_member_name:['Test Member'],background_image:'https://img.test/poster.png'}});
+      }
       if(target.includes('/api/csrf_token')) return Response.json({csrf_token:'csrf'},{headers:{'Set-Cookie':'sr_id=mock-session; Path=/; HttpOnly'}});
       if(target.includes('/user/login')) return Response.json({ok:1,user_id:1},{headers:{'Set-Cookie':'sr_id=mock-session; Path=/; HttpOnly'}});
       if(target.includes('/api/user/profile')) return Response.json({name:'Test User',account_id:'test-user',avatar_id:1,image:'https://img.test/user.png'});
@@ -55,6 +68,26 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     const data=await response.json();assert.equal(data[0].name,'Test Member');assert.equal(data[0].room_id,123);
     assert.equal((await call('/does-not-exist')).status,404);
   });
+  await t.test('empty D1 bootstraps official news and fetches details without Mongo import',async()=>{
+    const response=await call('/api/news?perpage=-10&page=100');assert.equal(response.status,200,await response.clone().text());
+    const data=await response.json();assert.equal(data.page,1);assert.equal(data.perpage,1);assert.equal(data.news[0].id,'123');assert.equal(data.total_count,1);
+    const before=upstreamRequests.filter(row=>row.url.includes('/api/v1/news?')).length;
+    assert.equal((await call('/api/news')).status,200);assert.equal(upstreamRequests.filter(row=>row.url.includes('/api/v1/news?')).length,before);
+    const detail=await call('/api/news/official-news');assert.equal(detail.status,200,await detail.clone().text());assert.equal((await detail.json()).content,'<p>Official content</p>');
+  });
+  await t.test('member sync preserves legacy room mapping and populates birthday profiles',async()=>{
+    const data=await (await call('/api/birthday?group=jkt48')).json();assert.equal(data[0].room_id,123);assert.equal(data[0].name,'Test');
+    const response=await call('/api/48/member?group=jkt48');assert.equal(response.status,200);assert.equal((await response.json())[0].name,'Test Member');
+    assert.equal((await DB.prepare("SELECT count(*) AS total FROM documents WHERE collection_name='idolmembers'").first()).total,1);
+  });
+  await t.test('official schedules fill theater, events, setlists and upcoming schedule collections',async()=>{
+    const response=await call('/api/theater');assert.equal(response.status,200,await response.clone().text());
+    const data=await response.json();assert.equal(data.theater[0].id,'SHOW11');assert.equal(data.theater[0].member_count,1);assert.equal(data.theater[0].start_date,'2030-01-02T12:00:00.000Z');
+    const detail=await call('/api/theater/SHOW11');assert.equal(detail.status,200,await detail.clone().text());assert.equal((await detail.json()).shows[0].members[0].id,1);
+    assert.ok((await (await call('/api/next_schedule')).json()).length>0);
+    assert.equal((await (await call('/api/jkt48event')).json()).total_count,1);
+    assert.ok((await (await call('/api/setlist')).json()).length>0);
+  });
   await t.test('login and proxy preserve query, cookies, tokens and private cache policy',async()=>{
     const login=await call('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded',Origin:'https://frontend.test'},body:'account_id=test-user&password=test-password'});
     assert.equal(login.status,200,await login.clone().text());
@@ -69,6 +102,14 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
   await t.test('refresh token and invalid token responses do not expose credentials',async()=>{
     const response=await call('/api/user',{headers:{'X-Refresh-Token':refreshToken}});assert.equal(response.status,200);assert.ok(response.headers.get('X-Access-Token'));
     const invalid=await call('/api/user',{headers:{Authorization:'Bearer deliberately-invalid'}});assert.equal(invalid.status,401);assert.ok(!(await invalid.text()).includes('deliberately-invalid'));
+  });
+  await t.test('admin sync requires authentication and preserves old news on upstream failure',async()=>{
+    assert.equal((await call('/api/admin/jkt48_sync',{method:'POST'})).status,404);
+    blockNews=true;
+    const response=await call('/api/admin/jkt48_sync',{method:'POST',headers:{Authorization:'Bearer '+accessToken}});assert.equal(response.status,503,await response.clone().text());
+    const result=await response.json();assert.ok(result.news.error);
+    assert.equal((await (await call('/api/news')).json()).total_count,1);
+    blockNews=false;
   });
   await t.test('likes belong to authenticated user even with forged user_id',async()=>{
     const headers={Authorization:'Bearer '+accessToken};

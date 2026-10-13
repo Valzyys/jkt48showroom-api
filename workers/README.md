@@ -69,7 +69,28 @@ Cloudflare account/token, kredensial upstream dan data produksi tidak disertakan
 
 Host awal dan redirect divalidasi sebagai hostname, bukan substring. Host default: `playback.live-video.net`, `live.showroom-live.com`, beserta subdomainnya. Tambahkan domain CDN yang benar-benar digunakan melalui `STREAM_ALLOWED_HOSTS`, dipisahkan koma. URL media dengan host baru akan ditolak sampai diizinkan. Proxy bukan layanan open proxy untuk URL arbitrary. Timeout default 15 detik, maksimal empat redirect. URL streaming premium tetap mengikuti pembatasan handler asal.
 
-## Migrasi MongoDB
+## Sinkronisasi JKT48
+
+Worker mengisi koleksi berita, jadwal/theater, event, setlist dasar, member dan profil ulang tahun dari API JSON publik `https://jkt48.com/api/v1/`. Scraper HTML situs lama tidak lagi menjadi sumber news/jadwal aktif. GET pertama pada endpoint terkait menunggu sinkronisasi; cron lima menit memeriksa freshness dan memperbarui dataset yang kedaluwarsa. Coordinator terpisah per dataset menserialisasi sinkronisasi lintas instance. Data existing tidak dihapus dan ID dokumen serta room mapping member yang sudah ada dipertahankan.
+
+Konfigurasi pada Wrangler:
+
+| Variable | Default | Batas |
+| --- | --- | --- |
+| `JKT48_AUTO_SYNC` | `true` | `false` menonaktifkan sinkronisasi |
+| `JKT48_API_BASE` | `https://jkt48.com/api/v1/` | HTTPS, termasuk trailing slash |
+| `JKT48_SYNC_SECONDS` | `3600` | 300-86400 detik |
+| `JKT48_NEWS_PAGES` | `3` | 1-10 halaman berita terbaru per sinkronisasi |
+| `JKT48_SCHEDULE_MONTHS` | `3` | 1-6 bulan mulai bulan lalu |
+| `JKT48_DETAIL_LIMIT` | `20` | 1-30 detail per dataset per sinkronisasi |
+
+Detail theater/event/exclusive dan member diperkaya bertahap dengan cursor yang berputar; detail berita dimuat ketika `/api/news/:id` diminta. Waktu show dikonversi dari WIB ke UTC secara eksplisit. Archive berita lama, histori theater sebelum rentang sinkronisasi, metadata lagu/setlist kurasi, data grup selain JKT48 dan live/gift history tetap memerlukan import atau collector terkait. Tidak ada data atau kredensial pihak ketiga yang dibuat-buat.
+
+`POST /api/admin/jkt48_sync` dengan JWT admin yang valid memaksa refresh ketiga dataset dan mengembalikan hasil per dataset, termasuk error. Endpoint ini tetap melewati validasi admin/CSRF. Kegagalan upstream tidak menghapus data lama; tanpa data yang dapat dipakai endpoint mengembalikan 503, bukan success kosong. Percobaan gagal ditunda lima menit. Cache API yang terkait dihapus setelah sync berhasil.
+
+Jika situs upstream menolak akses Cloudflare (403/429/challenge), gunakan sumber HTTPS yang Anda kelola melalui `JKT48_API_BASE` atau relay prefix `JKT48_SCRAPE_URL`. Cookie/User-Agent yang sah dapat disimpan pada konfigurasi `cookies_jkt48`/`useragent_jkt48` yang sudah didukung. Relay `SSK_SCRAPE_URL` memakai pool terpisah; tanpa relay scraper kembali ke host resmi, bukan URL `undefined`. Route Sousenkyo 2024 tetap tidak aktif mengikuti sumber. Sync tidak menjamin upstream menerima IP Cloudflare. Dataset besar dapat memerlukan paket Workers/D1 dengan limit query lebih tinggi; periksa hasil sync dan limit akun sebelum produksi.
+
+## Import MongoDB
 
 Ekspor masing-masing collection sebagai JSON array atau JSON Lines melalui `mongoexport`. Kredensial hanya digunakan pada mesin export, tidak diperlukan oleh Worker. Konversi satu collection:
 

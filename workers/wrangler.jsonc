@@ -21,7 +21,13 @@
     "PROXY_URL": "",
     "STREAM_ALLOWED_HOSTS": "playback.live-video.net,live.showroom-live.com",
     "CLOUDINARY_CLOUD_NAME": "",
-    "IMAGE_PUBLIC_URL": ""
+    "IMAGE_PUBLIC_URL": "",
+    "JKT48_AUTO_SYNC": "true",
+    "JKT48_API_BASE": "https://jkt48.com/api/v1/",
+    "JKT48_SYNC_SECONDS": "3600",
+    "JKT48_NEWS_PAGES": "3",
+    "JKT48_SCHEDULE_MONTHS": "3",
+    "JKT48_DETAIL_LIMIT": "20"
   },
   "d1_databases": [{ "binding": "DB", "database_name": "jkt48showroom-api-db", "database_id": "d82f76e4-2bf9-4585-8a1f-c7d7dc870bac", "migrations_dir": "migrations" }],
   "r2_buckets": [{ "binding": "IMAGES_BUCKET", "bucket_name": "jkt48showroom-api-images-bucket" }],

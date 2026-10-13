@@ -5,6 +5,8 @@ import EventDetail from '@/database/showroomDB/jkt48/EventDetail';
 import JKT48NewSchedule from '@/database/showroomDB/jkt48/JKT48NewSchedule';
 import Setlist from '@/database/showroomDB/jkt48/Setlist';
 import { createError } from '@/utils/errorResponse';
+import { env } from '@/runtime/env';
+import { fetchScheduleDetail } from '../scraper/sync';
 const SIMILARITY_STRENGTH = 0.75;
 export function getNewTheaterUrl(code) {
     return `https://jkt48.com/purchase/schedule/show?code=${code}`;
@@ -82,7 +84,7 @@ export async function getTheaterDetail(c) {
             'idn_live.slug': id
         });
     }
-    const data = await JKT48NewSchedule.findOne({
+    let data = await JKT48NewSchedule.findOne({
         type: {
             $in: [
                 'show',
@@ -91,6 +93,10 @@ export async function getTheaterDetail(c) {
         },
         $or: query
     }).lean();
+    if(env.JKT48_AUTO_SYNC!=='false'&&(!data||!data.jkt48_member?.length)) {
+        try {data=await fetchScheduleDetail(data?.code||id,data?.type||'show')||data;}
+        catch(error){if(!data)throw error;}
+    }
     if (!data) throw createError({
         statusMessage: 'Data not found!',
         statusCode: 404

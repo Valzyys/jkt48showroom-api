@@ -1,8 +1,10 @@
 import JKT48NewNews from '@/database/showroomDB/jkt48/JKT48NewNews';
 import News from '@/database/showroomDB/jkt48/News';
 import { notFound } from '@/utils/errorResponse';
+import { env } from '@/runtime/env';
+import { fetchNewsDetail } from '../scraper/sync';
 export async function getNewsDetail(id) {
-    const data = await JKT48NewNews.findOne({
+    let data = await JKT48NewNews.findOne({
         $or: [
             {
                 link: id
@@ -12,6 +14,10 @@ export async function getNewsDetail(id) {
             }
         ]
     }).lean();
+    if(env.JKT48_AUTO_SYNC!=='false'&&(!data||!data.content_body)) {
+        try {data=await fetchNewsDetail(id);}
+        catch(error){if(!data&&!(await News.exists({id})))throw error;}
+    }
     if (!data) {
         const news = await News.findOne({
             id
