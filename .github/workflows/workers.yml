@@ -18,7 +18,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npm install
+      - run: npm ci
+      - run: npm audit --omit=dev --json > /tmp/worker-audit.json
+        continue-on-error: true
       - run: npm test
       - run: npm run build
       - run: npm run test:integration
@@ -28,6 +30,12 @@ jobs:
           name: worker-build
           path: workers/dist
           if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: worker-audit
+          path: /tmp/worker-audit.json
+          retention-days: 1
       - run: npm prune --omit=dev
         if: always()
       - run: tar -czf /tmp/worker-dependencies.tar.gz node_modules package-lock.json

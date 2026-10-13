@@ -45,7 +45,10 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
   await insert('dcDB','idolmembers',memberId,{name:'Test Member',slug:'test-member',group:'jkt48',showroom_id:123,jkt48id:['1'],info:{img:'https://img.test/member.png',is_graduate:false,nicknames:['Test'],birthdate:'2000-01-01T00:00:00.000Z'}});
   await insert('dcDB','showrooms','000000000000000000000002',{name:'Test Member',img:'https://img.test/member.png',url:'test-member',room_id:123,group:'jkt48',member_data:memberId});
   let accessToken,refreshToken,srToken;
-  const call=(path,init={})=>mf.dispatchFetch('https://worker.test'+path,{...init,headers:{Origin:'https://frontend.test',...init.headers}});
+  const call=async(path,init={})=>{
+    const request=new Request('https://worker.test'+path,{...init,headers:{Origin:'https://frontend.test',...init.headers}});
+    return mf.dispatchFetch(request.url,{method:request.method,headers:Object.fromEntries(request.headers),body:['GET','HEAD'].includes(request.method)?undefined:await request.arrayBuffer()});
+  };
   await t.test('health and member response preserve API contract',async()=>{
     assert.equal((await call('/health')).status,200);
     const response=await call('/api/member?group=jkt48');assert.equal(response.status,200);
