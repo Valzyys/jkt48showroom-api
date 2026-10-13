@@ -49,6 +49,10 @@ test('missing URL and unsupported method are handled',async()=>{
   await assert.rejects(streamProxy(new Request('https://worker.test/api/stream')),error=>error.status===400);
   assert.equal((await streamProxy(request(undefined,{method:'POST'}))).status,405);
 });
+test('oversized playlist is rejected before accumulating the full body',async()=>{
+  const bytes=new Uint8Array(2*1024*1024+1);
+  await assert.rejects(streamProxy(request(),{},async()=>new Response(bytes,{headers:{'Content-Type':'application/vnd.apple.mpegurl'}})),/too large/);
+});
 test('upstream timeout is reported as 504',async()=>{
   await assert.rejects(timedFetch('https://upstream.test',{},(_,init)=>new Promise((_,reject)=>init.signal.addEventListener('abort',()=>reject(new Error('aborted')))),5),error=>error.status===504);
 });

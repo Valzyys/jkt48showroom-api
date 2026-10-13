@@ -65,6 +65,17 @@ export function rewritePlaylist(text, upstream, requestURL) {
   }).join('\n');
 }
 
+async function readPlaylist(response) {
+  const reader=response.body?.getReader();
+  if(!reader)return '';
+  const decoder=new TextDecoder();
+  let size=0,text='';
+  try {
+    for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>2*1024*1024){await reader.cancel();throw new UpstreamError('Playlist is too large');}text+=decoder.decode(value,{stream:true});}
+    return text+decoder.decode();
+  } finally {reader.releaseLock();}
+}
+
 export async function streamProxy(request, config = {}, fetcher = fetch) {
   if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });
   const hosts = String(config.STREAM_ALLOWED_HOSTS || 'playback.live-video.net,live.showroom-live.com').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
@@ -87,11 +98,12 @@ export async function streamProxy(request, config = {}, fetcher = fetch) {
     if (response.headers.has(name)) output.set(name, response.headers.get(name));
   }
   output.set('Cache-Control', 'no-store');
+  if(response.headers.has('Content-Encoding'))output.delete('Content-Length');
   output.set('X-Content-Type-Options', 'nosniff');
   if (request.method === 'HEAD' || [204, 304].includes(response.status)) return new Response(null, { status: response.status, headers: output });
   const playlist = /mpegurl/i.test(output.get('content-type') || '') || /\.m3u8$/i.test(url.pathname);
   if (response.ok && playlist && response.status !== 206) {
-    const text = await response.text();
+    const text = await readPlaylist(response);
     if (!text.trimStart().startsWith('#EXTM3U')) throw new UpstreamError('Invalid upstream playlist');
     if (text.length > 2 * 1024 * 1024) throw new UpstreamError('Playlist is too large');
     output.delete('content-length');

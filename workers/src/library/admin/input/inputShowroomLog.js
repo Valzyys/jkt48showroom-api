@@ -149,7 +149,8 @@ export async function inputShowroomLog(c) {
                 statusMessage: 'Data is wrong!'
             });
         }
-    } catch  {
+    } catch (error) {
+        if(error?.data?.status)throw error;
         throw createError({
             statusCode: 500,
             statusMessage: 'Something error!'

@@ -185,7 +185,18 @@ class RequestQuery {
   }
   then(resolve, reject) { return this.exec().then(resolve, reject); }
   catch(reject) { return this.exec().catch(reject); }
-  async *cursor() { for (const row of await this.lean().exec()) yield row; }
+  async *cursor({batchSize=500}={}) {
+    const size=Math.max(1,Math.min(Number(batchSize)||500,500));
+    let offset=this.offset,remaining=this.amount||Infinity;
+    while(remaining>0){
+      const query=new RequestQuery(this.model,this.filter);
+      Object.assign(query,{fields:this.fields,order:this.order,populations:this.populations,isLean:true,offset,amount:Math.min(size,remaining)});
+      const rows=await query.exec();
+      for(const row of rows)yield row;
+      if(rows.length<Math.min(size,remaining))break;
+      remaining-=rows.length;offset+=rows.length;
+    }
+  }
 }
 class AggregateQuery {
   constructor(model, pipeline) { this.model = model; this.pipeline = pipeline; }
@@ -247,6 +258,7 @@ export function model(name, schema, collection, databaseName = 'dcDB') {
       if (!old && !options.upsert) return { matchedCount: 0, modifiedCount: 0, upsertedCount: 0 };
       const data = copy(old || Object.fromEntries(Object.entries(castFilter(filter, schema)).filter(([k,v]) => !k.startsWith('$') && (v == null || typeof v !== 'object' || v instanceof Date))));
       const operations = copy(changes);
+      if(operations.$set)operations.$set=Object.fromEntries(Object.entries(operations.$set).filter(([,value])=>value!==undefined));
       if (operations.$setOnInsert) { if (!old) for (const [field,value] of Object.entries(operations.$setOnInsert)) put(data, field, value); delete operations.$setOnInsert; }
       if (Object.keys(operations).some(key => key.startsWith('$'))) {
         for(const [operator,values]of Object.entries(operations)) update(data,{[operator]:values});

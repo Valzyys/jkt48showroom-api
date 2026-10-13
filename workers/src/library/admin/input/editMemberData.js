@@ -2,12 +2,13 @@ import IdolMember from '@/database/schema/48group/IdolMember';
 import { createError } from '@/utils/errorResponse';
 import { uploadImageBuffer } from '@/utils/imageUpload';
 export async function editMemberData(c) {
-    const query = await c.req.parseBody();
+    const query = await c.req.parseBody({all:true});
+    if(!query._id||!query.name)throw createError({status:400,message:'Member ID and name are required'});
     const banner = query.banner instanceof File ? await uploadImageBuffer(await query.banner.arrayBuffer()) : query.banner;
     const img = query.img instanceof File ? await uploadImageBuffer(await query.img.arrayBuffer()) : query.img;
     const infoData = {
-        img: String(img),
-        banner: String(banner),
+        img: img?.secure_url ?? (typeof img==='string'?img:undefined),
+        banner: banner?.secure_url ?? (typeof banner==='string'?banner:undefined),
         profile_video: query.profile_video?.toString(),
         jikosokai: query.jikosokai?.toString(),
         generation: query.generation?.toString(),
@@ -19,9 +20,7 @@ export async function editMemberData(c) {
         stage48: query.stage48?.toString(),
         group: query.group?.toString(),
         jkt48id: query['jkt48id[]'],
-        idn: {
-            username: query.idn_username?.toString()
-        },
+        ...(query.idn_username!==undefined?{idn:{username:query.idn_username.toString()}}:{}),
         slug: query.slug?.toString()
     };
     const missingSR = query['live_data.missing.showroom'];

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile,readdir } from 'node:fs/promises';
 import { Miniflare } from 'miniflare';
 import jwt from 'jsonwebtoken';
+import { createHmac,randomUUID } from 'node:crypto';
 import { encode,decode } from 'cbor-x';
 
 test('Workers runtime integrates routes, D1, proxy, authentication, beta and WebSockets',async t=>{
@@ -16,7 +17,7 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     compatibilityDate:'2026-07-01',compatibilityFlags:['nodejs_compat'],
     d1Databases:{DB:'test-database'},r2Buckets:{IMAGES_BUCKET:'test-images'},
     durableObjects:{LIVE_HUB:{className:'LiveHub',useSQLite:true},COORDINATOR:{className:'Coordinator',useSQLite:true}},
-    bindings:{NODE_ENV:'production',SECRET:secret,AUTH_SECRET:secret,JWT_SECRET:secret,API_KEY:'integration-key',ADMIN_IDS:'1',SHOWROOM_API:'https://sr.test',PROXY_URL:'https://relay.test/',ORIGINS:'https://frontend.test',LIVE_REFRESH_SECONDS:'300'},
+    bindings:{NODE_ENV:'production',SECRET:secret,AUTH_SECRET:secret,JWT_SECRET:secret,API_KEY:'integration-key',ADMIN_IDS:'1',SHOWROOM_API:'https://sr.test',PROXY_URL:'https://relay.test/',ORIGINS:'https://frontend.test',LIVE_REFRESH_SECONDS:'300',SAWERIA_KEY:'saweria-test',CLOUDINARY_CLOUD_NAME:'test-cloud',CLOUDINARY_API_KEY:'image-test-key',CLOUDINARY_API_SECRET:'image-test-secret',IMAGE_PUBLIC_URL:'https://images.test'},
     outboundService:async request=>{
       upstreamRequests.push({url:request.url,cookie:request.headers.get('Cookie'),method:request.method,body:['POST','PUT'].includes(request.method)?await request.text():''});
       const target=request.url.replace('https://relay.test/','');
@@ -27,6 +28,9 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
       if(target.includes('/api/live/post_live_comment')) return Response.json({ok:1});
       if(target.includes('/user/logout_api')) return Response.json({ok:1});
       if(target.includes('/api/room/follow')) return Response.json({ok:1});
+      if(target.includes('/api/room/update_follow')) return Response.json({ok:1});
+      if(request.url==='https://api.cloudinary.com/v1_1/test-cloud/image/upload') return Response.json({public_id:'uploads/image-test',secure_url:'https://cdn.test/image.webp',width:1,height:1,format:'webp',bytes:12});
+      if(request.url==='https://cdn.test/image.webp') return new Response(new Uint8Array([82,73,70,70,4,0,0,0,87,69,66,80]),{headers:{'Content-Type':'image/webp'}});
       return Response.json({message:'unexpected upstream',url:request.url},{status:502});
     }
   });
@@ -99,6 +103,34 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
   await t.test('CSRF rejects form requests from untrusted origins',async()=>{
     const response=await call('/api/auth/logout',{method:'POST',headers:{Origin:'https://evil.test',Authorization:'Bearer '+accessToken,'X-SR-Token':srToken}});
     assert.equal(response.status,403);
+  });
+  await t.test('signed requests reject nonce replay across Worker instances',async()=>{
+    const nonce=randomUUID(),timestamp=String(Math.floor(Date.now()/1000));
+    const signingKey=createHmac('sha256',secret).update(secret).digest('hex');
+    const signature=createHmac('sha256',signingKey).update(nonce+'.'+timestamp).digest('hex');
+    const headers={'x-nonce':nonce,'x-timestamp':timestamp,'x-signature':signature};
+    const first=await call('/api/recent?room_id=123',{headers});assert.equal(first.status,200,await first.clone().text());
+    const replay=await call('/api/recent?room_id=123',{headers});assert.equal(replay.status,401);
+  });
+  await t.test('Saweria validates callback signature and stores duplicate IDs once',async()=>{
+    const body={version:'1',id:'donation-test',amount_raw:10000,donator_name:'Test',donator_email:'test@example.test'};
+    const signature=createHmac('sha256','saweria-test').update(['version','id','amount_raw','donator_name','donator_email'].map(key=>body[key]).join('')).digest('hex');
+    const init={method:'POST',headers:{'Content-Type':'application/json','Saweria-Callback-Signature':signature},body:JSON.stringify(body)};
+    assert.equal((await call('/webhook/saweria',init)).status,200);assert.equal((await call('/webhook/saweria',init)).status,200);
+    assert.equal((await DB.prepare("SELECT count(*) AS total FROM documents WHERE collection_name='sawerias'").first()).total,1);
+    assert.equal((await call('/webhook/saweria',{...init,headers:{...init.headers,'Saweria-Callback-Signature':'invalid'}})).status,401);
+  });
+  await t.test('multipart member editor stores transformed image URL and R2 metadata',async()=>{
+    const form=new FormData();form.set('_id',memberId);form.set('name','Updated Member');form.set('nicknames[]','Updated');form.append('nicknames[]','Second');
+    form.set('img',new Blob([new Uint8Array([137,80,78,71])],{type:'image/png'}),'test.png');
+    const response=await call('/api/admin/edit_memberdata',{method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form});
+    assert.equal(response.status,200,await response.clone().text());const data=await response.json();assert.equal(data.info.img,'https://images.test/uploads/image-test.webp');assert.deepEqual(data.info.nicknames,['Updated','Second']);
+    const bucket=await mf.getR2Bucket('IMAGES_BUCKET');const object=await bucket.get('uploads/image-test.webp');assert.equal(object.httpMetadata.contentType,'image/webp');assert.equal(object.size,12);
+  });
+  await t.test('comment, follow and reorder use authenticated upstream session',async()=>{
+    const headers={Authorization:'Bearer '+accessToken,'X-SR-Token':srToken,'Content-Type':'application/x-www-form-urlencoded'};
+    for(const [path,body]of [['/api/user/comment','comment=hello&live_id=123'],['/api/user/follow','room_id=123&flag=1'],['/api/user/follow/reorder','room_id=123,456']]) {const response=await call(path,{method:'POST',headers,body});assert.equal(response.status,200,await response.clone().text());}
+    assert.ok(upstreamRequests.some(request=>request.url.includes('/api/live/post_live_comment')&&request.cookie==='sr_id=mock-session'&&request.body.includes('comment=hello')));
   });
   await t.test('logout forwards Showroom session',async()=>{
     const response=await call('/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'X-SR-Token':srToken}});assert.equal(response.status,200);
