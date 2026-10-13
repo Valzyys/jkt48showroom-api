@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from app import create_app
+from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 
 TOKEN = "synthetic-test-token-" * 3
 
@@ -113,7 +114,7 @@ class ScraperTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(session.calls), 1)
 
     async def test_connection_errors_do_not_leak_tokens_and_timeouts_return_504(self):
-        for error, status in [(RuntimeError(TOKEN), 502), (TimeoutError(), 504)]:
+        for error, status in [(RuntimeError(TOKEN), 502), (TimeoutError(), 504), (CurlTimeout("native timeout"), 504)]:
             async with self.client(FakeSession(error=error)) as client:
                 response = (await client.get("/api/v1/news", headers=self.headers()))
                 self.assertEqual(response.status_code, status)

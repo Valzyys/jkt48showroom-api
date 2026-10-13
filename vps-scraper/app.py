@@ -8,6 +8,7 @@ import secrets
 import time
 
 from curl_cffi.requests import AsyncSession
+from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -86,40 +87,43 @@ def create_app(token=None, session_factory=None, cache_seconds=60, requests_per_
         return {"ok": True, "service": "jkt48-scraper"}
 
     async def fetch_upstream(resource, params):
-        async with app.state.semaphore:
+        async def receive():
             response = None
             try:
-                async with asyncio.timeout(25):
-                    response = await app.state.session.get(
-                        UPSTREAM + resource, params=params, timeout=20,
-                        allow_redirects=False, stream=True,
-                    )
-                    if response.status_code != 200:
-                        status = response.status_code
-                        if not 400 <= status <= 599:
-                            status = 502
-                        raise ScrapeError(status, "JKT48 upstream request was rejected or redirected")
-                    body = bytearray()
-                    async for chunk in response.aiter_content():
-                        body.extend(chunk)
-                        if len(body) > MAX_BYTES:
-                            raise ScrapeError(502, "JKT48 response exceeds size limit")
-                    try:
-                        payload = json.loads(body)
-                    except (ValueError, UnicodeDecodeError):
-                        raise ScrapeError(502, "JKT48 upstream returned invalid JSON") from None
-                    if not isinstance(payload, dict) or payload.get("status") is not True or payload.get("data") is None:
-                        raise ScrapeError(502, "JKT48 upstream returned an unsuccessful payload")
-                    return payload
-            except ScrapeError:
-                raise
-            except TimeoutError:
-                raise ScrapeError(504, "JKT48 upstream timed out") from None
-            except Exception:
-                raise ScrapeError(502, "JKT48 upstream connection failed") from None
+                response = await app.state.session.get(
+                    UPSTREAM + resource, params=params, timeout=20,
+                    allow_redirects=False, stream=True,
+                )
+                if response.status_code != 200:
+                    status = response.status_code
+                    if not 400 <= status <= 599:
+                        status = 502
+                    raise ScrapeError(status, "JKT48 upstream request was rejected or redirected")
+                body = bytearray()
+                async for chunk in response.aiter_content():
+                    body.extend(chunk)
+                    if len(body) > MAX_BYTES:
+                        raise ScrapeError(502, "JKT48 response exceeds size limit")
+                try:
+                    payload = json.loads(body)
+                except (ValueError, UnicodeDecodeError):
+                    raise ScrapeError(502, "JKT48 upstream returned invalid JSON") from None
+                if not isinstance(payload, dict) or payload.get("status") is not True or payload.get("data") is None:
+                    raise ScrapeError(502, "JKT48 upstream returned an unsuccessful payload")
+                return payload
             finally:
                 if response is not None:
                     await response.aclose()
+
+        async with app.state.semaphore:
+            try:
+                return await asyncio.wait_for(receive(), timeout=25)
+            except ScrapeError:
+                raise
+            except (TimeoutError, asyncio.TimeoutError, CurlTimeout):
+                raise ScrapeError(504, "JKT48 upstream timed out") from None
+            except Exception:
+                raise ScrapeError(502, "JKT48 upstream connection failed") from None
 
     @app.get("/api/v1/{resource:path}")
     async def scrape(resource: str, request: Request):
