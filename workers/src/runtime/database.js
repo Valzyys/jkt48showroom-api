@@ -248,7 +248,9 @@ export function model(name, schema, collection, databaseName = 'dcDB') {
       const data = copy(old || Object.fromEntries(Object.entries(castFilter(filter, schema)).filter(([k,v]) => !k.startsWith('$') && (v == null || typeof v !== 'object' || v instanceof Date))));
       const operations = copy(changes);
       if (operations.$setOnInsert) { if (!old) for (const [field,value] of Object.entries(operations.$setOnInsert)) put(data, field, value); delete operations.$setOnInsert; }
-      if (Object.keys(operations).some(key => key.startsWith('$'))) update(data, operations);
+      if (Object.keys(operations).some(key => key.startsWith('$'))) {
+        for(const [operator,values]of Object.entries(operations)) update(data,{[operator]:values});
+      }
       else Object.assign(data, operations);
       try {
         const result = await persist(Model, data, old?._version);
@@ -277,4 +279,5 @@ export function model(name, schema, collection, databaseName = 'dcDB') {
   return Model;
 }
 export function connection(databaseName) { return { model: (name, schema, collection) => model(name, schema, collection, databaseName) }; }
+export function registeredModels() { return [...registry.values()]; }
 export default { model, Schema, Types };

@@ -22,7 +22,7 @@ export class LiveHub {
     if(group && !groups.includes(group)) throw new Error('Invalid group');
     const previous=await this.lives();
     const next=group?[...previous.filter(live=>live.group!==group),...lives.filter(live=>live.group===group)]:lives;
-    await this.ctx.storage.put({lives:next,updatedAt:Date.now()});
+    await this.ctx.storage.put({lives:next,updatedAt:Date.now(),revision:(await this.ctx.storage.get('revision')||0)+1});
     await this.ctx.storage.setAlarm(Date.now()+Number(this.env.LIVE_REFRESH_SECONDS||300)*1000);
     await this.broadcast();
   }
@@ -30,9 +30,11 @@ export class LiveHub {
     if(this.refreshPromise) return this.refreshPromise;
     this.refreshPromise=(async()=>{
       const { fetchCombined }=await import('./library/combinedNowLive.js');
+      const revision=await this.ctx.storage.get('revision')||0;
       const previous=await this.lives();
       const results=await Promise.allSettled(groups.map(group=>fetchCombined(group,false)));
       const lives=results.flatMap((result,i)=>result.status==='fulfilled'?result.value:previous.filter(live=>live.group===groups[i]));
+      if((await this.ctx.storage.get('revision')||0)!==revision) return this.lives();
       await this.ctx.storage.put({lives,updatedAt:Date.now()});
       await this.broadcast();
       await this.ctx.storage.setAlarm(Date.now()+Number(this.env.LIVE_REFRESH_SECONDS||300)*1000);

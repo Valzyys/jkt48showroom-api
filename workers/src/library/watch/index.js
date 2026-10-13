@@ -3,10 +3,9 @@ import { getCommentLog, getGiftList, getGiftLog, getLiveInfo, getProfile, getRoo
 import { createError } from '@/utils/errorResponse';
 import singleflight from '@/utils/singleflight';
 export const cache = new Map();
+const expirations = new Map();
 function setClearCache(room_url_key) {
-    setTimeout(()=>{
-        cache.delete(room_url_key);
-    }, 9000);
+    expirations.set(room_url_key,Date.now()+9000);
 }
 export async function getWatchData(c) {
     const room_url_key = c.req.param('id');
@@ -14,7 +13,7 @@ export async function getWatchData(c) {
         status: 400,
         message: 'Bad request!'
     });
-    const cacheData = cache.get(room_url_key);
+    const cacheData = expirations.get(room_url_key)>Date.now()?cache.get(room_url_key):null;
     const data = cacheData || await singleflight.do(room_url_key, async ()=>getData(room_url_key));
     if (!cacheData) {
         setClearCache(room_url_key);

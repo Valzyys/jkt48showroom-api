@@ -1,4 +1,5 @@
 import { env } from '@/runtime/env';
+import { security } from '@/runtime/security';
 import { sendComment as commentAPI } from '@/utils/api/showroom';
 import { createError } from '@/utils/errorResponse';
 const cooldown = new Set();
@@ -17,7 +18,7 @@ export async function sendComment(c) {
         statusCode: 400,
         statusMessage: 'Bad request!'
     });
-    if (cooldown.has(user.id)) throw createError({
+    if (!(await security({kind:'rate',key:'comment:'+user.id,windowMs:Math.max(1000,CD_TIME),limit:1})).allowed) throw createError({
         status: 429,
         message: 'Too many request!'
     });
@@ -27,10 +28,6 @@ export async function sendComment(c) {
     });
     const uuid = crypto.randomUUID();
     request.add(uuid);
-    cooldown.add(user.id);
-    setTimeout(()=>{
-        cooldown.delete(user.id);
-    }, CD_TIME);
     const params = new URLSearchParams();
     params.append('csrf_token', srSess.csrf_token || body.csrf_token || '');
     params.append('comment', String(body.comment));

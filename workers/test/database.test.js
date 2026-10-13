@@ -33,7 +33,8 @@ test('update/upsert and optimistic save prevent lost updates',async()=>{
     await Model.updateOne({key:'one'},{$inc:{count:1}},{upsert:true});
     const [a,b]=await Promise.all([Model.findOne({key:'one'}),Model.findOne({key:'one'})]);
     a.count=2;await a.save();b.count=9;await assert.rejects(b.save(),error=>error.status===409);
-    await Model.updateOne({key:'one'},{$inc:{count:1}});assert.equal((await Model.findOne({key:'one'}).lean()).count,3);
+    await Model.updateOne({key:'one'},{$set:{note:'updated'},$inc:{count:1}});assert.equal((await Model.findOne({key:'one'}).lean()).count,3);
+    assert.equal((await Model.findOne({key:'one'}).lean()).note,'updated');
     assert.equal((await Model.deleteOne({key:'one'})).deletedCount,1);
   });DB.sqlite.close();
 });

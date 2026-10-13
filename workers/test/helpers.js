@@ -1,8 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync,readdirSync } from 'node:fs';
 export function database() {
   const sqlite=new DatabaseSync(':memory:');
-  sqlite.exec(readFileSync(new URL('../migrations/0001_documents.sql',import.meta.url),'utf8'));
+  for(const file of readdirSync(new URL('../migrations/',import.meta.url)).filter(file=>file.endsWith('.sql')).sort()) sqlite.exec(readFileSync(new URL('../migrations/'+file,import.meta.url),'utf8'));
   return {
     sqlite,
     prepare(sql) {

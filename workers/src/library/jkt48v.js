@@ -19,16 +19,14 @@ function getYoutubeKey() {
 }
 const cache = new Map();
 let TO;
+let cachedUntil=0;
 export const jkt48v_cache_time = 240000;
 export async function cachedJKT48VLive() {
     const c = cache.get('cache');
-    if (c) return c;
+    if (c && cachedUntil>Date.now()) return c;
     const res = await getJKT48VLive();
     cache.set('cache', res);
-    clearTimeout(TO);
-    TO = setTimeout(()=>{
-        cache.clear();
-    }, jkt48v_cache_time);
+    cachedUntil=Date.now()+jkt48v_cache_time;
     return res;
 }
 async function searchYoutube(result = [], nextPageToken = null) {

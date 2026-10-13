@@ -11,7 +11,13 @@ export function getApp() {
     ]);
     const app=new Hono();
     app.get('/',c=>c.json({author:'crstlnz',website:'https://48live.my.id',version:'0.14.2-workers.1'}));
-    app.use('*',async(c,next)=>{ c.header('X-Content-Type-Options','nosniff'); await next(); });
+    app.use('*',async(c,next)=>{
+      c.header('X-Content-Type-Options','nosniff');
+      const privateRequest=c.req.method!=='GET'||Boolean(c.req.header('Authorization')||c.req.header('X-Refresh-Token')||c.req.header('Cookie'))||/^\/api\/(auth|user|admin|showroom)(\/|$)/.test(c.req.path)||c.req.path==='/api/profile';
+      if(privateRequest)c.header('Cache-Control','no-store');
+      await next();
+      if(privateRequest)c.header('Cache-Control','no-store');
+    });
     app.route('/api',api);
     app.route('/webhook',webhook);
     app.notFound(c=>c.json({status:404,message:'Endpoint not found!',path:c.req.path},404));

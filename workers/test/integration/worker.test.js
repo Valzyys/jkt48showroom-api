@@ -32,14 +32,16 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
   });
   t.after(()=>mf.dispose());
   const DB=await mf.getD1Database('DB');
-  const migration=await readFile(new URL('../../migrations/0001_documents.sql',import.meta.url),'utf8');
-  for(const sql of migration.split(';').filter(sql=>sql.trim())) await DB.prepare(sql).run();
+  for(const file of (await readdir(new URL('../../migrations/',import.meta.url))).filter(file=>file.endsWith('.sql')).sort()) {
+    const migration=await readFile(new URL('../../migrations/'+file,import.meta.url),'utf8');
+    for(const sql of migration.split(';').filter(sql=>sql.trim())) await DB.prepare(sql).run();
+  }
   const insert=async(database,collection,id,doc)=>DB.prepare('INSERT INTO documents(database_name,collection_name,id,document) VALUES(?,?,?,?)').bind(database,collection,id,JSON.stringify({_id:id,...doc})).run();
   const memberId='000000000000000000000001';
   await insert('dcDB','idolmembers',memberId,{name:'Test Member',slug:'test-member',group:'jkt48',showroom_id:123,jkt48id:['1'],info:{img:'https://img.test/member.png',is_graduate:false,nicknames:['Test'],birthdate:'2000-01-01T00:00:00.000Z'}});
   await insert('dcDB','showrooms','000000000000000000000002',{name:'Test Member',img:'https://img.test/member.png',url:'test-member',room_id:123,group:'jkt48',member_data:memberId});
   let accessToken,refreshToken,srToken;
-  const call=(path,init={})=>mf.dispatchFetch('https://worker.test'+path,init);
+  const call=(path,init={})=>mf.dispatchFetch('https://worker.test'+path,{...init,headers:{Origin:'https://frontend.test',...init.headers}});
   await t.test('health and member response preserve API contract',async()=>{
     assert.equal((await call('/health')).status,200);
     const response=await call('/api/member?group=jkt48');assert.equal(response.status,200);
@@ -74,7 +76,7 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     const keyResponse=await call('/api/admin/beta',{method:'POST',headers,body:JSON.stringify({expiresAt:new Date(Date.now()+3600000).toISOString(),maxDevices:1,note:'Test'})});
     assert.equal(keyResponse.status,200,await keyResponse.clone().text());const {key}=await keyResponse.json();
     const responses=await Promise.all(['device-a','device-b'].map(fingerprint=>call('/api/beta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fingerprint,key})})));
-    const data=await Promise.all(responses.map(response=>response.json()));assert.equal(data.filter(row=>row.enabled).length,1);
+    const data=await Promise.all(responses.map(async response=>{assert.equal(response.status,200,await response.clone().text());return response.json();}));assert.equal(data.filter(row=>row.enabled).length,1,JSON.stringify(data));
     const devices=await call('/api/admin/beta_device',{headers});assert.equal((await devices.json()).length,1);
   });
   await t.test('live webhook persists state and WebSocket speaks original CBOR protocol',async()=>{
@@ -93,6 +95,10 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
   await t.test('admin requires authenticated admin and competition API-key rejects invalid keys',async()=>{
     assert.equal((await call('/api/admin/member')).status,404);
     assert.equal((await call('/api/showroom_competition_detail?room_id=123',{headers:{'x-api-key':'invalid'}})).status,401);
+  });
+  await t.test('CSRF rejects form requests from untrusted origins',async()=>{
+    const response=await call('/api/auth/logout',{method:'POST',headers:{Origin:'https://evil.test',Authorization:'Bearer '+accessToken,'X-SR-Token':srToken}});
+    assert.equal(response.status,403);
   });
   await t.test('logout forwards Showroom session',async()=>{
     const response=await call('/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'X-SR-Token':srToken}});assert.equal(response.status,200);
