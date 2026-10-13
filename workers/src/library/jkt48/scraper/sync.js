@@ -12,14 +12,13 @@ import ProfileMember from '@/database/schema/48group/Member';
 import Setlist from '@/database/showroomDB/jkt48/Setlist';
 import EventDetail from '@/database/showroomDB/jkt48/EventDetail';
 import { getJKT48Headers } from './headers';
-import { jkt48SourceTarget } from '@/runtime/scrape-target';
+import { createJKT48Transport } from '@/runtime/scrape-target';
 import { createSourceStore } from '@/runtime/source-store';
 
 const identity=(kind,id)=>createHash('sha256').update(`jkt48:${kind}:${id}`).digest('hex').slice(0,24);
 const upsert=(model,key,data)=>model.updateOne(key,{$set:data,$setOnInsert:{_id:identity(model.modelName,Object.values(key)[0])}},{upsert:true});
 export async function sourceClient() {
-  let index=0;
-  return createJKT48Client({base:env.JKT48_API_BASE||'https://jkt48.com/api/v1/',headers:await getJKT48Headers(),timeout:env.UPSTREAM_TIMEOUT_MS,fetcher:(url,init)=>fetch(jkt48SourceTarget(url,env,index++),init)});
+  return createJKT48Client({...createJKT48Transport(env),headers:env.JKT48_SCRAPER_URL?{}:await getJKT48Headers(),timeout:env.UPSTREAM_TIMEOUT_MS});
 }
 export async function createRepository(dataset) {
  const store=createSourceStore(binding('DB'));

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createJKT48Client,jakartaTime,normalizeSchedule,pagination,syncJKT48Dataset } from '../src/runtime/jkt48-source.js';
-import { jkt48SourceTarget,scrapeTarget } from '../src/runtime/scrape-target.js';
+import { createJKT48Transport,jkt48SourceTarget,scrapeTarget } from '../src/runtime/scrape-target.js';
 
 test('official JSON client preserves API paths, language and detail envelope',async()=>{
   const calls=[];
@@ -65,4 +65,18 @@ test('JSON scrape proxy does not use Showroom proxy implicitly and rejects insec
   assert.equal(jkt48SourceTarget(url,{PROXY_URL:'https://showroom.test/'}),url);
   assert.throws(()=>jkt48SourceTarget(url,{JKT48_PROXY_URL:'http://relay.test/'}),/HTTPS/);
   assert.throws(()=>jkt48SourceTarget(url,{JKT48_PROXY_URL:'https://user:password@relay.test/'}),/credentials/);
+});
+test('private VPS transport adds bearer token only to its HTTPS origin and strips upstream cookies',async()=>{
+  const calls=[],token='test-token-'.repeat(4);
+  const transport=createJKT48Transport({JKT48_SCRAPER_URL:'https://scrape.jkt48connect.com/api/v1/',JKT48_SCRAPER_TOKEN:token},async(url,init)=>{calls.push({url,init});return Response.json({status:true,data:[]});});
+  const client=createJKT48Client({...transport,headers:{Cookie:'private-upstream-cookie','User-Agent':'custom'}});
+  await client('news',{page:1});
+  assert.equal(calls[0].url,'https://scrape.jkt48connect.com/api/v1/news?lang=id&page=1');
+  assert.equal(calls[0].init.headers.get('Authorization'),'Bearer '+token);assert.equal(calls[0].init.headers.has('Cookie'),false);assert.equal(calls[0].init.redirect,'error');
+  assert.throws(()=>transport.fetcher('https://evil.test/api/v1/news'),/Configure/);
+});
+test('private VPS mode fails closed without a valid token and does not change direct mode',()=>{
+  assert.throws(()=>createJKT48Transport({JKT48_SCRAPER_URL:'https://scrape.jkt48connect.com/api/v1/'}),/TOKEN/);
+  assert.throws(()=>createJKT48Transport({JKT48_SCRAPER_URL:'http://scrape.test/',JKT48_SCRAPER_TOKEN:'x'.repeat(64)}),/HTTPS/);
+  assert.equal(createJKT48Transport({}).base,'https://jkt48.com/api/v1/');
 });

@@ -21,12 +21,14 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     compatibilityDate:'2026-07-01',compatibilityFlags:['nodejs_compat'],
     d1Databases:{DB:'test-database'},r2Buckets:{IMAGES_BUCKET:'test-images'},
     durableObjects:{LIVE_HUB:{className:'LiveHub',useSQLite:true},COORDINATOR:{className:'Coordinator',useSQLite:true}},
-    bindings:{NODE_ENV:'production',SECRET:secret,AUTH_SECRET:secret,JWT_SECRET:secret,API_KEY:'integration-key',ADMIN_IDS:'1',SHOWROOM_API:'https://sr.test',PROXY_URL:'https://relay.test/',ORIGINS:'https://frontend.test',LIVE_REFRESH_SECONDS:'300',SAWERIA_KEY:'saweria-test',CLOUDINARY_CLOUD_NAME:'test-cloud',CLOUDINARY_API_KEY:'image-test-key',CLOUDINARY_API_SECRET:'image-test-secret',IMAGE_PUBLIC_URL:'https://images.test'},
+    bindings:{NODE_ENV:'production',SECRET:secret,AUTH_SECRET:secret,JWT_SECRET:secret,API_KEY:'integration-key',ADMIN_IDS:'1',SHOWROOM_API:'https://sr.test',PROXY_URL:'https://relay.test/',ORIGINS:'https://frontend.test',LIVE_REFRESH_SECONDS:'300',SAWERIA_KEY:'saweria-test',CLOUDINARY_CLOUD_NAME:'test-cloud',CLOUDINARY_API_KEY:'image-test-key',CLOUDINARY_API_SECRET:'image-test-secret',IMAGE_PUBLIC_URL:'https://images.test',JKT48_SCRAPER_URL:'https://scrape.jkt48connect.com/api/v1/',JKT48_SCRAPER_TOKEN:'synthetic-vps-token-'.repeat(3)},
     outboundService:async request=>{
       upstreamRequests.push({url:request.url,cookie:request.headers.get('Cookie'),method:request.method,body:['POST','PUT'].includes(request.method)?await request.text():''});
       const target=request.url.replace('https://relay.test/','');
       const official=new URL(request.url);
-      if(official.hostname==='jkt48.com'&&official.pathname.startsWith('/api/v1/')) {
+      if(official.hostname==='scrape.jkt48connect.com'&&official.pathname.startsWith('/api/v1/')) {
+        assert.equal(request.headers.get('Authorization'),'Bearer '+'synthetic-vps-token-'.repeat(3));
+        assert.equal(request.headers.get('Cookie'),null);
         if(official.pathname==='/api/v1/news')return blockNews?new Response('Blocked',{status:403}):Response.json({status:true,data:[newsRow],_meta:{page:1,total_page:1}});
         if(official.pathname==='/api/v1/news/official-news')return Response.json({status:true,data:{result:{...newsRow,content_body:'<p>Official content</p>'}}});
         if(official.pathname==='/api/v1/members')return Response.json({status:true,data:[officialMember]});

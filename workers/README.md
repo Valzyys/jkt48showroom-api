@@ -80,6 +80,7 @@ Konfigurasi pada Wrangler:
 | `JKT48_AUTO_SYNC` | `true` | `false` menonaktifkan sinkronisasi |
 | `JKT48_API_BASE` | `https://jkt48.com/api/v1/` | HTTPS, termasuk trailing slash |
 | `JKT48_PROXY_URL` | kosong | Relay HTTPS khusus request API JKT48 |
+| `JKT48_SCRAPER_URL` | kosong | Layanan Python VPS privat, contohnya `https://scrape.jkt48connect.com/api/v1/` |
 | `JKT48_SYNC_SECONDS` | `3600` | 300-86400 detik |
 | `JKT48_NEWS_PAGES` | `3` | 1-10 halaman berita terbaru per sinkronisasi |
 | `JKT48_SCHEDULE_MONTHS` | `3` | 1-6 bulan mulai bulan lalu |
@@ -90,6 +91,8 @@ Detail theater/event/exclusive dan member diperkaya bertahap dengan cursor yang 
 `POST /api/admin/jkt48_sync` dengan JWT admin yang valid memaksa refresh ketiga dataset dan mengembalikan hasil per dataset, termasuk error. Endpoint ini tetap melewati validasi admin/CSRF. Kegagalan upstream tidak menghapus data lama; tanpa data yang dapat dipakai endpoint mengembalikan 503, bukan success kosong. Percobaan gagal ditunda lima menit. Cache API yang terkait dihapus setelah sync berhasil.
 
 HTTP 403 upstream berarti request ditolak oleh sumber; deployment dan binding yang benar tidak menjamin akses. Jika relay yang Anda kelola bisa mengakses API resmi, isi `JKT48_PROXY_URL`: `https://relay.example/` mengirim target sebagai suffix URL mentah; `https://relay.example/?url={url}` mengirim target lengkap sebagai parameter URL-encoded, termasuk query `lang`/`page`. Relay digunakan untuk news, schedules, theater/event/exclusive dan members. Variable `PROXY_URL` tetap khusus Showroom. Jangan isi relay publik acak atau menaruh token relay di Git; gunakan secret Wrangler jika URL mengandung kredensial query.
+
+Layanan Python VPS tersedia di [vps-scraper](../vps-scraper/README.md), dengan konfigurasi domain `scrape.jkt48connect.com`, systemd, Caddy HTTPS dan `curl_cffi`. Aktifkan `JKT48_SCRAPER_URL` hanya setelah VPS/DNS siap dan pasang secret `JKT48_SCRAPER_TOKEN` yang cocok dengan token service. Mode ini mengirim autentikasi hanya ke VPS dan tidak memindahkan data/secret pengguna ke sana. Tidak perlu menulis ulang seluruh API menjadi Python.
 
 Saat dataset kosong dan sync gagal, respons menyertakan `code`, `upstream_status` jika diketahui, serta `Retry-After`; respons error memakai `no-store`. Contoh `JKT48_UPSTREAM_HTTP_ERROR` dengan `upstream_status: 403` memerlukan jalur upstream yang diizinkan, sedangkan `JKT48_SYNC_STORAGE_ERROR` memerlukan pemeriksaan migration/binding/limit D1. Log `jkt48-sync-failed` mencatat phase dan kode tanpa body respons, token, cookie, atau URL relay. Setelah konfigurasi diperbaiki, tunggu maksimal lima menit atau pakai POST admin untuk retry langsung.
 

@@ -1,0 +1,26 @@
+[Unit]
+Description=Private JKT48 Python scraper
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jkt48-scraper
+Group=jkt48-scraper
+WorkingDirectory=/opt/jkt48-scraper
+EnvironmentFile=/etc/jkt48-scraper.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/jkt48-scraper/.venv/bin/uvicorn app:create_app --factory --host 127.0.0.1 --port 8788 --no-access-log --workers 1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
