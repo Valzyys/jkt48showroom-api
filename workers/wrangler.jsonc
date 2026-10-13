@@ -6,6 +6,8 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "observability": { "enabled": true },
+  "build": { "command": "node scripts/prepare-env.js" },
+  "secrets": { "required": ["SECRET", "AUTH_SECRET", "JWT_SECRET", "API_KEY"] },
   "vars": {
     "NODE_ENV": "production",
     "SHOWROOM_API": "https://www.showroom-live.com",
@@ -13,10 +15,16 @@
     "UPSTREAM_TIMEOUT_MS": "15000",
     "LIVE_REFRESH_SECONDS": "300",
     "ORIGINS": "http://localhost:3000",
-    "DEFAULT_ORIGIN": "http://localhost:3000"
+    "DEFAULT_ORIGIN": "http://localhost:3000",
+    "ADMIN_IDS": "",
+    "SECONDARY_ORIGINS": "",
+    "PROXY_URL": "",
+    "STREAM_ALLOWED_HOSTS": "playback.live-video.net,live.showroom-live.com",
+    "CLOUDINARY_CLOUD_NAME": "",
+    "IMAGE_PUBLIC_URL": ""
   },
-  "d1_databases": [{ "binding": "DB", "database_name": "jkt48showroom", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }],
-  "r2_buckets": [{ "binding": "IMAGES_BUCKET", "bucket_name": "jkt48showroom-images" }],
+  "d1_databases": [{ "binding": "DB", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "IMAGES_BUCKET" }],
   "durable_objects": { "bindings": [{ "name": "LIVE_HUB", "class_name": "LiveHub" }, { "name": "COORDINATOR", "class_name": "Coordinator" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveHub", "Coordinator"] }],
   "triggers": { "crons": ["*/5 * * * *", "0 * * * *"] },

@@ -17,11 +17,11 @@ Port dari `Valzyys/jkt48showroom-api` commit `d832eb5cee3323ed37ab34b90d892f833e
 ```sh
 cd workers
 npm install
-npx wrangler d1 create jkt48showroom
-npx wrangler r2 bucket create jkt48showroom-images
+npx wrangler login
+npm run deploy
 ```
 
-Isi `database_id` hasil pembuatan D1 pada `wrangler.jsonc`. Nama bucket R2 harus sesuai binding `IMAGES_BUCKET`. Atur `ORIGINS`, `SECONDARY_ORIGINS`, `DEFAULT_ORIGIN`, dan `ADMIN_IDS` untuk frontend serta user Showroom admin yang sebenarnya.
+Atur `ORIGINS`, `SECONDARY_ORIGINS`, `DEFAULT_ORIGIN`, dan `ADMIN_IDS` di `wrangler.jsonc` untuk frontend serta user Showroom admin yang sebenarnya sebelum deployment. Tidak perlu menjalankan perintah create D1/R2 atau mengisi ID placeholder. Akun harus memiliki Workers, D1, dan R2 aktif serta izin membuat resource tersebut.
 
 Untuk pengembangan lokal, `.dev.vars.example` menjelaskan nama variable. `.dev.vars` yang berisi nilai sebenarnya tidak boleh masuk Git. `SECRET` juga digunakan AES pada fungsi lama, sehingga gunakan tepat 32 byte ASCII; `AUTH_SECRET`, `JWT_SECRET`, dan `API_KEY` harus berupa secret acak yang berbeda.
 
@@ -35,16 +35,27 @@ Wrangler menampilkan URL pengembangan. `/health` memeriksa tabel D1; HTTP 503 be
 ## Deployment
 
 ```sh
-npx wrangler secret put SECRET
-npx wrangler secret put AUTH_SECRET
-npx wrangler secret put JWT_SECRET
-npx wrangler secret put API_KEY
-npm run db:migrate:remote
-npm run build
 npm run deploy
 ```
 
+Perintah ini menjalankan Wrangler 4.149.0 dengan konfigurasi `wrangler.jsonc`:
+
+1. Build hook `node scripts/prepare-env.js` menyiapkan environment lokal. Empat secret wajib dideklarasikan pada `secrets.required`: `SECRET` (32 karakter ASCII), `AUTH_SECRET`, `JWT_SECRET`, dan `API_KEY` (masing-masing 64 karakter hex acak). Nilainya independen, tidak ditampilkan di log, dan disimpan di `.setup/secrets.json` dengan izin file `0600`. Folder `.setup/` dan `.dev.vars` diabaikan Git.
+2. Script deploy memeriksa nama secret remote. Secret yang sudah ada dipertahankan; hanya yang belum ada dikirim lewat `--secrets-file`. Deployment pertama memasang keempat secret. Kegagalan autentikasi menghentikan proses, bukan dianggap Worker baru.
+3. Wrangler membuat database D1 untuk `DB` dan bucket R2 untuk `IMAGES_BUCKET` secara native karena ID/nama resource belum diisi. Nama resource mengikuti nama Worker; hasil provisioning ditulis kembali ke konfigurasi. Durable Objects `LIVE_HUB` dan `COORDINATOR` dibuat melalui migration Wrangler `v1`.
+4. Setelah deployment berhasil, script menjalankan migration D1 remote secara noninteraktif. Deployment dianggap selesai hanya jika migration juga berhasil. `/health` dapat sementara mengembalikan 503 sebelum migration selesai. Jika migration gagal, perbaiki penyebabnya lalu jalankan kembali perintah deploy.
+
+Simpan ID/nama resource yang ditulis Wrangler pada `wrangler.jsonc` untuk deployment berikutnya. Jangan menghapus ID resource yang sudah dipakai. Detail fitur native: [Automatic resource provisioning](https://developers.cloudflare.com/workers/wrangler/configuration/#automatic-resource-provisioning).
+
+Login OAuth dilakukan sekali dengan `npx wrangler login`. Untuk CI, sediakan `CLOUDFLARE_API_TOKEN` dan `CLOUDFLARE_ACCOUNT_ID` dari akun sendiri; token memerlukan Workers Scripts Edit, D1 Edit, dan Workers R2 Storage Write serta akses ke akun tujuan. Kredensial akun tidak dapat dihasilkan oleh proyek.
+
+`npm run setup:env` hanya membuat secret lokal tanpa mengakses Cloudflare. `.dev.vars` yang sudah ada tidak ditimpa. Pada checkout baru dengan Worker yang sudah memiliki secret, nilai lokal yang dibuat bukan salinan secret remote. Untuk memasang ulang semua empat secret secara sengaja, gunakan `npm run deploy -- --rotate-secrets`; ini dapat membatalkan JWT, signature, dan API key lama. Perbarui `.dev.vars` sendiri jika ingin memakai nilai hasil rotasi untuk pengembangan lokal.
+
+Jika memanggil Wrangler langsung, build hook hanya menyiapkan file lokal; gunakan `npm run setup:env` lalu `npx wrangler deploy --secrets-file .setup/secrets.json` untuk memasang secret. Jalur langsung ini tidak memeriksa secret lama dan tidak menjalankan migration D1 otomatis. `npm run deploy` adalah jalur yang disarankan untuk keseluruhan proses.
+
 Tambahkan `SAWERIA_KEY`, `YOUTUBE_KEY`, `YOUTUBE_JKT48`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `SIGNATURE_SECRETS`, dan `SR_ID` sebagai secret jika fitur terkait digunakan. `CLOUDINARY_CLOUD_NAME`, `IMAGE_PUBLIC_URL`, `JKT48V_YT_IDS` dan konfigurasi scraping bisa diisi sebagai vars. R2 harus punya domain publik dengan path objek sesuai `IMAGE_PUBLIC_URL`.
+
+Secret layanan pihak ketiga harus berasal dari penyedianya, misalnya `npx wrangler secret put CLOUDINARY_API_SECRET`; script tidak mengarang kredensial Cloudinary, YouTube, atau Saweria dan tidak mengganti secret tambahan tersebut. Domain publik R2 dan data MongoDB juga tidak dibuat/import otomatis.
 
 Cloudflare account/token, ID database, kredensial upstream dan data produksi tidak disertakan. Workflow GitHub hanya memeriksa kode; tidak melakukan deployment atau memindahkan data produksi.
 
