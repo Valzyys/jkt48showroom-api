@@ -71,7 +71,7 @@ Host awal dan redirect divalidasi sebagai hostname, bukan substring. Host defaul
 
 ## Sinkronisasi JKT48
 
-Worker mengisi koleksi berita, jadwal/theater, event, setlist dasar, member dan profil ulang tahun dari API JSON publik `https://jkt48.com/api/v1/`. Scraper HTML situs lama tidak lagi menjadi sumber news/jadwal aktif. GET pertama pada endpoint terkait menunggu sinkronisasi; cron lima menit memeriksa freshness dan memperbarui dataset yang kedaluwarsa. Coordinator terpisah per dataset menserialisasi sinkronisasi lintas instance. Data existing tidak dihapus dan ID dokumen serta room mapping member yang sudah ada dipertahankan.
+Worker mengisi koleksi berita, jadwal/theater, event, setlist dasar, member dan profil ulang tahun dari API JSON publik `https://jkt48.com/api/v1/`. Scraper HTML situs lama tidak lagi menjadi sumber news/jadwal aktif. GET pertama pada endpoint terkait menunggu sinkronisasi; cron lima menit memeriksa freshness dan memperbarui dataset yang kedaluwarsa. Coordinator terpisah per dataset menserialisasi sinkronisasi lintas instance. Penulisan D1 memakai batch JSON maksimal 100 record per statement, mempertahankan ID dokumen impor dan field yang tidak diperbarui. Data existing tidak dihapus dan room mapping member yang sudah ada dipertahankan.
 
 Konfigurasi pada Wrangler:
 

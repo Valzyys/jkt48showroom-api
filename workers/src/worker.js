@@ -59,7 +59,7 @@ export default {
         if(request.method==='GET') {
           if(/^\/api\/news(?:\/|$)/.test(url.pathname))await ensureJKT48('news');
           if(/^\/api\/(theater|event|jkt48event|next_schedule|setlist)(?:\/|$)/.test(url.pathname))await ensureJKT48('schedules');
-          if(/^\/api\/(member|birthday|48\/member|firstdata)(?:\/|$)/.test(url.pathname)&&(!url.searchParams.get('group')||url.searchParams.get('group')==='jkt48'))await ensureJKT48('members');
+          if(/^\/api\/(member|birthday|next_birthday|48\/member|first_data)(?:\/|$)/.test(url.pathname)&&(!url.searchParams.get('group')||url.searchParams.get('group')==='jkt48'))await ensureJKT48('members');
         }
         if(url.pathname==='/ws' || url.pathname==='/ws/') {
           if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket') return new Response('WebSocket upgrade required',{status:426});
