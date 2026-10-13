@@ -61,3 +61,9 @@ test('document budget fails explicitly instead of returning truncated results',a
     assert.equal((await Model.find({name:'a'}).lean()).length,1);
   });DB.sqlite.close();
 });
+test('document size limit counts encoded bytes for non-ASCII payloads',async()=>{
+  const DB=database();await runWithEnv({DB},null,async()=>{
+    const Model=model('TestByteLimit',new Schema({name:String}));
+    await assert.rejects(Model.create({name:'\u3042'.repeat(610000)}),error=>error.status===413);
+  });DB.sqlite.close();
+});

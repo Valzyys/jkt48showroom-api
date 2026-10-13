@@ -12,6 +12,8 @@ Session client tetap memakai `Authorization: Bearer <access_token>`, `X-Refresh-
 
 ## Perbaikan Perilaku
 
+Dependensi runtime Hono, defu dan lodash memakai versi patch/minor yang telah diperbaiki untuk advisory pada versi sumber. CI memeriksa audit dependensi produksi dan kontrak API setelah update tersebut.
+
 - Competition endpoint dengan `checkApiKey` sekarang menolak key invalid (401). Kode asal hanya menunda 15 detik lalu meneruskan request. JWT API key dan server `API_KEY` diterima.
 - Rate limit menghasilkan 429 dan `Retry-After`, bukan 409. Counter dan nonce lintas Worker dikoordinasi Durable Object.
 - JWT tidak memakai fallback `supersecret`; validasi dibatasi HS256. Respons 401 tidak memuat token client. Session yang belum diverifikasi tidak dipakai untuk request Showroom.

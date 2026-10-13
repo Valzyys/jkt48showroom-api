@@ -226,7 +226,7 @@ async function persist(model, document, expectedVersion) {
   if (model.schema.options.timestamps) { data.createdAt ||= new Date(); data.updatedAt = new Date(); }
   if (data.__v === undefined) data.__v = 0;
   const json = JSON.stringify(data);
-  if (json.length > 1800000) throw fail('Document exceeds D1 storage limit', 413);
+  if (new TextEncoder().encode(json).byteLength > 1800000) throw fail('Document exceeds D1 storage limit', 413);
   if (expectedVersion != null) {
     const result = await binding('DB').prepare('UPDATE documents SET document=?,version=version+1 WHERE database_name=? AND collection_name=? AND id=? AND version=?').bind(json, model.databaseName, model.collection.name, data._id, expectedVersion).run();
     if (!result.meta.changes) throw fail('Document changed concurrently; retry the request', 409);

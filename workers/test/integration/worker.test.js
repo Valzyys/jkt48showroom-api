@@ -107,7 +107,7 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     const response=await call('/api/auth/logout',{method:'POST',headers:{Origin:'https://evil.test',Authorization:'Bearer '+accessToken,'X-SR-Token':srToken}});
     assert.equal(response.status,403);
   });
-  await t.test('signed requests reject nonce replay across Worker instances',async()=>{
+  await t.test('signed requests reject nonce replay through Coordinator',async()=>{
     const nonce=randomUUID(),timestamp=String(Math.floor(Date.now()/1000));
     const signingKey=createHmac('sha256',secret).update(secret).digest('hex');
     const signature=createHmac('sha256',signingKey).update(nonce+'.'+timestamp).digest('hex');

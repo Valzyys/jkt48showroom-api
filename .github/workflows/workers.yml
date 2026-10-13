@@ -18,9 +18,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - run: npm install --package-lock-only
       - run: npm ci
       - run: npm audit --omit=dev --json > /tmp/worker-audit.json
-        continue-on-error: true
       - run: npm test
       - run: npm run build
       - run: npm run test:integration
