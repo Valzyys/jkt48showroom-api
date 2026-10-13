@@ -13,7 +13,7 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
   const upstreamRequests=[];
   const mf=new Miniflare({
     modules:[{type:'ESModule',path:new URL('../../dist/'+worker,import.meta.url).pathname}],
-    compatibilityDate:'2026-10-01',compatibilityFlags:['nodejs_compat'],
+    compatibilityDate:'2026-07-01',compatibilityFlags:['nodejs_compat'],
     d1Databases:{DB:'test-database'},r2Buckets:{IMAGES_BUCKET:'test-images'},
     durableObjects:{LIVE_HUB:{className:'LiveHub',useSQLite:true},COORDINATOR:{className:'Coordinator',useSQLite:true}},
     bindings:{NODE_ENV:'production',SECRET:secret,AUTH_SECRET:secret,JWT_SECRET:secret,API_KEY:'integration-key',ADMIN_IDS:'1',SHOWROOM_API:'https://sr.test',PROXY_URL:'https://relay.test/',ORIGINS:'https://frontend.test',LIVE_REFRESH_SECONDS:'300'},

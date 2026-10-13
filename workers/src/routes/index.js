@@ -176,10 +176,10 @@ app.post('/beta', ...handler(async (c)=>{
 app.get('/now_live', ...handler(async (c)=>{
     const data = await combinedLives();
     const debug = c.req.query('debug');
-    const group = c.req.query('group');
+    const group = c.req.query('group') || 'jkt48';
     if (debug) {
-        return await cachedFetch.fetch('combined-live', async ()=>{
-            return await fetchCombined(group ?? 'all', true);
+        return await cachedFetch.fetch('combined-live:'+group, async ()=>{
+            return group==='all'?(await Promise.all(['jkt48','hinatazaka46'].map(group=>fetchCombined(group,true)))).flat():await fetchCombined(group, true);
         }, 1000 * 60 * 5);
     }
     if (group === 'all') return data;
@@ -187,10 +187,10 @@ app.get('/now_live', ...handler(async (c)=>{
 }, (c)=>{
     let group = c.req.query('group');
     const debug = c.req.query('debug');
-    group = group === 'hinatazaka46' ? 'hinatazaka46' : 'jkt48';
+    group = ['all','hinatazaka46'].includes(group) ? group : 'jkt48';
     return {
         name: `${group}-nowlive${debug ?? ''}`,
-        seconds: debug ? 1000 * 60 * 5 : 3,
+        seconds: debug ? 60 * 5 : 3,
         useSingleProcess: !!debug,
         rateLimit: debug ? {
             maxRequest: 40,

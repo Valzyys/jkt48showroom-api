@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "jkt48showroom-api-workers",
   "main": "src/worker.js",
-  "compatibility_date": "2026-10-01",
+  "compatibility_date": "2026-07-01",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "observability": { "enabled": true },
