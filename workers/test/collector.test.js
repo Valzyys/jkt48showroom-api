@@ -57,8 +57,18 @@ test('collector archives real contracts, protects ingestion, serves R2 images an
  const dual=(await(await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}})).json());assert.equal(dual.leaderboard_image.url,image);assert.equal(dual.leaderboard_images.portrait.url,image);assert.equal(dual.leaderboard_images.banner.url,bannerUrl);assert.equal(dual.leaderboard_images.banner.width,2400);assert.equal(dual.leaderboard_images.banner.height,1350);
  const dualList=(await(await recent()).json()).recents[0];assert.equal(dualList.leaderboard_images.banner.url,bannerUrl);
  assert.equal((await call('/internal/collector/leaderboards/jobs?layout=invalid')).status,400);
+
+ // Additional design theme has independent leases and R2 objects; legacy fields stay photobook.
+ assert.equal((await call('/internal/collector/leaderboards/jobs?theme=unknown')).status,400);
+ assert.equal((await call('/internal/collector/leaderboards/jobs?theme=__proto__')).status,400);
+ for(const layout of ['portrait','banner']){
+  const themed=(await(await call('/internal/collector/leaderboards/jobs?theme=jkt48connect&layout='+layout)).json()).job;assert.equal(themed.theme,'jkt48connect');assert.equal(themed.layout,layout);assert.equal(themed.data_id,row.data_id);
+  const themedUpload=(token,theme='jkt48connect')=>mf.dispatchFetch('https://worker.test/internal/collector/leaderboards/'+job.data_id+'/'+job.source_version+'?theme='+theme+'&layout='+layout,{method:'PUT',headers:{Authorization:'Bearer synthetic-collector-token','X-Render-Token':token,'Content-Type':'image/png'},body:layout==='banner'?bannerPng:png});
+  assert.equal((await themedUpload(themed.render_token,'photobook')).status,409);const uploaded=await themedUpload(themed.render_token);assert.equal(uploaded.status,200);const url=(await uploaded.json()).url;assert.match(url,/leaderboards\/jkt48connect\/v1\//);assert.equal((await mf.dispatchFetch(url)).status,200);
+ }
+ const themedDetail=await(await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}})).json();assert.deepEqual(themedDetail.leaderboard_images,themedDetail.leaderboard_designs.photobook);assert.equal(themedDetail.leaderboard_designs.jkt48connect.portrait.status,'ready');assert.equal(themedDetail.leaderboard_designs.jkt48connect.banner.status,'ready');assert.equal(themedDetail.leaderboard_image.url,image);
  // Updating source data invalidates both images, while existing immutable PNG URLs survive.
  row.viewers++;assert.equal((await call('/internal/collector/archive','PUT',row)).status,200);
- const changed=(await(await recent()).json()).recents[0];assert.equal(changed.leaderboard_images.banner.status,'pending');assert.equal(changed.leaderboard_images.portrait.status,'pending');assert.equal((await mf.dispatchFetch(image)).status,200);assert.equal((await mf.dispatchFetch(bannerUrl)).status,200);
+ const changed=(await(await recent()).json()).recents[0];assert.equal(changed.leaderboard_designs.jkt48connect.banner.status,'pending');assert.equal(changed.leaderboard_images.banner.status,'pending');assert.equal(changed.leaderboard_images.portrait.status,'pending');assert.equal((await mf.dispatchFetch(image)).status,200);assert.equal((await mf.dispatchFetch(bannerUrl)).status,200);
  row.capture.status='live';assert.equal((await call('/internal/collector/archive','PUT',row)).status,409);
 });

@@ -122,8 +122,9 @@ export async function getRecents(c) {
     return {
         recents: logs.map((i)=>({
                 _id: i._id,
-                leaderboard_image: images.get(i.data_id)?.portrait,
-                leaderboard_images: images.get(i.data_id),
+                leaderboard_image: images.get(i.data_id)?.photobook?.portrait,
+                leaderboard_images: images.get(i.data_id)?.photobook,
+                leaderboard_designs: images.get(i.data_id),
                 data_id: i.data_id,
                 idn: i.idn,
                 member: {

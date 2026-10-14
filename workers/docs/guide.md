@@ -3225,3 +3225,31 @@ dihentikan. Penutupan chat saat sesi selesai ditandai `closed`, bukan error akti
 Desain photobook v3 memakai podium supporter utama, aksen kelopak, dan foto live
 berlapis. Pinggiran hitam pada screenshot dipotong hanya untuk gambar leaderboard;
 arsip screenshot asli tetap utuh. URL v1/v2 yang sudah terbit tetap dapat dibuka.
+
+
+## Desain tambahan JKT48Connect (Fan Signal)
+
+Recent list/detail kini menyertakan `leaderboard_designs`. Dua desain tersedia
+bersamaan; masing-masing mempunyai portrait dan banner:
+
+```js
+const recent = await response.json();
+const photobookPoster = recent.leaderboard_designs.photobook.portrait;
+const photobookBanner = recent.leaderboard_designs.photobook.banner;
+const connectPoster = recent.leaderboard_designs.jkt48connect.portrait;
+const connectBanner = recent.leaderboard_designs.jkt48connect.banner;
+if (connectBanner.status === 'ready') image.src = connectBanner.url;
+```
+
+Untuk `/api/recent`, akses properti pada setiap objek dalam `recents`.
+`leaderboard_image` dan `leaderboard_images` tetap mengarah ke photobook.
+Desain Fan Signal memakai karakter ASCII original dan palet dari CSS situs
+JKT48Connect: merah #E30B1C, krem #F5F1EA, tinta #0E0E10, amber #E8B84A.
+Tidak ada URL atau nama situs pada gambar. Ini pilihan tambahan, bukan pengganti
+photobook. Render kedua tema memakai sesi, avatar, gift dan screenshot asli yang sama.
+
+Contoh URL banner publik R2:
+`https://api.jkt48connect.app/media/leaderboards/jkt48connect/v1/DATA_ID/123-banner.png`.
+Poster berukuran 1800×2400; banner 2400×1350. Status/lease render setiap tema dan
+format terpisah. PNG lama tidak ditimpa. Renderer memproses maksimal 12 gambar
+per putaran dengan urutan bergantian agar kedua desain mendapat giliran.

@@ -10,3 +10,11 @@ test('landscape has an independent 16:9 composition, escapes content, and has no
 test('landscape keeps provider units, gift quantities, and unique real frames',()=>{
  const d=structuredClone(fixture);d.type='showroom';d.live_info.screenshot={list:[1000],base_url:'https://api.test/media',format:'jpg'};d.live_info.gift.list=[{name:'Flower',num:7,user_count:3,img:'https://api.test/gift.png'}];const result=banner(d);assert.match(result,/SR POINTS TERCATAT/);assert.match(result,/7 gift/);assert.match(result,/3 pengirim/);assert.equal((result.match(/class="frame"/g)||[]).length,1);
 });
+
+const connect=require('../leaderboard-connect.cjs');
+test('connect theme supplies original ASCII character, brand palette, and two layouts',()=>{
+ for(const landscape of [false,true]){const result=connect(fixture,landscape);assert.match(result,/#e30b1c/);assert.match(result,/#f5f1ea/);assert.match(result,/<pre>/);assert.match(result,/END :\)/);assert.match(result,/&lt; thanks for tuning in! &gt;/);assert.match(result,/&lt;img src=x onerror=evil\(\)&gt;/);assert.ok(!result.includes('®'));assert.ok(!result.replace(/<[^>]+>/g,'').toLowerCase().includes('jkt48connect'));assert.match(result,landscape?/connect-banner/:/connect-poster/);}
+});
+test('connect poster includes real gift counts and preserves platform units',()=>{
+ const d=structuredClone(fixture);d.type='showroom';d.live_info.gift.list=[{name:'Flower',num:7,user_count:3,img:'https://api.test/gift.png'}];const result=connect(d);assert.match(result,/SR POINTS TERCATAT/);assert.match(result,/7×/);assert.match(result,/3 pengirim/);
+});
