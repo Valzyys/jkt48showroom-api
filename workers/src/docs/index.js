@@ -1,4 +1,5 @@
 import { assets, catalog, responses } from "./assets.js";
+import { assistant } from "./assistant.js";
 const staticFiles = {
   "/docs/style.css": [assets.css, "text/css; charset=utf-8"],
   "/docs/app.js": [assets.script, "text/javascript; charset=utf-8"],
@@ -26,6 +27,7 @@ export async function documentation(request, bindings = {}) {
     url.searchParams.get("format") !== "json" &&
     /\btext\/html\b/.test(request.headers.get("Accept") || "");
   if (!landing && path !== "/docs" && !path.startsWith("/docs/")) return null;
+  if (path === "/docs/assistant") return assistant(request, bindings);
   const headers = {
     "Cache-Control": "public, max-age=0, must-revalidate",
     "X-Content-Type-Options": "nosniff",

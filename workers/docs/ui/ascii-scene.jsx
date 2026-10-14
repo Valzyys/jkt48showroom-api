@@ -87,24 +87,21 @@ export function AsciiScene({
           zoom,
         });
       let layers = frame.layers;
-      // Decode-in: a scan line sweeps down, noise ahead of it, art behind it.
-      if (!state.revealed) {
-        const p = state.revealStart
-          ? Math.min(1, (now - state.revealStart) / 1100)
-          : 0;
+      // Scan-in: the figure is always drawn (never an empty box); a band of
+      // noise sweeps down once when it first becomes visible.
+      if (!state.revealed && state.revealStart) {
+        const p = Math.min(1, (now - state.revealStart) / 1000);
         if (p >= 1) state.revealed = true;
         else {
-          const line = p * (state.rows + 6) - 3,
+          const line = p * (state.rows + 8) - 4,
             scramble = (row, r) =>
-              r < line - 2
+              Math.abs(r - line) > 2.5
                 ? row
-                : r > line + 2
-                  ? row.replace(/\S/g, " ")
-                  : row.replace(
-                      /\S/g,
-                      () => RAMP[(Math.random() * RAMP.length) | 0],
-                    );
-          layers = layers.map((rows) => rows.map((row, r) => scramble(row, r)));
+                : row.replace(
+                    /\S/g,
+                    () => RAMP[(Math.random() * RAMP.length) | 0],
+                  );
+          layers = layers.map((rows) => rows.map(scramble));
         }
       }
       const { width, height } = cv;

@@ -8,6 +8,7 @@ import rehypeSlug from "rehype-slug";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { LangLogo, LANG_NAMES, langKind } from "./icons.jsx";
 const schema = {
   ...defaultSchema,
   attributes: {
@@ -42,7 +43,22 @@ export function CopyButton({ text, label = "Salin", className = "" }) {
         }
       }}
     >
-      {copied ? "Tersalin ✓" : label}
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path
+          d={copied ? "m5 12.5 4.5 4.5L19 7" : "M9 9h11v11H9zM5 15H4V4h11v1"}
+        />
+      </svg>
+      <span>{copied ? "Tersalin" : label}</span>
       <span className="sr-only" role="status">
         {copied ? "Kode disalin" : ""}
       </span>
@@ -133,7 +149,11 @@ function Diagram({ source }) {
   return (
     <figure className="diagram">
       <figcaption>
-        Diagram <CopyButton text={source} />
+        <span className="lang-label">
+          <LangLogo language="mermaid" size={16} />
+          <span>Diagram · Mermaid</span>
+        </span>
+        <CopyButton text={source} />
       </figcaption>
       {error ? (
         <>
@@ -160,14 +180,20 @@ function Pre({ children }) {
   const text = code ? textOf(code.props.children) : textOf(children);
   if (/language-mermaid/.test(className))
     return <Diagram source={text.trim()} />;
+  const language = className.match(/language-([\w-]+)/)?.[1] || "text";
   return (
     <div className="code-block">
       <div className="code-toolbar">
-        <span className="code-file-label">
-          {className.match(/language-(\w+)/)?.[1] || "text"}
+        <span className="lang-label">
+          <LangLogo language={language} size={16} />
+          <span>
+            {LANG_NAMES[langKind(language)] === "Text"
+              ? language
+              : LANG_NAMES[langKind(language)]}
+          </span>
         </span>
         <span className="code-meta">
-          {text.trimEnd().split("\n").length} LINES
+          {text.trimEnd().split("\n").length} baris
         </span>
         <CopyButton text={text} />
       </div>
