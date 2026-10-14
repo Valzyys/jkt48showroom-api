@@ -12,6 +12,7 @@ import {
   Copy,
   CodeBlock,
   LanguageTabs,
+  useLiquid,
 } from "./shared.jsx";
 import {
   routeKey,
@@ -25,42 +26,20 @@ import {
 const MarkdownContent = lazy(() => import("./markdown.jsx"));
 const groups = ["Publik", "Media"];
 
-// A soft ink capsule that glides to the selected entry of a vertical list.
-function useGlide(list, selector, deps) {
-  const marker = useRef(),
-    motionEnabled = useMotionEnabled();
-  useEffect(() => {
-    const target = list.current?.querySelector(selector);
-    if (!marker.current) return;
-    if (!target) {
-      gsap.set(marker.current, { opacity: 0 });
-      return;
-    }
-    const to = {
-      y: target.offsetTop,
-      height: target.offsetHeight,
-      opacity: 1,
-    };
-    if (motionEnabled)
-      gsap.to(marker.current, { ...to, duration: 0.55, ease: "expo.out" });
-    else gsap.set(marker.current, to);
-  }, [...deps, motionEnabled]);
-  return marker;
-}
-
 export function Sidebar({ catalog, guides, current }) {
   const [filter, setFilter] = useState(""),
     list = useRef(),
-    marker = useGlide(list, "a.selected", [current, filter]);
+    marker = useLiquid(list, "a.selected", [current, filter], "y");
   const visible = guides.filter(
     (g) =>
       g.slug !== "markdown" &&
       g.title.toLowerCase().includes(filter.toLowerCase()),
   );
   const all = guides.filter((g) => g.slug !== "markdown");
-  const item = (href, label, icon, active, extra) => (
+  const item = (href, label, icon, active, extra, pip) => (
     <Link
       href={href}
+      data-pip={pip}
       className={active ? "selected" : ""}
       aria-current={active ? "page" : undefined}
     >
@@ -73,7 +52,7 @@ export function Sidebar({ catalog, guides, current }) {
   );
   return (
     <div className="sidebar-inner">
-      <label className="sidebar-filter">
+      <label className="sidebar-filter" data-pip="sidebar-filter">
         <Icon name="search" size={14} />
         <input
           value={filter}
@@ -98,6 +77,7 @@ export function Sidebar({ catalog, guides, current }) {
             "code",
             current.startsWith("/docs/reference"),
             <small className="count">{catalog.routes.length}</small>,
+            "sidebar-reference",
           )}
           {item(
             "/docs/guide/markdown",
@@ -188,7 +168,7 @@ export function Overview({ catalog, guides }) {
           />
         </div>
       </div>
-      <div className="quick-panel">
+      <div className="quick-panel" data-pip="overview-quickstart">
         <div className="quick-copy">
           <span className="tag-soft">
             <PixelIcon name="play" size={11} /> QUICK START
@@ -263,7 +243,7 @@ export function Overview({ catalog, guides }) {
           </p>
         </div>
       </div>
-      <dl className="facts">
+      <dl className="facts" data-pip="overview-baseurl">
         <div>
           <dt>BASE URL</dt>
           <dd className="fact-row">
@@ -443,7 +423,7 @@ function Endpoint({ route }) {
         <MarkdownContent source={route.description} />
       </Suspense>
       <h2 id="parameters">Parameter</h2>
-      <div className="playground">
+      <div className="playground" data-pip="endpoint-params">
         {Object.keys(values).length ? (
           <div className="params">
             {Object.entries(values).map(([name, value]) => (
@@ -471,7 +451,7 @@ function Endpoint({ route }) {
           </p>
         )}
         {preview && (
-          <div className="url-preview">
+          <div className="url-preview" data-pip="endpoint-url">
             <span className={"method " + route.method}>{route.method}</span>
             <code>{preview}</code>
             <Copy text={preview} label="URL" />
@@ -489,11 +469,13 @@ function Endpoint({ route }) {
         </>
       )}
       <h2 id="request-example">Contoh request</h2>
-      <CodeBlock
-        code={code}
-        language={language}
-        head={<LanguageTabs value={language} onChange={setLanguage} />}
-      />
+      <div data-pip="endpoint-request">
+        <CodeBlock
+          code={code}
+          language={language}
+          head={<LanguageTabs value={language} onChange={setLanguage} />}
+        />
+      </div>
       {!tryable && (
         <p className="caption">
           Contoh memakai placeholder. Endpoint ini tidak dijalankan dari halaman
@@ -506,6 +488,7 @@ function Endpoint({ route }) {
           <button
             type="button"
             className={"btn btn-ink run-button " + (busy ? "busy" : "")}
+            data-pip="endpoint-try"
             disabled={busy}
             onClick={run}
           >
@@ -514,7 +497,7 @@ function Endpoint({ route }) {
           </button>
         )}
       </div>
-      <div ref={response}>
+      <div ref={response} data-pip="endpoint-response">
         <CodeBlock
           language="json"
           head={
@@ -619,7 +602,7 @@ export function Reference({ catalog, search }) {
         }
       />
       <div className="filter-bar">
-        <label className="filter-search">
+        <label className="filter-search" data-pip="reference-search">
           <Icon name="search" size={16} />
           <input
             aria-label="Cari endpoint"
@@ -631,7 +614,12 @@ export function Reference({ catalog, search }) {
             {routes.length}/{catalog.routes.length}
           </span>
         </label>
-        <div className="segmented" role="group" aria-label="Filter method">
+        <div
+          className="segmented"
+          role="group"
+          aria-label="Filter method"
+          data-pip="reference-filters"
+        >
           {["", ...methods].map((m) => (
             <button
               type="button"
@@ -656,7 +644,7 @@ export function Reference({ catalog, search }) {
           ))}
         </div>
       </div>
-      <div className="route-list" ref={listRef}>
+      <div className="route-list" ref={listRef} data-pip="reference-list">
         {routes.map((r) => (
           <Link href={routeHref(r)} key={routeKey(r)} className="route-item">
             <span className={"method " + r.method}>{r.method}</span>
@@ -701,7 +689,7 @@ export function Toc({ article, page }) {
   const [headings, set] = useState([]),
     [active, setActive] = useState(""),
     nav = useRef(),
-    marker = useGlide(nav, "a.active", [active, headings.length]);
+    marker = useLiquid(nav, "a.active", [active, headings.length], "y");
   useEffect(() => {
     let io;
     const update = () => {
@@ -735,7 +723,7 @@ export function Toc({ article, page }) {
     };
   }, [page]);
   return (
-    <div className="toc-inner">
+    <div className="toc-inner" data-pip="toc">
       {headings.length > 0 && (
         <>
           <span className="side-label">DI HALAMAN INI</span>
@@ -802,6 +790,7 @@ export function Guide({ page, guides }) {
           <button
             type="button"
             className="btn btn-ink"
+            data-pip="markdown-editor"
             onClick={() => setEdit(!edit)}
           >
             <LangLogo language="markdown" size={16} />
@@ -831,9 +820,13 @@ export function Guide({ page, guides }) {
           />
         </label>
       )}
-      <Suspense fallback={<p className="loading-note">Menyiapkan panduan…</p>}>
-        <MarkdownContent source={source} />
-      </Suspense>
+      <div data-pip="guide-content">
+        <Suspense
+          fallback={<p className="loading-note">Menyiapkan panduan…</p>}
+        >
+          <MarkdownContent source={source} />
+        </Suspense>
+      </div>
       <div className="pager">
         {index > 0 ? (
           <Link href={"/docs/guide/" + guides[index - 1].slug}>

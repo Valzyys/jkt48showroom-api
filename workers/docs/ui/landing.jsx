@@ -211,6 +211,7 @@ export function Landing({ catalog, guides }) {
               href="/docs/guide/mulai-menggunakan"
               className="btn btn-ink btn-lg"
               data-magnetic
+              data-pip="hero-start"
             >
               Mulai membangun <Icon size={16} />
             </Link>
@@ -222,7 +223,7 @@ export function Landing({ catalog, guides }) {
               <PixelIcon name="code" size={14} /> Lihat API
             </Link>
           </div>
-          <div className="terminal-line hero-fade">
+          <div className="terminal-line hero-fade" data-pip="hero-terminal">
             <span className="prompt">$</span>
             <code>curl {BASE.replace("https://", "")}/api/news</code>
             <i className="caret" aria-hidden="true" />
@@ -242,7 +243,7 @@ export function Landing({ catalog, guides }) {
             speed={0.28}
             yaw={0.1}
             pitch={0.38}
-            zoom={1.12}
+            zoom={1.3}
             interactive
             className="hero-ascii"
           />
@@ -301,7 +302,7 @@ export function Landing({ catalog, guides }) {
           muted="yang ingin tumbuh."
           text="Website fanbase, bot komunitas, atau proyek pertamamu. Mulai dari data yang sudah terstruktur, lalu tentukan sendiri bentuknya."
         />
-        <div className="feature-grid">
+        <div className="feature-grid" data-pip="landing-features">
           {[
             [
               "KABAR & PROFIL",
@@ -396,7 +397,7 @@ export function Landing({ catalog, guides }) {
             Buka quick start <Icon size={15} />
           </Link>
         </div>
-        <div className="code-window rv">
+        <div className="code-window rv" data-pip="landing-request">
           <div className="window-bar">
             <span className="dots" aria-hidden="true">
               <i />
@@ -441,7 +442,7 @@ export function Landing({ catalog, guides }) {
           muted="untuk setiap ide."
           text="Telusuri katalog berdasarkan jenis data. Setiap route punya parameter, label akses, dan contoh pemanggilan."
         />
-        <div className="chart-card rv" role="list">
+        <div className="chart-card rv" role="list" data-pip="landing-map">
           {counts.map(({ group, count, q }) => {
             const cells = Math.max(1, Math.round((count / max) * 24));
             return (
@@ -561,7 +562,7 @@ export function Footer({ guides = [] }) {
     <footer className="site-footer rv">
       <div className="footer-grid">
         <div className="footer-brand">
-          <Link href="/" className="dock-brand">
+          <Link href="/" className="nav-brand">
             <span className="brand-tile">
               <Mark size={20} />
             </span>

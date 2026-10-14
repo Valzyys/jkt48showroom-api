@@ -19,3 +19,8 @@ YOUTUBE_KEY=
 YOUTUBE_JKT48=
 JKT48V_YT_IDS=
 SR_ID=
+# Pip docs assistant (one of these). Keep real values in .dev.vars or Worker secrets.
+MISTRAL_COOKIE=
+MISTRAL_API_KEY=
+MISTRAL_MODEL=mistral-medium-latest
+ASSISTANT_ENABLED=true

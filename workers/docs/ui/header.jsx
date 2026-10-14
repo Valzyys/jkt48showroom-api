@@ -7,103 +7,110 @@ import {
   Icon,
   Link,
   MotionToggle,
+  RollText,
+  rollHandlers,
+  useLiquid,
 } from "./shared.jsx";
 import { Mark, PixelIcon, GitHubIcon, guideIcon } from "./icons.jsx";
 
 const NAV = [
-  ["/docs", "Docs", "book"],
-  ["/docs/reference", "Reference", "code"],
-  ["/docs/guide/markdown", "Markdown", "markdown"],
+  ["/", "Beranda", "home", "nav-home"],
+  ["/docs", "Docs", "book", "nav-docs"],
+  ["/docs/reference", "Reference", "code", "nav-reference"],
+  ["/docs/guide/markdown", "Markdown", "markdown", "nav-markdown"],
 ];
 function activeIndex(path) {
-  if (path === "/docs/guide/markdown") return 2;
-  if (path === "/docs/reference") return 1;
-  if (path === "/docs" || path === "/docs/" || path.startsWith("/docs/guide/"))
-    return 0;
+  if (path === "/") return 0;
+  if (path === "/docs/guide/markdown") return 3;
+  if (path === "/docs/reference") return 2;
+  if (path.startsWith("/docs")) return 1;
   return -1;
 }
 
-// Jakarta time, ticking each second: the API speaks UTC, fans read WIB.
-function Clock() {
-  const [now, set] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => set(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const time = now.toLocaleTimeString("en-GB", {
-    timeZone: "Asia/Jakarta",
-    hour12: false,
-  });
-  return (
-    <span className="dock-clock" title="Waktu Jakarta (WIB)">
-      <i className="live-dot" />
-      <span className="clock-digits">{time}</span>
-      <small>WIB</small>
-    </span>
-  );
-}
-
+// Split dock: three floating islands. The ink island in the middle carries
+// navigation with a liquid pill; it hides on scroll down, returns on scroll up.
 export function Header({ current, onSearch, catalog, guides }) {
   const path = current.split(/[?#]/)[0],
     active = activeIndex(path),
     [hot, setHot] = useState(active),
     [menu, setMenu] = useState(false),
-    dock = useRef(),
-    nav = useRef(),
-    pill = useRef(),
-    motionEnabled = useMotionEnabled();
+    wrap = useRef(),
+    island = useRef(),
+    motionEnabled = useMotionEnabled(),
+    liquid = useLiquid(island, "a.hot", [hot, path]);
   useEffect(() => setHot(active), [active]);
-  // Ink pill glides to the hovered or active item.
   useEffect(() => {
-    const items = nav.current?.querySelectorAll("a[data-nav]");
-    const target = items?.[hot];
-    if (!pill.current) return;
-    if (!target) {
-      gsap.to(pill.current, { opacity: 0, scale: 0.9, duration: 0.25 });
-      return;
-    }
-    const to = {
-      x: target.offsetLeft,
-      width: target.offsetWidth,
-      opacity: 1,
-      scale: 1,
-    };
-    if (motionEnabled)
-      gsap.to(pill.current, { ...to, duration: 0.55, ease: "expo.out" });
-    else gsap.set(pill.current, to);
-  }, [hot, motionEnabled]);
-  useEffect(() => {
+    const header = wrap.current;
+    let hidden = false;
     const trigger = ScrollTrigger.create({
-      start: 24,
-      onToggle: (self) =>
-        dock.current?.classList.toggle("is-compact", self.isActive),
+      start: 0,
+      end: "max",
+      onUpdate(self) {
+        const y = self.scroll();
+        header.classList.toggle("is-scrolled", y > 16);
+        const hide = self.direction === 1 && y > 220;
+        if (hide === hidden) return;
+        hidden = hide;
+        gsap.to(header, {
+          yPercent: hide ? -140 : 0,
+          duration: hide ? 0.5 : 0.7,
+          ease: hide ? "power3.in" : "expo.out",
+          overwrite: true,
+        });
+      },
     });
     return () => trigger.kill();
   }, []);
   useEffect(() => {
     if (!motionEnabled) return;
     const context = gsap.context(() => {
-      gsap.from(".dock", {
-        y: -28,
-        autoAlpha: 0,
-        duration: 1,
-        ease: "expo.out",
-        clearProps: "transform,opacity,visibility",
-      });
-      gsap.from(".dock-nav a, .dock-right > *", {
-        y: -10,
-        autoAlpha: 0,
-        duration: 0.7,
-        stagger: 0.05,
-        delay: 0.25,
-        ease: "expo.out",
-        clearProps: "transform,opacity,visibility",
-      });
-    });
+      const tl = gsap.timeline({ defaults: { ease: "expo.out" } });
+      tl.from(".nav-island", {
+        clipPath: "inset(0% 42% 0% 42% round 999px)",
+        duration: 1.1,
+        clearProps: "clipPath",
+      })
+        .from(
+          ".nav-island > :not(.nav-liquid)",
+          {
+            y: 14,
+            autoAlpha: 0,
+            duration: 0.7,
+            stagger: 0.05,
+            clearProps: "transform,opacity,visibility",
+          },
+          0.35,
+        )
+        .from(
+          ".nav-brand",
+          {
+            x: -24,
+            autoAlpha: 0,
+            duration: 0.9,
+            clearProps: "transform,opacity,visibility",
+          },
+          0.15,
+        )
+        .from(
+          ".brand-tile",
+          { rotate: -90, scale: 0.6, duration: 1.1, clearProps: "transform" },
+          0.15,
+        )
+        .from(
+          ".nav-actions",
+          {
+            x: 24,
+            autoAlpha: 0,
+            duration: 0.9,
+            clearProps: "transform,opacity,visibility",
+          },
+          0.2,
+        );
+    }, wrap);
     return () => context.revert();
   }, [motionEnabled]);
   useEffect(() => {
-    const bar = document.querySelector(".dock-progress i");
+    const bar = wrap.current?.querySelector(".nav-progress i");
     const update = () => {
       const length = document.documentElement.scrollHeight - innerHeight;
       if (bar)
@@ -114,17 +121,18 @@ export function Header({ current, onSearch, catalog, guides }) {
     update();
     return () => removeEventListener("scroll", update);
   }, [path]);
+  const roll = rollHandlers();
   return (
     <>
-      <header className="dock-wrap">
-        <div className="dock" ref={dock}>
+      <header className="nav-wrap" ref={wrap}>
+        <div className="nav-bar">
           <Link
             href="/"
-            className="dock-brand"
+            className="nav-brand island"
             aria-label="JKT48Connect, beranda"
           >
             <span className="brand-tile">
-              <Mark size={20} />
+              <Mark size={18} />
             </span>
             <span className="brand-word">
               jkt48<b>connect</b>
@@ -132,59 +140,48 @@ export function Header({ current, onSearch, catalog, guides }) {
             <span className="brand-badge">DEV</span>
           </Link>
           <nav
-            className="dock-nav"
+            className="nav-island"
             aria-label="Navigasi utama"
-            ref={nav}
+            ref={island}
             onPointerLeave={() => setHot(active)}
           >
-            <span className="dock-pill" ref={pill} aria-hidden="true" />
-            {NAV.map(([href, label, icon], i) => (
+            <span className="nav-liquid" ref={liquid} aria-hidden="true" />
+            {NAV.map(([href, label, icon, pip], i) => (
               <Link
                 key={href}
                 href={href}
-                data-nav
-                className={i === hot ? "hot" : ""}
+                data-pip={pip}
+                className={"nav-link " + (i === hot ? "hot" : "")}
+                aria-label={label}
                 aria-current={i === active ? "page" : undefined}
-                onPointerEnter={() => setHot(i)}
+                onPointerEnter={(e) => {
+                  setHot(i);
+                  roll.onPointerEnter(e);
+                }}
+                onPointerLeave={roll.onPointerLeave}
                 onFocus={() => setHot(i)}
                 onBlur={() => setHot(active)}
               >
-                <PixelIcon name={icon} size={13} />
-                {label}
+                <PixelIcon name={icon} size={12} />
+                <RollText text={label} />
               </Link>
             ))}
-          </nav>
-          <div className="dock-right">
-            <Clock />
+            <span className="nav-sep" aria-hidden="true" />
             <button
               type="button"
-              className="dock-search"
+              className="nav-search"
+              data-pip="nav-search"
               onClick={onSearch}
               aria-label="Cari dokumentasi"
+              {...roll}
             >
-              <Icon name="search" size={15} />
-              <span>Cari</span>
+              <PixelIcon name="search" size={12} />
+              <RollText text="Cari" />
               <kbd>⌘K</kbd>
             </button>
-            <a
-              className="dock-icon"
-              href={GitHub}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Source di GitHub"
-            >
-              <GitHubIcon size={16} />
-            </a>
-            <MotionToggle />
-            <Link
-              href="/docs/guide/mulai-menggunakan"
-              className="btn btn-ink dock-cta"
-            >
-              Mulai <Icon size={14} />
-            </Link>
             <button
               type="button"
-              className="burger"
+              className={"burger " + (menu ? "open" : "")}
               aria-label={menu ? "Tutup menu" : "Buka menu"}
               aria-expanded={menu}
               onClick={() => setMenu(true)}
@@ -192,11 +189,35 @@ export function Header({ current, onSearch, catalog, guides }) {
               <i />
               <i />
             </button>
+          </nav>
+          <div className="nav-actions island">
+            <a
+              className="nav-icon"
+              href={GitHub}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Source di GitHub"
+            >
+              <GitHubIcon size={16} />
+            </a>
+            <MotionToggle pip="motion-toggle" />
+            <Link
+              href="/docs/guide/mulai-menggunakan"
+              className="nav-cta"
+              data-pip="nav-cta"
+              aria-label="Mulai membangun"
+              {...roll}
+            >
+              <RollText text="Mulai" />
+              <span className="cta-arrow">
+                <Icon size={13} />
+              </span>
+            </Link>
           </div>
-          <span className="dock-progress" aria-hidden="true">
-            <i />
-          </span>
         </div>
+        <span className="nav-progress" aria-hidden="true">
+          <i />
+        </span>
       </header>
       <MenuOverlay
         open={menu}
@@ -216,43 +237,46 @@ function MenuOverlay({ open, onClose, onSearch, path, catalog, guides }) {
     closing = useRef(false);
   useEffect(() => {
     const dialog = ref.current;
-    if (!dialog) return;
-    if (open && !dialog.open) {
-      dialog.showModal();
-      if (motionEnabled) {
-        gsap.fromTo(
-          dialog,
-          { clipPath: "circle(0px at calc(100% - 44px) 40px)" },
-          {
-            clipPath: "circle(150% at calc(100% - 44px) 40px)",
-            duration: 0.8,
-            ease: "expo.inOut",
-            clearProps: "clipPath",
-          },
-        );
-        gsap.from(dialog.querySelectorAll(".menu-big a, .menu-guides a"), {
-          y: 28,
-          autoAlpha: 0,
-          duration: 0.7,
-          stagger: 0.035,
-          delay: 0.25,
-          ease: "expo.out",
-          clearProps: "transform,opacity,visibility",
-        });
-      }
-    }
+    if (!dialog || !open || dialog.open) return;
+    dialog.showModal();
+    if (!motionEnabled) return;
+    gsap.fromTo(
+      dialog,
+      { clipPath: "circle(0px at calc(100% - 40px) 36px)" },
+      {
+        clipPath: "circle(150% at calc(100% - 40px) 36px)",
+        duration: 0.9,
+        ease: "expo.inOut",
+        clearProps: "clipPath",
+      },
+    );
+    gsap.from(dialog.querySelectorAll(".menu-big a"), {
+      yPercent: 60,
+      autoAlpha: 0,
+      duration: 0.8,
+      stagger: 0.06,
+      delay: 0.3,
+      ease: "expo.out",
+      clearProps: "transform,opacity,visibility",
+    });
+    gsap.from(dialog.querySelectorAll(".menu-guides a, .menu-foot > *"), {
+      y: 16,
+      autoAlpha: 0,
+      duration: 0.6,
+      stagger: 0.025,
+      delay: 0.5,
+      ease: "expo.out",
+      clearProps: "transform,opacity,visibility",
+    });
   }, [open, motionEnabled]);
   function close() {
     const dialog = ref.current;
     if (!dialog?.open || closing.current) return;
-    if (!motionEnabled) {
-      dialog.close();
-      return;
-    }
+    if (!motionEnabled) return dialog.close();
     closing.current = true;
     gsap.to(dialog, {
-      clipPath: "circle(0px at calc(100% - 44px) 40px)",
-      duration: 0.55,
+      clipPath: "circle(0px at calc(100% - 40px) 36px)",
+      duration: 0.6,
       ease: "expo.inOut",
       onComplete: () => {
         closing.current = false;
@@ -285,9 +309,9 @@ function MenuOverlay({ open, onClose, onSearch, path, catalog, guides }) {
     >
       <div className="menu-inner">
         <div className="menu-head">
-          <Link href="/" className="dock-brand" onClick={close}>
+          <Link href="/" className="nav-brand" onClick={close}>
             <span className="brand-tile">
-              <Mark size={20} />
+              <Mark size={18} />
             </span>
             <span className="brand-word">
               jkt48<b>connect</b>
@@ -311,7 +335,7 @@ function MenuOverlay({ open, onClose, onSearch, path, catalog, guides }) {
             onSearch();
           }}
         >
-          <Icon name="search" size={16} />
+          <PixelIcon name="search" size={14} />
           Cari endpoint atau panduan…
         </button>
         <nav className="menu-big" aria-label="Halaman utama">

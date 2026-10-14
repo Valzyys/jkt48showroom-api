@@ -5,6 +5,7 @@ import { gsap, useLocation, useReveal, navigate } from "./shared.jsx";
 import { Header } from "./header.jsx";
 import { Landing } from "./landing.jsx";
 import { SearchDialog } from "./search.jsx";
+import { Assistant } from "./assistant.jsx";
 import { Mark } from "./icons.jsx";
 import {
   Sidebar,
@@ -155,6 +156,7 @@ function App({ catalog, guides }) {
           <Landing catalog={catalog} guides={guides} />
         </main>
       )}
+      <Assistant catalog={catalog} guides={guides} />
       <SearchDialog
         open={searchOpen}
         onClose={() => setSearch(false)}

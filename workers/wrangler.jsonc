@@ -57,7 +57,9 @@
     "COLLECTOR_SCREENSHOT_WIDTH": "640",
     "COLLECTOR_MAX_SESSIONS": "16",
     "DISABLE_SCREENSHOTS": "false",
-    "HALF_SCREENSHOTS": "false"
+    "HALF_SCREENSHOTS": "false",
+    "ASSISTANT_ENABLED": "true",
+    "MISTRAL_MODEL": "mistral-medium-latest"
   },
   "d1_databases": [
     {

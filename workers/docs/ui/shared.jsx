@@ -343,11 +343,12 @@ export function useReveal(scope, deps = []) {
   }, [motionEnabled, ...deps]);
 }
 
-export function MotionToggle({ withLabel = false }) {
+export function MotionToggle({ withLabel = false, pip }) {
   const enabled = useMotionEnabled();
   return (
     <button
       className={"motion-toggle " + (enabled ? "on" : "off")}
+      data-pip={pip}
       type="button"
       aria-pressed={enabled}
       aria-label={enabled ? "Matikan animasi" : "Aktifkan animasi"}
@@ -365,5 +366,123 @@ export function MotionToggle({ withLabel = false }) {
       </span>
       {withLabel && <span>Animasi {enabled ? "aktif" : "mati"}</span>}
     </button>
+  );
+}
+
+// Liquid indicator: the two edges travel at different speeds, so the
+// marker stretches toward its target and settles, instead of sliding rigidly.
+export function useLiquid(container, selector, deps, axis = "x") {
+  const marker = useRef(),
+    last = useRef(null),
+    motionEnabled = useMotionEnabled();
+  useEffect(() => {
+    const box = container.current,
+      el = marker.current;
+    if (!box || !el) return;
+    const [a, b] = axis === "x" ? ["left", "right"] : ["top", "bottom"];
+    const measure = () => {
+      const target = box.querySelector(selector);
+      if (!target) return null;
+      const start = axis === "x" ? target.offsetLeft : target.offsetTop,
+        size = axis === "x" ? target.offsetWidth : target.offsetHeight,
+        total = axis === "x" ? box.clientWidth : box.clientHeight;
+      return { start, to: { [a]: start, [b]: total - start - size } };
+    };
+    const place = () => {
+      const m = measure();
+      if (m) gsap.set(el, { ...m.to, autoAlpha: 1 });
+    };
+    // ResizeObserver reports once on observe; skip it so the glide can run.
+    let primed = false;
+    const ro = new ResizeObserver(() => (primed ? place() : (primed = true)));
+    ro.observe(box);
+    const m = measure();
+    if (!m) {
+      gsap.to(el, { autoAlpha: 0, duration: 0.25 });
+      last.current = null;
+    } else if (!motionEnabled || last.current === null) {
+      gsap.set(el, { ...m.to, autoAlpha: 1 });
+      last.current = m.start;
+    } else {
+      const forward = m.start > last.current,
+        lead = forward ? b : a,
+        tail = forward ? a : b;
+      last.current = m.start;
+      gsap.to(el, { autoAlpha: 1, duration: 0.2 });
+      gsap.to(el, {
+        [lead]: m.to[lead],
+        duration: 0.38,
+        ease: "power3.out",
+        overwrite: "auto",
+      });
+      gsap.to(el, {
+        [tail]: m.to[tail],
+        duration: 0.64,
+        delay: 0.05,
+        ease: "power4.out",
+        overwrite: "auto",
+      });
+    }
+    return () => ro.disconnect();
+  }, [...deps, motionEnabled]);
+  return marker;
+}
+
+// Roll text: letters slide up and are replaced by a copy from below.
+export function RollText({ text }) {
+  return (
+    <span className="roll" aria-hidden="true">
+      <span className="roll-row">
+        {[...text].map((c, i) => (
+          <span key={i} className="roll-char">
+            {c === " " ? " " : c}
+          </span>
+        ))}
+      </span>
+      <span className="roll-row roll-copy">
+        {[...text].map((c, i) => (
+          <span key={i} className="roll-char">
+            {c === " " ? " " : c}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+export function rollHandlers() {
+  const run = (e, y) => {
+    if (!motion.getSnapshot()) return;
+    const chars = e.currentTarget.querySelectorAll(".roll-char");
+    if (!chars.length) return;
+    gsap.to(chars, {
+      yPercent: y,
+      duration: 0.42,
+      ease: "power3.out",
+      stagger: 0.016,
+      overwrite: true,
+    });
+  };
+  return {
+    onPointerEnter: (e) => run(e, -100),
+    onPointerLeave: (e) => run(e, 0),
+  };
+}
+
+// Jakarta time, ticking each second: the API speaks UTC, fans read WIB.
+export function Clock() {
+  const [now, set] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => set(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className="clock" title="Waktu Jakarta (WIB)">
+      <i className="live-dot" />
+      {now.toLocaleTimeString("en-GB", {
+        timeZone: "Asia/Jakarta",
+        hour12: false,
+      })}{" "}
+      WIB
+    </span>
   );
 }

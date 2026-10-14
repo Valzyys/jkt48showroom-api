@@ -190,6 +190,28 @@ scrambled labels. The 3D figures are drawn by a small ASCII engine
 reflections, rendered to canvas only while visible. One motion toggle controls CSS,
 GSAP and the ASCII scenes, and follows `prefers-reduced-motion` until changed.
 
+#### Pip, the docs assistant
+
+`POST /docs/assistant` streams answers from Mistral for the floating **Pip** chat on
+every docs page. Pip is grounded on the public catalog and guides, writes integration
+code, and can open endpoints/guides or spotlight UI elements marked with `data-pip`
+(actions are validated in `docs/ui/assistant-actions.js`; only known pages, endpoints
+and targets run).
+
+Configure one of these as Worker secrets (never commit them):
+
+```bash
+npx wrangler secret put MISTRAL_COOKIE    # console.mistral.ai session cookie
+npx wrangler secret put MISTRAL_API_KEY   # optional, official API; preferred when set
+```
+
+Optional vars: `MISTRAL_MODEL` (default `mistral-medium-latest`), `ASSISTANT_ENABLED`
+(`false` disables the endpoint), `ASSISTANT_TIMEOUT_MS`. The endpoint accepts same-origin
+JSON only and applies a per-isolate limit of 20 questions per 10 minutes per IP; add a
+Cloudflare rate limiting rule on `/docs/assistant` for a global limit. A console session
+cookie expires and is tied to your Mistral account; the official API key is the stable
+option.
+
 Edit public guides in `docs/public/` and their order in `docs/public/navigation.json`.
 `docs/pages/markdown.md` is the Markdown feature lab. `docs/routes.json` and
 `docs/response-samples.json` contain consumer API documentation only.
