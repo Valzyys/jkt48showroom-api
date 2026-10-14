@@ -193,10 +193,13 @@ GSAP and the ASCII scenes, and follows `prefers-reduced-motion` until changed.
 #### Pip, the docs assistant
 
 `POST /docs/assistant` streams answers from Mistral for the floating **Pip** chat on
-every docs page. Pip is grounded on the public catalog and guides, writes integration
-code, and can open endpoints/guides or spotlight UI elements marked with `data-pip`
-(actions are validated in `docs/ui/assistant-actions.js`; only known pages, endpoints
-and targets run).
+every docs page. Before each answer Pip reads the docs: `src/docs/knowledge.js` splits
+the public guides per section and turns every endpoint into a card (parameters, response
+shape, trimmed production sample), then ranks them against the question and the page the
+reader has open. The sections it read stream to the chat first as sources. Pip writes
+integration code and can open endpoints/guides or spotlight UI elements marked with
+`data-pip` (actions are validated in `docs/ui/assistant-actions.js`; only known pages,
+endpoints and targets run).
 
 Configure one of these as Worker secrets (never commit them):
 

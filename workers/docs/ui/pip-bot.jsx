@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from "react";
 
 // Pip: a cat-eared pixel robot. Moods swap the visor face; the eyes follow
-// the pointer, blink, and the mouth moves while Pip is talking.
+// the pointer, blink, and the mouth moves while Pip is talking. While Pip
+// reads the docs it holds a little book and its eyes scan the lines.
 const MOOD_EYES = {
   idle: [
     [6, 8, 2, 2.4],
@@ -14,6 +15,10 @@ const MOOD_EYES = {
   pointing: [
     [6.4, 8, 2, 2.4],
     [10.4, 8, 2, 2.4],
+  ],
+  reading: [
+    [6, 9.2, 2, 1.5],
+    [10, 9.2, 2, 1.5],
   ],
   thinking: [
     [6.6, 7.6, 2, 1.3],
@@ -155,6 +160,18 @@ export function PipBot({
         rx=".4"
         fill="var(--accent)"
       />
+      <g className="pip-book">
+        <path d="M9 13.6 4.6 12.8v4l4.4.8 4.4-.8v-4z" fill="var(--pip-ink)" />
+        <path
+          d="M8.6 14.1 5.3 13.5v2.9l3.3.6zM9.4 14.1l3.3-.6v2.9l-3.3.6z"
+          fill="var(--pip-face)"
+        />
+        <path
+          d="M6 14.3h1.8M6 15.2h1.8M10.2 14.3H12M10.2 15.2H12"
+          stroke="var(--accent)"
+          strokeWidth=".35"
+        />
+      </g>
       <rect
         x="3"
         y="13.2"
