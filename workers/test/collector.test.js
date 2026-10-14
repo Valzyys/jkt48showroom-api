@@ -47,5 +47,18 @@ test('collector archives real contracts, protects ingestion, serves R2 images an
  r=await mf.dispatchFetch(image);assert.equal(r.status,200);assert.equal(r.headers.get('Content-Type'),'image/png');assert.equal(r.headers.get('X-Media-Storage'),'r2');
  r=await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}});const card=(await r.json()).leaderboard_image;assert.equal(card.status,'ready');assert.equal(card.url,image);assert.equal(card.width,1800);
  assert.equal((await uploadCard(job.render_token)).status,409);
+
+ const bannerJob=(await(await call('/internal/collector/leaderboards/jobs?layout=banner')).json()).job;assert.equal(bannerJob.data_id,job.data_id);assert.equal(bannerJob.layout,'banner');
+ assert.equal((await(await call('/internal/collector/leaderboards/jobs?layout=banner')).json()).job,null);
+ const bannerPng=new Uint8Array(png);new DataView(bannerPng.buffer).setUint32(16,2400);new DataView(bannerPng.buffer).setUint32(20,1350);
+ const uploadBanner=(body,token=bannerJob.render_token)=>mf.dispatchFetch('https://worker.test/internal/collector/leaderboards/'+job.data_id+'/'+job.source_version+'?layout=banner',{method:'PUT',headers:{Authorization:'Bearer synthetic-collector-token','X-Render-Token':token,'Content-Type':'image/png'},body});
+ assert.equal((await uploadBanner(bannerPng,job.render_token)).status,409);assert.equal((await uploadBanner(png)).status,400);
+ r=await uploadBanner(bannerPng);assert.equal(r.status,200);const bannerUrl=(await r.json()).url;assert.match(bannerUrl,/-banner\.png$/);r=await mf.dispatchFetch(bannerUrl);assert.equal(r.status,200);assert.equal(r.headers.get('X-Media-Storage'),'r2');
+ const dual=(await(await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}})).json());assert.equal(dual.leaderboard_image.url,image);assert.equal(dual.leaderboard_images.portrait.url,image);assert.equal(dual.leaderboard_images.banner.url,bannerUrl);assert.equal(dual.leaderboard_images.banner.width,2400);assert.equal(dual.leaderboard_images.banner.height,1350);
+ const dualList=(await(await recent()).json()).recents[0];assert.equal(dualList.leaderboard_images.banner.url,bannerUrl);
+ assert.equal((await call('/internal/collector/leaderboards/jobs?layout=invalid')).status,400);
+ // Updating source data invalidates both images, while existing immutable PNG URLs survive.
+ row.viewers++;assert.equal((await call('/internal/collector/archive','PUT',row)).status,200);
+ const changed=(await(await recent()).json()).recents[0];assert.equal(changed.leaderboard_images.banner.status,'pending');assert.equal(changed.leaderboard_images.portrait.status,'pending');assert.equal((await mf.dispatchFetch(image)).status,200);assert.equal((await mf.dispatchFetch(bannerUrl)).status,200);
  row.capture.status='live';assert.equal((await call('/internal/collector/archive','PUT',row)).status,409);
 });

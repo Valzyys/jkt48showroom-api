@@ -3137,6 +3137,41 @@ false dan `img` kosong; gambar jenis gift lain tidak dipakai sebagai pengganti.
 }
 ```
 
+Dua format tersedia otomatis di `leaderboard_images`:
+
+```json
+{
+  "leaderboard_images": {
+    "portrait": {
+      "status": "ready",
+      "url": "https://api.jkt48connect.app/media/leaderboards/v2/DATA_ID/123.png",
+      "width": 1800,
+      "height": 2400,
+      "format": "png",
+      "updated_at": "2026-10-14T00:00:00.000Z"
+    },
+    "banner": {
+      "status": "ready",
+      "url": "https://api.jkt48connect.app/media/leaderboards/v2/DATA_ID/123-banner.png",
+      "width": 2400,
+      "height": 1350,
+      "format": "png",
+      "updated_at": "2026-10-14T00:00:00.000Z"
+    }
+  }
+}
+```
+
+`leaderboard_image` tetap menjadi alias portrait agar integrasi lama berjalan.
+Poster portrait memakai komposisi vertikal. Banner landscape 16:9 mempunyai desain
+tersendiri: panel identitas di kiri, statistik di atas, peringkat dan momen live
+berdampingan, serta deretan gift di bawah. Keduanya menampilkan data sesi yang sama,
+tanpa URL atau nama situs. Setiap format memiliki status render tersendiri.
+
+```html
+<img src="URL_DARI_leaderboard_images.banner.url" alt="Banner rekap live">
+```
+
 Status `pending` berarti gambar belum selesai dibuat; `failed` berarti render akan
 mencoba ulang. URL bernilai null sampai gambar versi data terbaru tersedia.
 PNG bersifat publik tanpa API key, mendukung CORS, dan disimpan di R2.

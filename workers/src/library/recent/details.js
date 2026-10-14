@@ -14,8 +14,10 @@ import UserLog from '@/database/userDB/UserLog';
 import { createError } from '@/utils/errorResponse';
 import { calculateFansPoints } from '../fansPoints';
 export async function parseBase(data) {
+    const leaderboard_images=(await leaderboardImages(env.DB,[data.data_id],env.REQUEST_ORIGIN||'https://api.jkt48connect.app')).get(data.data_id);
     return {
-        leaderboard_image: (await leaderboardImages(env.DB,[data.data_id],env.REQUEST_ORIGIN||'https://api.jkt48connect.app')).get(data.data_id),
+        leaderboard_image: leaderboard_images?.portrait,
+        leaderboard_images,
         recording_session:recordingSession(data,env.REQUEST_ORIGIN||'https://api.jkt48connect.app'),
         point_unit: data.type==='idn'?'idn_gold':'showroom_points',
         recordings: (data.recordings||[]).map(r=>({...r,stream_url:r.index_available===false?null:r.stream_url||r.url?.replace(/\.mp4(?:\?.*)?$/,'.m3u8'),player_url:r.player_url||r.url?.replace(/\/media\/live\/([^/]+)\/video-(\d+)\.mp4(?:\?.*)?$/,'/replay/$1/$2')})),
