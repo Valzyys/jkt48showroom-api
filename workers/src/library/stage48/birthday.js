@@ -1,120 +1,25 @@
-import dayjs from 'dayjs';
 import IdolMember from '@/database/schema/48group/IdolMember';
 import Member from '@/database/schema/48group/Member';
 import Showroom from '@/database/schema/showroom/Showroom';
-import cache from '@/utils/cache';
-import { createError } from '@/utils/errorResponse';
+import { jakartaDateParts, upcomingBirthdays } from '@/runtime/birthdays';
+
 export async function getMemberBirthdays(c) {
-    const group = c.req.query('group');
-    const cacheKey = group ? `${group}-birthday` : 'birthday';
-    const data = await cache.fetch(cacheKey, ()=>birthDayThisMonth(group), 86400000);
-    if (new Date(data.date).getMonth() === new Date().getMonth()) {
-        return data.data;
-    } else {
-        const newData = await birthDayThisMonth(group);
-        cache.set(cacheKey, newData);
-        return newData.data;
-    }
-}
-async function birthDayThisMonth(group = null) {
-    const currentMonth = new Date().getMonth() + 1;
-    const options = {
-        isGraduate: false
-    };
-    if (group) options.group = group;
-    const data = await Member.aggregate([
-        {
-            $match: {
-                ...options,
-                $expr: {
-                    $eq: [
-                        {
-                            $month: '$birthdate'
-                        },
-                        currentMonth
-                    ]
-                }
-            }
-        }
-    ]).exec();
-    if (!data) throw createError({
-        statusMessage: 'Data not found!',
-        statusCode: 404
-    });
-    const result = [];
-    for (const member of data){
-        const showroom = member.showroom_id ? await Showroom.findOne({
-            room_id: member.showroom_id
-        }) : null;
-        result.push({
-            name: member.nicknames?.length ? member.nicknames[0] : member.name,
-            birthdate: member.birthdate,
-            img: member.img,
-            room_id: member.showroom_id,
-            url_key: showroom?.url
-        });
-    }
-    return {
-        data: result,
-        date: new Date()
-    };
+    const group = c.req.query('group') || 'jkt48';
+    const today = jakartaDateParts(new Date());
+    const profiles = await Member.find({isGraduate:false,group}).lean();
+    const members = profiles.filter(member => jakartaDateParts(member.birthdate)?.month === today.month)
+        .sort((a,b) => jakartaDateParts(a.birthdate).day-jakartaDateParts(b.birthdate).day);
+    return Promise.all(members.map(async member => {
+        const showroom = member.showroom_id ? await Showroom.findOne({room_id:member.showroom_id}).lean() : null;
+        return {name:member.nicknames?.[0] || member.name,birthdate:member.birthdate,img:member.img,
+            room_id:member.showroom_id,url_key:showroom?.url};
+    }));
 }
 export async function nextBirthDay(c) {
-    const group = c.req.query('group');
-    const today = dayjs();
-    const month = today.month();
-    const membersData = await IdolMember.find({
-        'info.is_graduate': false,
-        '$and': [
-            {
-                group: {
-                    $ne: 'official'
-                }
-            },
-            {
-                group
-            }
-        ]
-    }).lean();
-    const members = membersData.filter((i)=>i.info?.birthdate != null).map((i)=>{
-        return {
-            ...i,
-            birthdate: dayjs(i.info.birthdate)
-        };
-    }).sort((a, b)=>{
-        if (a.birthdate.month() === b.birthdate.month()) {
-            return a.birthdate.date() - b.birthdate.date();
-        } else {
-            return Math.abs(a.birthdate.month() - month) - Math.abs(b.birthdate.month() - month);
-        }
-    });
-    const lewat = members.filter((i)=>{
-        if (i.birthdate.month() === month) {
-            return i.birthdate.date() < today.date();
-        } else {
-            return i.birthdate.month() < month;
-        }
-    });
-    const next = members.filter((i)=>{
-        if (i.birthdate.month() === month) {
-            return i.birthdate.date() >= today.date();
-        } else {
-            return i.birthdate.month() > month;
-        }
-    });
-    const birthdays = [
-        ...next,
-        ...lewat
-    ].slice(0, 6);
-    const result = [];
-    for (const member of birthdays){
-        result.push({
-            name: member.info?.nicknames?.length ? member.info.nicknames[0] : member.name,
-            birthdate: member.birthdate,
-            img: member.info?.img,
-            room_id: member.showroom_id,
-            url_key: member?.slug
-        });
-    }
-    return result;
+    const group = c.req.query('group') || 'jkt48';
+    const members = await IdolMember.find({'info.is_graduate':false,group}).lean();
+    return upcomingBirthdays(members).map(member => ({
+        name:member.info?.nicknames?.[0] || member.name,birthdate:member.info.birthdate,
+        img:member.info?.img,room_id:member.showroom_id,url_key:member.slug
+    }));
 }

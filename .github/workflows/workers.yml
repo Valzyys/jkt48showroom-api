@@ -2,9 +2,9 @@ name: Cloudflare Workers Checks
 on:
   push:
     branches: [main, cloudflare-workers]
-    paths: ['workers/**', 'vps-scraper/**', '.github/workflows/workers.yml']
+    paths: ['workers/**', 'vps-scraper/**', 'live-collector/**', '.github/workflows/workers.yml']
   pull_request:
-    paths: ['workers/**', 'vps-scraper/**', '.github/workflows/workers.yml']
+    paths: ['workers/**', 'vps-scraper/**', 'live-collector/**', '.github/workflows/workers.yml']
 permissions:
   contents: read
 jobs:
@@ -36,8 +36,8 @@ jobs:
           node-version: '24'
       - run: npm ci
       - run: npm audit --omit=dev --json > /tmp/worker-audit.json
-      - run: npm test
       - run: npm run build
+      - run: npm test
       - run: npm run test:integration
       - uses: actions/upload-artifact@v4
         if: always()
@@ -61,3 +61,12 @@ jobs:
           name: worker-dependencies
           path: /tmp/worker-dependencies.tar.gz
           retention-days: 1
+
+  leaderboard-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node --test live-collector/tests/*.cjs

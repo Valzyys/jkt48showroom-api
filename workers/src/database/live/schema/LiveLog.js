@@ -130,6 +130,7 @@ const liveLogSchema = new Schema({
                                 type: Number,
                                 default: 1
                             },
+                            send_count: Number,
                             gold: Number,
                             point: Number,
                             date: Date

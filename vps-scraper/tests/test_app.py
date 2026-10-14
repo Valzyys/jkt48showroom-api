@@ -50,6 +50,20 @@ class ScraperTests(unittest.IsolatedAsyncioTestCase):
     def headers(self):
         return {"Authorization": "Bearer " + TOKEN}
 
+    async def test_image_scraping_requires_auth_and_accepts_only_raster_images(self):
+        session = FakeSession(FakeResponse(body=b"\xff\xd8\xfftest-image"))
+        async with self.client(session) as client:
+            self.assertEqual((await client.get("/images/media/member.jpg")).status_code, 401)
+            image = await client.get("/images/media/member.jpg", headers=self.headers())
+            self.assertEqual(image.status_code, 200)
+            self.assertEqual(image.headers["Content-Type"], "image/jpeg")
+            self.assertEqual(session.calls[0][0], "https://jkt48.com/api/v1/storages/media/member.jpg")
+            for path in ["/images/media/member.svg", "/images/media/member.jpg?url=https://evil.test"]:
+                self.assertEqual((await client.get(path, headers=self.headers())).status_code, 400)
+        self.assertTrue(session.response.closed)
+        async with self.client(FakeSession(FakeResponse(body=b"<html>challenge</html>"))) as client:
+            self.assertEqual((await client.get("/images/media/member.jpg", headers=self.headers())).status_code, 502)
+
     async def test_authentication_is_required_even_for_cached_responses(self):
         session = FakeSession()
         async with self.client(session) as client:

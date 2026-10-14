@@ -1,5 +1,6 @@
+import { effectiveBindings } from './control/settings.js';
 import { encode,decode } from 'cbor-x';
-import { runWithEnv } from './runtime/env.js';
+import { runWithEnv, env as runtimeEnv } from './runtime/env.js';
 
 const groups=['jkt48','hinatazaka46'];
 export class LiveHub {
@@ -23,7 +24,7 @@ export class LiveHub {
     const previous=await this.lives();
     const next=group?[...previous.filter(live=>live.group!==group),...lives.filter(live=>live.group===group)]:lives;
     await this.ctx.storage.put({lives:next,updatedAt:Date.now(),revision:(await this.ctx.storage.get('revision')||0)+1});
-    await this.ctx.storage.setAlarm(Date.now()+Number(this.env.LIVE_REFRESH_SECONDS||300)*1000);
+    await this.ctx.storage.setAlarm(Date.now()+Number(runtimeEnv.LIVE_REFRESH_SECONDS||this.env.LIVE_REFRESH_SECONDS||300)*1000);
     await this.broadcast();
   }
   async refresh() {
@@ -37,13 +38,13 @@ export class LiveHub {
       if((await this.ctx.storage.get('revision')||0)!==revision) return this.lives();
       await this.ctx.storage.put({lives,updatedAt:Date.now()});
       await this.broadcast();
-      await this.ctx.storage.setAlarm(Date.now()+Number(this.env.LIVE_REFRESH_SECONDS||300)*1000);
+      await this.ctx.storage.setAlarm(Date.now()+Number(runtimeEnv.LIVE_REFRESH_SECONDS||this.env.LIVE_REFRESH_SECONDS||300)*1000);
       return lives;
     })().finally(()=>{this.refreshPromise=null;});
     return this.refreshPromise;
   }
   async fetch(request) {
-    return runWithEnv(this.env,this.ctx,async()=>{
+    return runWithEnv(await effectiveBindings(this.env),this.ctx,async()=>{
       const path=new URL(request.url).pathname;
       if(path==='/lives') { if(await this.ctx.storage.get('updatedAt')==null) await this.refresh(); return Response.json(await this.lives()); }
       if(path==='/update' && request.method==='POST') { const data=await request.json(); await this.update(data.lives,data.group); return Response.json({ok:true}); }
@@ -62,7 +63,7 @@ export class LiveHub {
     });
   }
   async webSocketMessage(socket,raw) {
-    return runWithEnv(this.env,this.ctx,async()=>{
+    return runWithEnv(await effectiveBindings(this.env),this.ctx,async()=>{
       try {
         if(typeof raw==='string' || raw.byteLength>65536) { socket.close(1003,'Expected CBOR'); return; }
         const message=decode(new Uint8Array(raw));
@@ -87,5 +88,5 @@ export class LiveHub {
   }
   webSocketClose(socket,code) { socket.close(code); this.publishCount(); }
   webSocketError(socket) { socket.close(1011,'Connection error'); this.publishCount(); }
-  async alarm() { return runWithEnv(this.env,this.ctx,async()=>{ try { await this.refresh(); } finally { await this.ctx.storage.setAlarm(Date.now()+Number(this.env.LIVE_REFRESH_SECONDS||300)*1000); } }); }
+  async alarm() { return runWithEnv(await effectiveBindings(this.env),this.ctx,async()=>{ try { await this.refresh(); } finally { await this.ctx.storage.setAlarm(Date.now()+Number(runtimeEnv.LIVE_REFRESH_SECONDS||this.env.LIVE_REFRESH_SECONDS||300)*1000); } }); }
 }

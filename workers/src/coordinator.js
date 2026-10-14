@@ -1,3 +1,4 @@
+import { effectiveBindings } from './control/settings.js';
 import { runWithEnv } from './runtime/env.js';
 import { getApp } from './worker.js';
 import { synchronize } from './library/jkt48/scraper/sync.js';
@@ -17,7 +18,7 @@ export class Coordinator {
     return {allowed:record.count<=limit,retryAfter:Math.ceil((record.expires-now)/1000)};
   }
   fetch(request) {
-    const action=async()=>runWithEnv({...this.env,LOCAL_COORDINATOR:this},this.ctx,async()=>{
+    const action=async()=>runWithEnv({...await effectiveBindings(this.env),LOCAL_COORDINATOR:this},this.ctx,async()=>{
       if(new URL(request.url).pathname==='/jkt48-sync') {
         try {const {dataset,force}=await request.json();return Response.json(await synchronize(dataset,this.ctx.storage,{force:force===true}));}
         catch(error){return Response.json(publicSyncError(error)||{message:'JKT48 synchronization failed'},{status:error.status||500,headers:error.retryAfter?{'Retry-After':String(error.retryAfter)}:{}});}

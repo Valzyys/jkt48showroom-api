@@ -70,7 +70,6 @@ if (env.LOG === 'true') {
         app.use('*', logger(loggerPrint));
     }
 }
-const origins = (env.ORIGINS ?? '').split(',').map((i)=>i.trim());
 app.get('/stream', useCORS('self'), ...handler(getStream, {
     seconds: 20,
     useJson: false,
@@ -85,9 +84,7 @@ app.get('/weekly', ...handler(getWeekly, {
 app.get('/turn', async (c)=>{
     return c.json(await ofetch('https://speed.cloudflare.com/turn-creds'));
 });
-app.use('*', csrf({
-    origin: origins
-}));
+app.use('*', (c,next)=>csrf({origin:String(env.ORIGINS||'').split(',').map(value=>value.trim())})(c,next));
 app.route('/admin', admin);
 app.route('/auth', auth);
 app.route('/sitemap', sitemap);

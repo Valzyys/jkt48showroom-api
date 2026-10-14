@@ -3,11 +3,24 @@
   "name": "jkt48showroom-api",
   "main": "src/worker.js",
   "compatibility_date": "2026-07-01",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
-  "observability": { "enabled": true },
-  "build": { "command": "node scripts/prepare-env.js" },
-  "secrets": { "required": ["SECRET", "AUTH_SECRET", "JWT_SECRET", "API_KEY"] },
+  "observability": {
+    "enabled": true
+  },
+  "build": {
+    "command": "node scripts/prepare-env.js && node scripts/build-docs.js"
+  },
+  "secrets": {
+    "required": [
+      "SECRET",
+      "AUTH_SECRET",
+      "JWT_SECRET",
+      "API_KEY"
+    ]
+  },
   "vars": {
     "NODE_ENV": "production",
     "SHOWROOM_API": "https://www.showroom-live.com",
@@ -25,16 +38,73 @@
     "JKT48_AUTO_SYNC": "true",
     "JKT48_API_BASE": "https://jkt48.com/api/v1/",
     "JKT48_PROXY_URL": "",
-    "JKT48_SCRAPER_URL": "",
+    "JKT48_SCRAPER_URL": "https://scrape.jkt48connect.com/api/v1/",
     "JKT48_SYNC_SECONDS": "3600",
     "JKT48_NEWS_PAGES": "3",
     "JKT48_SCHEDULE_MONTHS": "3",
-    "JKT48_DETAIL_LIMIT": "20"
+    "JKT48_DETAIL_LIMIT": "20",
+    "COLLECTOR_ENABLED": "true",
+    "COLLECTOR_RECORD_VIDEO": "true",
+    "COLLECTOR_POLL_SECONDS": "30",
+    "COLLECTOR_SCREENSHOT_SECONDS": "60",
+    "COLLECTOR_SCREENSHOT_WIDTH": "640",
+    "COLLECTOR_MAX_SESSIONS": "6",
+    "DISABLE_SCREENSHOTS": "false",
+    "HALF_SCREENSHOTS": "false"
   },
-  "d1_databases": [{ "binding": "DB", "database_name": "jkt48showroom-api-db", "database_id": "d82f76e4-2bf9-4585-8a1f-c7d7dc870bac", "migrations_dir": "migrations" }],
-  "r2_buckets": [{ "binding": "IMAGES_BUCKET", "bucket_name": "jkt48showroom-api-images-bucket" }],
-  "durable_objects": { "bindings": [{ "name": "LIVE_HUB", "class_name": "LiveHub" }, { "name": "COORDINATOR", "class_name": "Coordinator" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveHub", "Coordinator"] }],
-  "triggers": { "crons": ["*/5 * * * *", "0 * * * *"] },
-  "alias": { "mongoose": "./src/runtime/database.js", "cli-progress": "./src/runtime/progress.js" }
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jkt48showroom-api-db",
+      "database_id": "d82f76e4-2bf9-4585-8a1f-c7d7dc870bac",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES_BUCKET",
+      "bucket_name": "jkt48showroom-api-images-bucket"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "LIVE_HUB",
+        "class_name": "LiveHub"
+      },
+      {
+        "name": "COORDINATOR",
+        "class_name": "Coordinator"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "LiveHub",
+        "Coordinator"
+      ]
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "*/5 * * * *",
+      "0 * * * *"
+    ]
+  },
+  "alias": {
+    "mongoose": "./src/runtime/database.js",
+    "cli-progress": "./src/runtime/progress.js"
+  },
+  "routes": [
+    {
+      "pattern": "api.jkt48connect.app",
+      "custom_domain": true
+    },
+    {
+      "pattern": "apitest.jkt48connect.com",
+      "custom_domain": true
+    }
+  ]
 }

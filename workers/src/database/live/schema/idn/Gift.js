@@ -5,7 +5,7 @@ const idnGiftSchema = new Schema({
     slug: String,
     gold: Number,
     point: Number,
-    image_url: Number,
+    image_url: String,
     animation_small: String,
     animation_large: String,
     bg_color: String,

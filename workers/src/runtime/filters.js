@@ -29,7 +29,7 @@ export function compileFilter(filter, isScalar = () => false) {
     for (const [operator, operand] of Object.entries(operators)) {
       const compare = { $eq: '=', $gt: '>', $gte: '>=', $lt: '<', $lte: '<=' }[operator];
       if (compare && operand != null && (typeof operand !== 'object' || operand instanceof Date || operand?.toDate)) { clauses.push(`${expression} ${compare} ?`); values.push(scalar(operand)); }
-      if (operator === '$in' && Array.isArray(operand) && operand.length && operand.every(x => x != null && ['string', 'number', 'boolean'].includes(typeof x))) { clauses.push(`${expression} IN (${operand.map(() => '?').join(',')})`); values.push(...operand.map(scalar)); }
+      if (operator === '$in' && Array.isArray(operand) && operand.length && operand.every(x => x != null && ['string', 'number', 'boolean'].includes(typeof x))) { clauses.push(`${expression} IN (SELECT value FROM json_each(?))`); values.push(JSON.stringify(operand.map(scalar))); }
     }
   }
   const keys = Object.keys(filter || {});

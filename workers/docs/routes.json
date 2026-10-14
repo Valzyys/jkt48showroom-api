@@ -1,0 +1,4869 @@
+{
+  "title": "JKT48 Connect API",
+  "author": "valzy",
+  "website": "https://jkt48connect.com",
+  "version": "0.14.2-workers.1",
+  "baseUrl": "https://api.jkt48connect.app",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "description": "Author, website, version",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/",
+      "response": {
+        "status": 200,
+        "body": {
+          "author": "valzy",
+          "website": "https://jkt48connect.com",
+          "version": "0.14.2-workers.1"
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/worker.js"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "description": "Pemeriksaan tabel D1; 200 siap, 503 belum initialized",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/health",
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "runtime": "cloudflare-workers"
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/worker.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/now_live",
+      "description": "`group=jkt48|hinatazaka46|all`, default jkt48; `debug` untuk upstream fallback/debug",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "group": "jkt48"
+      },
+      "examplePath": "/api/now_live",
+      "response": {
+        "status": 200,
+        "body": []
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/next_live",
+      "description": "Jadwal live Showroom berikutnya",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/next_live",
+      "response": {
+        "status": 200,
+        "body": []
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/idn_lives",
+      "description": "Daftar live IDN yang sesuai member",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/idn_lives",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/idn_user",
+      "description": "`user_id`; profil upstream IDN",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "user_id": "USER_ID"
+      },
+      "examplePath": "/api/idn_user",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/watch/:id",
+      "description": "`id` adalah room URL key; status, stream, komentar, gifts dan broadcast connection",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/watch/ID",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/watch/:id/idn",
+      "description": "`id` adalah username IDN; live detail",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/watch/ID/idn",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/stream",
+      "description": "`url` URL HTTPS CDN dalam allowlist; HLS dan binary segment",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "url": "https://live.showroom-live.com/PATH/master.m3u8"
+      },
+      "examplePath": "/api/stream",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "HEAD",
+      "path": "/api/stream",
+      "description": "`url` URL HTTPS CDN dalam allowlist; HLS dan binary segment",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "url": "https://live.showroom-live.com/PATH/master.m3u8"
+      },
+      "examplePath": "/api/stream",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/turn",
+      "description": "Request kredensial TURN upstream Cloudflare; status ketersediaan mengikuti upstream",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/turn",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/member",
+      "description": "`group`, default jkt48; array profil ringkas",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/member?group=jkt48",
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "_id": "b8146b538e3431a3bcd5cb15",
+            "jkt48_id": "1",
+            "name": "Abigail Rachel",
+            "nicknames": [
+              "Aralie"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/abigail_rachel.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/abigail_rachel.jpg",
+            "url": "abigail-rachel",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "9b8e11e2f25f8ad42bae261f",
+            "jkt48_id": "2",
+            "name": "Adeline Wijaya",
+            "nicknames": [
+              "Delynn"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/adeline_wijaya.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/adeline_wijaya.jpg",
+            "url": "adeline-wijaya",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "41dd260192ecd7aa6908f23b",
+            "jkt48_id": "6",
+            "name": "Afera Thalia",
+            "nicknames": [
+              "Fera"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/afera_thalia.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/afera_thalia.jpg",
+            "url": "afera-thalia",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "9eb8f55a2ecf24097e20ecb7",
+            "jkt48_id": "22",
+            "name": "Angelina Christy",
+            "nicknames": [
+              "Christy"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/angelina_christy.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/angelina_christy.jpg",
+            "url": "angelina-christy",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "6ee1c5bebe8c4db23404de2a",
+            "jkt48_id": "26",
+            "name": "Anindya Ramadhani",
+            "nicknames": [
+              "Anindya"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/anindya_ramadhani.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/anindya_ramadhani.jpg",
+            "url": "anindya-ramadhani",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "e12bf2f663efc7fe32716b68",
+            "jkt48_id": "28",
+            "name": "Astrella Virgiananda",
+            "nicknames": [
+              "Virgi"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Astrella_Virgiananda.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Astrella_Virgiananda.jpg",
+            "url": "astrella-virgiananda",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "417012cafe0f40900a8c8e7f",
+            "jkt48_id": "31",
+            "name": "Aurellia",
+            "nicknames": [
+              "Lia"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/aurellia.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/aurellia.jpg",
+            "url": "aurellia",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "0d8a1a9b1062988b8677611d",
+            "jkt48_id": "33",
+            "name": "Aurhel Alana",
+            "nicknames": [
+              "Lana"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/aurhel_alana.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/aurhel_alana.jpg",
+            "url": "aurhel-alana",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "17bf93f3022f6bb1b96e381a",
+            "jkt48_id": "39",
+            "name": "Bong Aprilli",
+            "nicknames": [
+              "Rilly"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Bong_Aprilli.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Bong_Aprilli.jpg",
+            "url": "bong-aprilli",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "676f766f31df57648e0e4de8",
+            "jkt48_id": "43",
+            "name": "Carissa Dini",
+            "nicknames": [
+              "Carissa"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/carissa_dini.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/carissa_dini.jpg",
+            "url": "carissa-dini",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "ce85f1d2635cd475d3d4cb2d",
+            "jkt48_id": "44",
+            "name": "Catherina Vallencia",
+            "nicknames": [
+              "Erine"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/catherina_vallencia.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/catherina_vallencia.jpg",
+            "url": "catherina-vallencia",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "178639dbbcaec6f4ea803f31",
+            "jkt48_id": "46",
+            "name": "Celline Thefani",
+            "nicknames": [
+              "Elin"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/celline_thefani.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/celline_thefani.jpg",
+            "url": "celline-thefani",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "a25e62a038112b4b2a433613",
+            "jkt48_id": "52",
+            "name": "Christabella Bonita",
+            "nicknames": [
+              "Bella"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/christabella_bonita.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/christabella_bonita.jpg",
+            "url": "christabella-bonita",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "f314b4555aee99039ba10bae",
+            "jkt48_id": "59",
+            "name": "Cornelia Vanisa",
+            "nicknames": [
+              "Oniel"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/cornelia_vanisa.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/cornelia_vanisa.jpg",
+            "url": "cornelia-vanisa",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "a307ae1b01fecbce12c1ade8",
+            "jkt48_id": "60",
+            "name": "Cynthia Yaputera",
+            "nicknames": [
+              "Cynthia"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/cynthia_yaputera.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/cynthia_yaputera.jpg",
+            "url": "cynthia-yaputera",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "d68706e13e56608cb999a6da",
+            "jkt48_id": "64",
+            "name": "Dena Natalia",
+            "nicknames": [
+              "Danella"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/dena_natalia.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/dena_natalia.jpg",
+            "url": "dena-natalia",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "0036e5e16c640fedb0f0ec0d",
+            "jkt48_id": "67",
+            "name": "Desy Natalia",
+            "nicknames": [
+              "Daisy"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/desy_natalia.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/desy_natalia.jpg",
+            "url": "desy-natalia",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "e613411f130b9d1cfc5d5a75",
+            "jkt48_id": "82",
+            "name": "Fahira Putri",
+            "nicknames": [
+              "Fahira"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fahira_putri.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fahira_putri.jpg",
+            "url": "fahira-putri",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "9e646d6b6a8e1ea41511ce0e",
+            "jkt48_id": "85",
+            "name": "Fatimah Azzahra",
+            "nicknames": [
+              "Rara"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fatimah_azzahra.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fatimah_azzahra.jpg",
+            "url": "fatimah-azzahra",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "1b43e3582efb017ed0753c9c",
+            "jkt48_id": "88",
+            "name": "Febriola Sinambela",
+            "nicknames": [
+              "Olla"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/febriola_sinambela.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/febriola_sinambela.jpg",
+            "url": "febriola-sinambela",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "b6848d3ee295537b344b2358",
+            "jkt48_id": "89",
+            "name": "Feni Fitriyanti",
+            "nicknames": [
+              "Feni"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/2026/10/fenifitriyantiphoto-1-942dd7.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/2026/10/fenifitriyantiphoto-1-942dd7.jpg",
+            "url": "feni-fitriyanti",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "60a116667c9e762f21f54596",
+            "jkt48_id": "91",
+            "name": "Fiony Alveria",
+            "nicknames": [
+              "Fiony"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fiony_alveria.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fiony_alveria.jpg",
+            "url": "fiony-alveria",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "344cc627333afeeb345e623f",
+            "jkt48_id": "94",
+            "name": "Freya Jayawardana",
+            "nicknames": [
+              "Freya"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/freya_jayawardana.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/freya_jayawardana.jpg",
+            "url": "freya-jayawardana",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "e9d36590d2673351c55383dc",
+            "jkt48_id": "96",
+            "name": "Fritzy Rosmerian",
+            "nicknames": [
+              "Fritzy"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fritzy_rosmerian.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fritzy_rosmerian.jpg",
+            "url": "fritzy-rosmerian",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "ac13cb0aa4e0c3292de2a744",
+            "jkt48_id": "97",
+            "name": "Gabriela Abigail",
+            "nicknames": [
+              "Ella"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/gabriela_abigail.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/gabriela_abigail.jpg",
+            "url": "gabriela-abigail",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "6cbed876f8efe0cf4e475f12",
+            "jkt48_id": "104",
+            "name": "Gita Sekar Andarini",
+            "nicknames": [
+              "Gita"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/gita_sekar_andarini.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/gita_sekar_andarini.jpg",
+            "url": "gita-sekar-andarini",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "71c3d76f937bd36c6473492f",
+            "jkt48_id": "105",
+            "name": "Grace Octaviani",
+            "nicknames": [
+              "Gracie"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/grace_octaviani.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/grace_octaviani.jpg",
+            "url": "grace-octaviani",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "16e80487da37226a81690cae",
+            "jkt48_id": "107",
+            "name": "Greesella Adhalia",
+            "nicknames": [
+              "Greesel"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/greesella_adhalia.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/greesella_adhalia.jpg",
+            "url": "greesella-adhalia",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "00daac62dd30af2d688bc491",
+            "jkt48_id": "108",
+            "name": "Hagia Sopia",
+            "nicknames": [
+              "Giaa"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Hagia_Sopia.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Hagia_Sopia.jpg",
+            "url": "hagia-sopia",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "5f79d34c4ce4c1782b1a8fdf",
+            "jkt48_id": "111",
+            "name": "Heidi Suyangga",
+            "nicknames": [
+              "Heidi"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/heidi_suyangga.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/heidi_suyangga.jpg",
+            "url": "heidi-suyangga",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "288f6a4d58b0bdd7467ba03a",
+            "jkt48_id": "112",
+            "name": "Helisma Putri",
+            "nicknames": [
+              "Eli"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/helisma_putri.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/helisma_putri.jpg",
+            "url": "helisma-putri",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "3f51e3159630271194c7fea8",
+            "jkt48_id": "114",
+            "name": "Hillary Abigail",
+            "nicknames": [
+              "Lily"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/hillary_abigail.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/hillary_abigail.jpg",
+            "url": "hillary-abigail",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "2a47f92c8239ad1e32029b14",
+            "jkt48_id": "115",
+            "name": "Humaira Ramadhani",
+            "nicknames": [
+              "Maira"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Humaira_Ramadhani.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Humaira_Ramadhani.jpg",
+            "url": "humaira-ramadhani",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "92054c73e139bdbf8733f12b",
+            "jkt48_id": "116",
+            "name": "Indah Cahya",
+            "nicknames": [
+              "Indah"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/indah_cahya.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/indah_cahya.jpg",
+            "url": "indah-cahya",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "e82c9619a82d24903c0b0d33",
+            "jkt48_id": "120",
+            "name": "Jacqueline Immanuela",
+            "nicknames": [
+              "Ekin"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Jacqueline_Immanuela.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Jacqueline_Immanuela.jpg",
+            "url": "jacqueline-immanuela",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "e07a4ad25dd66999396c87fa",
+            "jkt48_id": "121",
+            "name": "Jazzlyn Trisha",
+            "nicknames": [
+              "Trisha"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jazzlyn_trisha.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jazzlyn_trisha.jpg",
+            "url": "jazzlyn-trisha",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "f0625c2c736eb2a236d7fa3d",
+            "jkt48_id": "123",
+            "name": "Jemima Evodie",
+            "nicknames": [
+              "Jemima"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Jemima_Evodie.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Jemima_Evodie.jpg",
+            "url": "jemima-evodie",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "12dc4ca281841b983a6a083f",
+            "jkt48_id": "127",
+            "name": "Jessica Chandra",
+            "nicknames": [
+              "Jessi"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jessica_chandra.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jessica_chandra.jpg",
+            "url": "jessica-chandra",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "61f17f537bfcf5af2fe5dba2",
+            "jkt48_id": "131",
+            "name": "Jesslyn Elly",
+            "nicknames": [
+              "Lyn"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jesslyn_elly.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jesslyn_elly.jpg",
+            "url": "jesslyn-elly",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "efa34bef327ddeec15c814e1",
+            "jkt48_id": "143",
+            "name": "Kathrina Irene",
+            "nicknames": [
+              "Kathrina"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/kathrina_irene.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/kathrina_irene.jpg",
+            "url": "kathrina-irene",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "418193e5dfbc2f4b574f4fd4",
+            "jkt48_id": "148",
+            "name": "Lulu Salsabila",
+            "nicknames": [
+              "Lulu"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/lulu_salsabila.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/lulu_salsabila.jpg",
+            "url": "lulu-salsabila",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "154d7cfc9c1d6b66aea9faef",
+            "jkt48_id": "152",
+            "name": "Marsha Lenathea",
+            "nicknames": [
+              "Marsha"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/marsha_lenathea.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/marsha_lenathea.jpg",
+            "url": "marsha-lenathea",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "9b246b7ee27bd2f873cf80e7",
+            "jkt48_id": "155",
+            "name": "Maxine Faye",
+            "nicknames": [
+              "Maxine"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/maxine_faye_lee.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/maxine_faye_lee.jpg",
+            "url": "maxine-faye",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "b9512570369641220c5d9341",
+            "jkt48_id": "159",
+            "name": "Michelle Alexandra",
+            "nicknames": [
+              "Michie"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/michelle_alexandra.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/michelle_alexandra.jpg",
+            "url": "michelle-alexandra",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "a31f5f8d8b5e71e48487b4a1",
+            "jkt48_id": "161",
+            "name": "Michelle Levia",
+            "nicknames": [
+              "Levi"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/michelle_levia.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/michelle_levia.jpg",
+            "url": "michelle-levia",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "d2a4d77c7baadc596fc3e6c5",
+            "jkt48_id": "162",
+            "name": "Mikaela Kusjanto",
+            "nicknames": [
+              "Mikaela"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Mikaela_Kusjanto.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Mikaela_Kusjanto.jpg",
+            "url": "mikaela-kusjanto",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "3487618886b61e8a32e26f50",
+            "jkt48_id": "166",
+            "name": "Mutiara Azzahra",
+            "nicknames": [
+              "Muthe"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/mutiara_azzahra.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/mutiara_azzahra.jpg",
+            "url": "mutiara-azzahra",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "66b9fcf5e25d9c0325c985fa",
+            "jkt48_id": "175",
+            "name": "Nayla Suji",
+            "nicknames": [
+              "Nayla"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/nayla_suji.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/nayla_suji.jpg",
+            "url": "nayla-suji",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "43928d2418621cb446e3dff5",
+            "jkt48_id": "178",
+            "name": "Nina Tutachia",
+            "nicknames": [
+              "Nachia"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/nina_tutachia.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/nina_tutachia.jpg",
+            "url": "nina-tutachia",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "02755dc4e4bef35f03954cf1",
+            "jkt48_id": "182",
+            "name": "Nur Intan",
+            "nicknames": [
+              "Intan"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Nur_Intan.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Nur_Intan.jpg",
+            "url": "nur-intan",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "27f4ae7c0473f1839205e41e",
+            "jkt48_id": "185",
+            "name": "Oline Manuel",
+            "nicknames": [
+              "Oline"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/oline_manuel.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/oline_manuel.jpg",
+            "url": "oline-manuel",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "d28dc795bd83c14db90eaba0",
+            "jkt48_id": "194",
+            "name": "Putry Jazyta",
+            "nicknames": [
+              "Jazzy"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/putry_jazyta.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/putry_jazyta.jpg",
+            "url": "putry-jazyta",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "d5a614a35ccae633d668cf72",
+            "jkt48_id": "195",
+            "name": "Raisha Syifa",
+            "nicknames": [
+              "Raisha"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/raisha_syifa.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/raisha_syifa.jpg",
+            "url": "raisha-syifa",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "458f8f01a2648af44190061b",
+            "jkt48_id": "196",
+            "name": "Ralyne Van Irwan",
+            "nicknames": [
+              "Ralyne"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/ralyne_van_irwan.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/ralyne_van_irwan.jpg",
+            "url": "ralyne-van-irwan",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "5159cd1927bdfc1bbd02f68d",
+            "jkt48_id": "204",
+            "name": "Ribka Budiman",
+            "nicknames": [
+              "Ribka"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/ribka_budiman.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/ribka_budiman.jpg",
+            "url": "ribka-budiman",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "56a66efa093db33c62ca7cb4",
+            "jkt48_id": "221",
+            "name": "Shabilqis Naila",
+            "nicknames": [
+              "Nala"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/shabilqis_naila.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/shabilqis_naila.jpg",
+            "url": "shabilqis-naila",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "c9fe1a255460cf14fe2612fb",
+            "jkt48_id": "231",
+            "name": "Sona Kalyana",
+            "nicknames": [
+              "Sona"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/sona_kalyana.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/sona_kalyana.jpg",
+            "url": "sona-kalyana",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          },
+          {
+            "_id": "36c0ce6e1e9bc89289319e60",
+            "jkt48_id": "244",
+            "name": "Victoria Kimberly",
+            "nicknames": [
+              "Kimmy"
+            ],
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/victoria_kimberly.jpg",
+            "img_alt": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/victoria_kimberly.jpg",
+            "url": "victoria-kimberly",
+            "group": "jkt48",
+            "sr_exists": false,
+            "is_graduate": false
+          }
+        ]
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/member/:id",
+      "description": "`id` slug member atau room URL key; profil lengkap dan ringkasan live",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/member/nama-member",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/member_profile_videos",
+      "description": "Video profil member sesuai filter sumber",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/member_profile_videos",
+      "response": {
+        "status": 200,
+        "body": []
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/48/member",
+      "description": "`group`; daftar member database 48 group",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "group": "jkt48"
+      },
+      "examplePath": "/api/48/member?group=jkt48",
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "id": "b8146b538e3431a3bcd5cb15",
+            "name": "Abigail Rachel",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/abigail_rachel.jpg"
+          },
+          {
+            "id": "9b8e11e2f25f8ad42bae261f",
+            "name": "Adeline Wijaya",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/adeline_wijaya.jpg"
+          },
+          {
+            "id": "41dd260192ecd7aa6908f23b",
+            "name": "Afera Thalia",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/afera_thalia.jpg"
+          },
+          {
+            "id": "9eb8f55a2ecf24097e20ecb7",
+            "name": "Angelina Christy",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/angelina_christy.jpg"
+          },
+          {
+            "id": "6ee1c5bebe8c4db23404de2a",
+            "name": "Anindya Ramadhani",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/anindya_ramadhani.jpg"
+          },
+          {
+            "id": "e12bf2f663efc7fe32716b68",
+            "name": "Astrella Virgiananda",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Astrella_Virgiananda.jpg"
+          },
+          {
+            "id": "417012cafe0f40900a8c8e7f",
+            "name": "Aurellia",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/aurellia.jpg"
+          },
+          {
+            "id": "0d8a1a9b1062988b8677611d",
+            "name": "Aurhel Alana",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/aurhel_alana.jpg"
+          },
+          {
+            "id": "17bf93f3022f6bb1b96e381a",
+            "name": "Bong Aprilli",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Bong_Aprilli.jpg"
+          },
+          {
+            "id": "676f766f31df57648e0e4de8",
+            "name": "Carissa Dini",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/carissa_dini.jpg"
+          },
+          {
+            "id": "ce85f1d2635cd475d3d4cb2d",
+            "name": "Catherina Vallencia",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/catherina_vallencia.jpg"
+          },
+          {
+            "id": "178639dbbcaec6f4ea803f31",
+            "name": "Celline Thefani",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/celline_thefani.jpg"
+          },
+          {
+            "id": "a25e62a038112b4b2a433613",
+            "name": "Christabella Bonita",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/christabella_bonita.jpg"
+          },
+          {
+            "id": "f314b4555aee99039ba10bae",
+            "name": "Cornelia Vanisa",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/cornelia_vanisa.jpg"
+          },
+          {
+            "id": "a307ae1b01fecbce12c1ade8",
+            "name": "Cynthia Yaputera",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/cynthia_yaputera.jpg"
+          },
+          {
+            "id": "d68706e13e56608cb999a6da",
+            "name": "Dena Natalia",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/dena_natalia.jpg"
+          },
+          {
+            "id": "0036e5e16c640fedb0f0ec0d",
+            "name": "Desy Natalia",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/desy_natalia.jpg"
+          },
+          {
+            "id": "e613411f130b9d1cfc5d5a75",
+            "name": "Fahira Putri",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fahira_putri.jpg"
+          },
+          {
+            "id": "9e646d6b6a8e1ea41511ce0e",
+            "name": "Fatimah Azzahra",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fatimah_azzahra.jpg"
+          },
+          {
+            "id": "1b43e3582efb017ed0753c9c",
+            "name": "Febriola Sinambela",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/febriola_sinambela.jpg"
+          },
+          {
+            "id": "b6848d3ee295537b344b2358",
+            "name": "Feni Fitriyanti",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/2026/10/fenifitriyantiphoto-1-942dd7.jpg"
+          },
+          {
+            "id": "60a116667c9e762f21f54596",
+            "name": "Fiony Alveria",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fiony_alveria.jpg"
+          },
+          {
+            "id": "344cc627333afeeb345e623f",
+            "name": "Freya Jayawardana",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/freya_jayawardana.jpg"
+          },
+          {
+            "id": "e9d36590d2673351c55383dc",
+            "name": "Fritzy Rosmerian",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fritzy_rosmerian.jpg"
+          },
+          {
+            "id": "ac13cb0aa4e0c3292de2a744",
+            "name": "Gabriela Abigail",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/gabriela_abigail.jpg"
+          },
+          {
+            "id": "6cbed876f8efe0cf4e475f12",
+            "name": "Gita Sekar Andarini",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/gita_sekar_andarini.jpg"
+          },
+          {
+            "id": "71c3d76f937bd36c6473492f",
+            "name": "Grace Octaviani",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/grace_octaviani.jpg"
+          },
+          {
+            "id": "16e80487da37226a81690cae",
+            "name": "Greesella Adhalia",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/greesella_adhalia.jpg"
+          },
+          {
+            "id": "00daac62dd30af2d688bc491",
+            "name": "Hagia Sopia",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Hagia_Sopia.jpg"
+          },
+          {
+            "id": "5f79d34c4ce4c1782b1a8fdf",
+            "name": "Heidi Suyangga",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/heidi_suyangga.jpg"
+          },
+          {
+            "id": "288f6a4d58b0bdd7467ba03a",
+            "name": "Helisma Putri",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/helisma_putri.jpg"
+          },
+          {
+            "id": "3f51e3159630271194c7fea8",
+            "name": "Hillary Abigail",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/hillary_abigail.jpg"
+          },
+          {
+            "id": "2a47f92c8239ad1e32029b14",
+            "name": "Humaira Ramadhani",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Humaira_Ramadhani.jpg"
+          },
+          {
+            "id": "92054c73e139bdbf8733f12b",
+            "name": "Indah Cahya",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/indah_cahya.jpg"
+          },
+          {
+            "id": "e82c9619a82d24903c0b0d33",
+            "name": "Jacqueline Immanuela",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Jacqueline_Immanuela.jpg"
+          },
+          {
+            "id": "e07a4ad25dd66999396c87fa",
+            "name": "Jazzlyn Trisha",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jazzlyn_trisha.jpg"
+          },
+          {
+            "id": "f0625c2c736eb2a236d7fa3d",
+            "name": "Jemima Evodie",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Jemima_Evodie.jpg"
+          },
+          {
+            "id": "12dc4ca281841b983a6a083f",
+            "name": "Jessica Chandra",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jessica_chandra.jpg"
+          },
+          {
+            "id": "61f17f537bfcf5af2fe5dba2",
+            "name": "Jesslyn Elly",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jesslyn_elly.jpg"
+          },
+          {
+            "id": "efa34bef327ddeec15c814e1",
+            "name": "Kathrina Irene",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/kathrina_irene.jpg"
+          },
+          {
+            "id": "418193e5dfbc2f4b574f4fd4",
+            "name": "Lulu Salsabila",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/lulu_salsabila.jpg"
+          },
+          {
+            "id": "154d7cfc9c1d6b66aea9faef",
+            "name": "Marsha Lenathea",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/marsha_lenathea.jpg"
+          },
+          {
+            "id": "9b246b7ee27bd2f873cf80e7",
+            "name": "Maxine Faye",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/maxine_faye_lee.jpg"
+          },
+          {
+            "id": "b9512570369641220c5d9341",
+            "name": "Michelle Alexandra",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/michelle_alexandra.jpg"
+          },
+          {
+            "id": "a31f5f8d8b5e71e48487b4a1",
+            "name": "Michelle Levia",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/michelle_levia.jpg"
+          },
+          {
+            "id": "d2a4d77c7baadc596fc3e6c5",
+            "name": "Mikaela Kusjanto",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Mikaela_Kusjanto.jpg"
+          },
+          {
+            "id": "3487618886b61e8a32e26f50",
+            "name": "Mutiara Azzahra",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/mutiara_azzahra.jpg"
+          },
+          {
+            "id": "66b9fcf5e25d9c0325c985fa",
+            "name": "Nayla Suji",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/nayla_suji.jpg"
+          },
+          {
+            "id": "43928d2418621cb446e3dff5",
+            "name": "Nina Tutachia",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/nina_tutachia.jpg"
+          },
+          {
+            "id": "02755dc4e4bef35f03954cf1",
+            "name": "Nur Intan",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/Nur_Intan.jpg"
+          },
+          {
+            "id": "27f4ae7c0473f1839205e41e",
+            "name": "Oline Manuel",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/oline_manuel.jpg"
+          },
+          {
+            "id": "d28dc795bd83c14db90eaba0",
+            "name": "Putry Jazyta",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/putry_jazyta.jpg"
+          },
+          {
+            "id": "d5a614a35ccae633d668cf72",
+            "name": "Raisha Syifa",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/raisha_syifa.jpg"
+          },
+          {
+            "id": "458f8f01a2648af44190061b",
+            "name": "Ralyne Van Irwan",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/ralyne_van_irwan.jpg"
+          },
+          {
+            "id": "5159cd1927bdfc1bbd02f68d",
+            "name": "Ribka Budiman",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/ribka_budiman.jpg"
+          },
+          {
+            "id": "56a66efa093db33c62ca7cb4",
+            "name": "Shabilqis Naila",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/shabilqis_naila.jpg"
+          },
+          {
+            "id": "c9fe1a255460cf14fe2612fb",
+            "name": "Sona Kalyana",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/sona_kalyana.jpg"
+          },
+          {
+            "id": "36c0ce6e1e9bc89289319e60",
+            "name": "Victoria Kimberly",
+            "is_graduate": false,
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/victoria_kimberly.jpg"
+          }
+        ]
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/birthday",
+      "description": "`group`, default jkt48; ulang tahun bulan berjalan (WIB)",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "group": "jkt48"
+      },
+      "examplePath": "/api/birthday",
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "name": "Ralyne",
+            "birthdate": "2011-10-14T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/ralyne_van_irwan.jpg"
+          },
+          {
+            "name": "Nachia",
+            "birthdate": "2009-10-15T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/nina_tutachia.jpg"
+          },
+          {
+            "name": "Anindya",
+            "birthdate": "2005-10-17T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/anindya_ramadhani.jpg"
+          },
+          {
+            "name": "Gracie",
+            "birthdate": "2007-10-17T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/grace_octaviani.jpg"
+          },
+          {
+            "name": "Lily",
+            "birthdate": "2007-10-18T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/hillary_abigail.jpg"
+          },
+          {
+            "name": "Fera",
+            "birthdate": "2012-10-19T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/afera_thalia.jpg"
+          },
+          {
+            "name": "Lulu",
+            "birthdate": "2002-10-22T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/lulu_salsabila.jpg"
+          },
+          {
+            "name": "Lia",
+            "birthdate": "2002-10-28T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/aurellia.jpg"
+          }
+        ]
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/next_birthday",
+      "description": "`group`, default jkt48; enam ulang tahun terdekat (WIB)",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "group": "jkt48"
+      },
+      "examplePath": "/api/next_birthday",
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "name": "Ralyne",
+            "birthdate": "2011-10-14T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/ralyne_van_irwan.jpg",
+            "url_key": "ralyne-van-irwan"
+          },
+          {
+            "name": "Nachia",
+            "birthdate": "2009-10-15T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/nina_tutachia.jpg",
+            "url_key": "nina-tutachia"
+          },
+          {
+            "name": "Anindya",
+            "birthdate": "2005-10-17T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/anindya_ramadhani.jpg",
+            "url_key": "anindya-ramadhani"
+          },
+          {
+            "name": "Gracie",
+            "birthdate": "2007-10-17T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/grace_octaviani.jpg",
+            "url_key": "grace-octaviani"
+          },
+          {
+            "name": "Lily",
+            "birthdate": "2007-10-18T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/hillary_abigail.jpg",
+            "url_key": "hillary-abigail"
+          },
+          {
+            "name": "Fera",
+            "birthdate": "2012-10-19T17:00:00.000Z",
+            "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/afera_thalia.jpg",
+            "url_key": "afera-thalia"
+          }
+        ]
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/banner",
+      "description": "Banner per grup",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/banner",
+      "response": {
+        "status": 200,
+        "body": {}
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jkt48_youtube",
+      "description": "Video terbaru kanal JKT48/JKT48TV; perlu API YouTube",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/jkt48_youtube",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jkt48v_live",
+      "description": "YouTube live kanal `JKT48V_YT_IDS`; perlu API YouTube",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/jkt48v_live",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/leaderboard",
+      "description": "Leaderboard Saweria upstream; perlu SAWERIA_KEY",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/leaderboard",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/weekly",
+      "description": "`type`, `platform`, `format`, `api_key`; weekly gift/viewers/duration/follower/total-live/no-live/theater sesuai handler",
+      "group": "Publik",
+      "auth": "API key dalam query",
+      "query": {
+        "type": "live",
+        "platform": "all",
+        "format": "normal",
+        "api_key": "SERVER_API_KEY"
+      },
+      "examplePath": "/api/weekly",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/weekly"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom_competition",
+      "description": "Ranking kompetisi snapshot dari database",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/showroom_competition",
+      "response": {
+        "status": 200,
+        "body": {
+          "event": {
+            "event_name": "jkt48_japantvcompetition",
+            "event_type": "ranking",
+            "show_ranking": 1,
+            "started_at": 1772334000,
+            "ended_at": 1773500399,
+            "image": "https://static.showroom-live.com/image/room/cover/c72dbd1e6eba3f9ed8ca103657bb874a7549ed496347b58f1b2d83b7d53f3b9b_s.png?v=1775099546",
+            "event_url": "https://www.showroom-live.com/event/jkt48_japantvcompetition"
+          },
+          "date": "2026-10-13T11:28:12.048Z",
+          "rankings": [
+            {
+              "rank": 1,
+              "point": 11642958,
+              "room": {
+                "room_id": 461452,
+                "image": "https://static.showroom-live.com/image/room/cover/ab71b7dec20fb6950c5afba136808e39486665d861f0592d1457a9682f78736b_m.jpeg?v=1791812669",
+                "image_square": "https://static.showroom-live.com/image/room/cover/ab71b7dec20fb6950c5afba136808e39486665d861f0592d1457a9682f78736b_square_m.jpeg?v=1791812669",
+                "name": "Anindya /アニンディア（JKT48）",
+                "nickname": "Anindya /アニンディア（JKT48）"
+              }
+            },
+            {
+              "rank": 2,
+              "point": 11220038,
+              "room": {
+                "room_id": 509992,
+                "image": "https://static.showroom-live.com/image/room/cover/2ad9a198ac8cc653476c6c5c3b29d8089e621299ab2cb6fa97159e92eb733d7d_m.jpeg?v=1791391003",
+                "image_square": "https://static.showroom-live.com/image/room/cover/2ad9a198ac8cc653476c6c5c3b29d8089e621299ab2cb6fa97159e92eb733d7d_square_m.jpeg?v=1791391003",
+                "name": "Delynn / デリンヌ（JKT48）",
+                "nickname": "Delynn / デリンヌ（JKT48）"
+              }
+            },
+            {
+              "rank": 3,
+              "point": 11107399,
+              "room": {
+                "room_id": 461478,
+                "image": "https://static.showroom-live.com/image/room/cover/510862226ac09996461772b226e5fa4a30ce574bce18672725724e0284c8fed2_m.jpeg?v=1791646785",
+                "image_square": "https://static.showroom-live.com/image/room/cover/510862226ac09996461772b226e5fa4a30ce574bce18672725724e0284c8fed2_square_m.jpeg?v=1791646785",
+                "name": "Gracie /グレイシー（JKT48）",
+                "nickname": "Gracie /グレイシー（JKT48）"
+              }
+            },
+            {
+              "rank": 4,
+              "point": 10609593,
+              "room": {
+                "room_id": 461479,
+                "image": "https://static.showroom-live.com/image/room/cover/940f5a1692b60af65bcec53d6db81138436b4ada3b796b7f0ac69aab2c4870bd_m.jpeg?v=1790945717",
+                "image_square": "https://static.showroom-live.com/image/room/cover/940f5a1692b60af65bcec53d6db81138436b4ada3b796b7f0ac69aab2c4870bd_square_m.jpeg?v=1790945717",
+                "name": "Greesel /グリーセル（JKT48）",
+                "nickname": "Greesel /グリーセル（JKT48）"
+              }
+            },
+            {
+              "rank": 5,
+              "point": 7297410,
+              "room": {
+                "room_id": 510011,
+                "image": "https://static.showroom-live.com/image/room/cover/f5a4b163de5618013399ceb9dca9028aa00ef7e635813ca9f06aa941024f6890_m.jpeg?v=1776737696",
+                "image_square": "https://static.showroom-live.com/image/room/cover/f5a4b163de5618013399ceb9dca9028aa00ef7e635813ca9f06aa941024f6890_square_m.jpeg?v=1776737696",
+                "name": "Fritzy / フリッツィー（JKT48）",
+                "nickname": "Fritzy / フリッツィー（JKT48）"
+              }
+            },
+            {
+              "rank": 6,
+              "point": 3178603,
+              "room": {
+                "room_id": 318117,
+                "image": "https://static.showroom-live.com/image/room/cover/388fa55ee4ee2a438a34d1b0a71de03f472b76b5560203930f103850edb577c8_m.jpeg?v=1776684928",
+                "image_square": "https://static.showroom-live.com/image/room/cover/388fa55ee4ee2a438a34d1b0a71de03f472b76b5560203930f103850edb577c8_square_m.jpeg?v=1776684928",
+                "name": "Gita/ギタ（JKT48）",
+                "nickname": "Gita/ギタ（JKT48）"
+              }
+            },
+            {
+              "rank": 7,
+              "point": 1939542,
+              "room": {
+                "room_id": 510065,
+                "image": "https://static.showroom-live.com/image/room/cover/be9cc81c23250f46d686c9a750c5876b19f6c93234b2d3bdabc5c71ae9be4835_m.jpeg?v=1791269818",
+                "image_square": "https://static.showroom-live.com/image/room/cover/be9cc81c23250f46d686c9a750c5876b19f6c93234b2d3bdabc5c71ae9be4835_square_m.jpeg?v=1791269818",
+                "name": "Nachia / ナチア（JKT48）",
+                "nickname": "Nachia / ナチア（JKT48）"
+              }
+            },
+            {
+              "rank": 8,
+              "point": 1347433,
+              "room": {
+                "room_id": 510012,
+                "image": "https://static.showroom-live.com/image/room/cover/60d4c94941de7e2ab93f05ed5eb60dd1ae7b97936422b289335be63f23d61b27_m.jpeg?v=1791454849",
+                "image_square": "https://static.showroom-live.com/image/room/cover/60d4c94941de7e2ab93f05ed5eb60dd1ae7b97936422b289335be63f23d61b27_square_m.jpeg?v=1791454849",
+                "name": "Lily / リリー（JKT48）",
+                "nickname": "Lily / リリー（JKT48）"
+              }
+            },
+            {
+              "rank": 9,
+              "point": 1164678,
+              "room": {
+                "room_id": 318223,
+                "image": "https://static.showroom-live.com/image/room/cover/a2345e2127cf122ef7adb9d988a41e080dbd7f0db28bfc113335b7a341b68c7e_m.jpeg?v=1791022072",
+                "image_square": "https://static.showroom-live.com/image/room/cover/a2345e2127cf122ef7adb9d988a41e080dbd7f0db28bfc113335b7a341b68c7e_square_m.jpeg?v=1791022072",
+                "name": "Fiony /フィオニー（JKT48）",
+                "nickname": "Fiony /フィオニー（JKT48）"
+              }
+            },
+            {
+              "rank": 10,
+              "point": 1153591,
+              "room": {
+                "room_id": 318225,
+                "image": "https://static.showroom-live.com/image/room/cover/cd2b6cf94d461b64c9215d808c58d7cbf029cd8d624e5c59e9b3a10a34ecfe33_m.jpeg?v=1776736718",
+                "image_square": "https://static.showroom-live.com/image/room/cover/cd2b6cf94d461b64c9215d808c58d7cbf029cd8d624e5c59e9b3a10a34ecfe33_square_m.jpeg?v=1776736718",
+                "name": "Freya/フレヤ（JKT48）",
+                "nickname": "Freya/フレヤ（JKT48）"
+              }
+            },
+            {
+              "rank": 11,
+              "point": 954072,
+              "room": {
+                "room_id": 461463,
+                "image": "https://static.showroom-live.com/image/room/cover/e3e88b5c96d4af6c2bd0e951809d808214a6bb8837903c1d8a83fa87ad1ea080_m.jpeg?v=1776737197",
+                "image_square": "https://static.showroom-live.com/image/room/cover/e3e88b5c96d4af6c2bd0e951809d808214a6bb8837903c1d8a83fa87ad1ea080_square_m.jpeg?v=1776737197",
+                "name": "Cynthia /シンティア（JKT48）",
+                "nickname": "Cynthia /シンティア（JKT48）"
+              }
+            },
+            {
+              "rank": 12,
+              "point": 791792,
+              "room": {
+                "room_id": 510064,
+                "image": "https://static.showroom-live.com/image/room/cover/7f0a24fb6d6d354299b727610887cba42d22cd4b15c15a708bdffea42ca623cb_m.jpeg?v=1791727541",
+                "image_square": "https://static.showroom-live.com/image/room/cover/7f0a24fb6d6d354299b727610887cba42d22cd4b15c15a708bdffea42ca623cb_square_m.jpeg?v=1791727541",
+                "name": "Nayla / ナイラ（JKT48）",
+                "nickname": "Nayla / ナイラ（JKT48）"
+              }
+            },
+            {
+              "rank": 13,
+              "point": 700322,
+              "room": {
+                "room_id": 461475,
+                "image": "https://static.showroom-live.com/image/room/cover/d0ab8b151a1a0f7c2a69ea29624ef4ae7800ef1bee00df7f8c0c1f103331079d_m.jpeg?v=1776737374",
+                "image_square": "https://static.showroom-live.com/image/room/cover/d0ab8b151a1a0f7c2a69ea29624ef4ae7800ef1bee00df7f8c0c1f103331079d_square_m.jpeg?v=1776737374",
+                "name": "Elin /エリン（JKT48）",
+                "nickname": "Elin /エリン（JKT48）"
+              }
+            },
+            {
+              "rank": 14,
+              "point": 589291,
+              "room": {
+                "room_id": 510000,
+                "image": "https://static.showroom-live.com/image/room/cover/1dcb1281d3280600c17e1881a5a97e17051f795b65b26b0ae42841acc779facd_m.jpeg?v=1791731479",
+                "image_square": "https://static.showroom-live.com/image/room/cover/1dcb1281d3280600c17e1881a5a97e17051f795b65b26b0ae42841acc779facd_square_m.jpeg?v=1791731479",
+                "name": "Erine / エリン（JKT48）",
+                "nickname": "Erine / エリン（JKT48）"
+              }
+            },
+            {
+              "rank": 15,
+              "point": 531782,
+              "room": {
+                "room_id": 510013,
+                "image": "https://static.showroom-live.com/image/room/cover/95a3d0591d9dfe7145a1bd75bf60b49cd7ca7aae7fdbd7c09b208cc7e48389ff_m.jpeg?v=1776737765",
+                "image_square": "https://static.showroom-live.com/image/room/cover/95a3d0591d9dfe7145a1bd75bf60b49cd7ca7aae7fdbd7c09b208cc7e48389ff_square_m.jpeg?v=1776737765",
+                "name": "Trisha / トリシャ（JKT48）",
+                "nickname": "Trisha / トリシャ（JKT48）"
+              }
+            },
+            {
+              "rank": 16,
+              "point": 438206,
+              "room": {
+                "room_id": 510016,
+                "image": "https://static.showroom-live.com/image/room/cover/8063737c0d03194a4a8f48a6be704c0b5c262ce326d8cdac428c75f552855166_m.jpeg?v=1786720394",
+                "image_square": "https://static.showroom-live.com/image/room/cover/8063737c0d03194a4a8f48a6be704c0b5c262ce326d8cdac428c75f552855166_square_m.jpeg?v=1786720394",
+                "name": "Levi / レヴィ（JKT48）",
+                "nickname": "Levi / レヴィ（JKT48）"
+              }
+            },
+            {
+              "rank": 17,
+              "point": 396410,
+              "room": {
+                "room_id": 510067,
+                "image": "https://static.showroom-live.com/image/room/cover/f27cc7e31f0e6551324bddb0cfe6981764e160fcef0731e53af327c34f721386_m.jpeg?v=1776793517",
+                "image_square": "https://static.showroom-live.com/image/room/cover/f27cc7e31f0e6551324bddb0cfe6981764e160fcef0731e53af327c34f721386_square_m.jpeg?v=1776793517",
+                "name": "Oline / オリヌ（JKT48）",
+                "nickname": "Oline / オリヌ（JKT48）"
+              }
+            },
+            {
+              "rank": 18,
+              "point": 370003,
+              "room": {
+                "room_id": 318204,
+                "image": "https://static.showroom-live.com/image/room/cover/d6cd1a52b06d7bed1bd0bda75b917eb18667e060c175952babc50733bf3a7e40_m.jpeg?v=1789482158",
+                "image_square": "https://static.showroom-live.com/image/room/cover/d6cd1a52b06d7bed1bd0bda75b917eb18667e060c175952babc50733bf3a7e40_square_m.jpeg?v=1789482158",
+                "name": "Muthe/ムテ（JKT48）",
+                "nickname": "Muthe/ムテ（JKT48）"
+              }
+            },
+            {
+              "rank": 19,
+              "point": 353632,
+              "room": {
+                "room_id": 318228,
+                "image": "https://static.showroom-live.com/image/room/cover/293a846d52a0e9b04a50dafb6c0f80367256a0f3e2a7d9fdc5e92e572ad2415f_m.jpeg?v=1790610595",
+                "image_square": "https://static.showroom-live.com/image/room/cover/293a846d52a0e9b04a50dafb6c0f80367256a0f3e2a7d9fdc5e92e572ad2415f_square_m.jpeg?v=1790610595",
+                "name": "Jessi/ジェシ（JKT48）",
+                "nickname": "Jessi/ジェシ（JKT48）"
+              }
+            },
+            {
+              "rank": 20,
+              "point": 342771,
+              "room": {
+                "room_id": 400713,
+                "image": "https://static.showroom-live.com/image/room/cover/104f71ef35980e70baeb6a7ed59f18c7374f9a33bf7d1720a0581b8a0b2edb1e_m.jpeg?v=1791735990",
+                "image_square": "https://static.showroom-live.com/image/room/cover/104f71ef35980e70baeb6a7ed59f18c7374f9a33bf7d1720a0581b8a0b2edb1e_square_m.jpeg?v=1791735990",
+                "name": "Lia /リア（JKT48）",
+                "nickname": "Lia /リア（JKT48）"
+              }
+            },
+            {
+              "rank": 21,
+              "point": 299780,
+              "room": {
+                "room_id": 509985,
+                "image": "https://static.showroom-live.com/image/room/cover/7bbb128443499700909dea11a4e2d9973c9f9c74974b3dafe269ec7b6dbc3315_m.jpeg?v=1791731483",
+                "image_square": "https://static.showroom-live.com/image/room/cover/7bbb128443499700909dea11a4e2d9973c9f9c74974b3dafe269ec7b6dbc3315_square_m.jpeg?v=1791731483",
+                "name": "Aralie / アラリー（JKT48）",
+                "nickname": "Aralie / アラリー（JKT48）"
+              }
+            },
+            {
+              "rank": 22,
+              "point": 269502,
+              "room": {
+                "room_id": 461458,
+                "image": "https://static.showroom-live.com/image/room/cover/b0c6197686670eb07c6f4c8bff0d2ca67b72f74280d04df61229076507dda3ff_m.jpeg?v=1780385326",
+                "image_square": "https://static.showroom-live.com/image/room/cover/b0c6197686670eb07c6f4c8bff0d2ca67b72f74280d04df61229076507dda3ff_square_m.jpeg?v=1780385326",
+                "name": "Chelsea /チェルシー（JKT48）",
+                "nickname": "Chelsea /チェルシー（JKT48）"
+              }
+            },
+            {
+              "rank": 23,
+              "point": 180558,
+              "room": {
+                "room_id": 510073,
+                "image": "https://static.showroom-live.com/image/room/cover/b490a7a1fb00562ff0f7e481c69269bf0fd4cf0ac162ff645a999cdff204f954_m.jpeg?v=1776737984",
+                "image_square": "https://static.showroom-live.com/image/room/cover/b490a7a1fb00562ff0f7e481c69269bf0fd4cf0ac162ff645a999cdff204f954_square_m.jpeg?v=1776737984",
+                "name": "Kimmy / キミー（JKT48）",
+                "nickname": "Kimmy / キミー（JKT48）"
+              }
+            },
+            {
+              "rank": 24,
+              "point": 161262,
+              "room": {
+                "room_id": 510070,
+                "image": "https://static.showroom-live.com/image/room/cover/0ea497d76f19f795612efedadd1951482c140044483b8b67cbac909e34309363_m.jpeg?v=1790948832",
+                "image_square": "https://static.showroom-live.com/image/room/cover/0ea497d76f19f795612efedadd1951482c140044483b8b67cbac909e34309363_square_m.jpeg?v=1790948832",
+                "name": "Ribka / リブカ（JKT48）",
+                "nickname": "Ribka / リブカ（JKT48）"
+              }
+            },
+            {
+              "rank": 25,
+              "point": 158788,
+              "room": {
+                "room_id": 400715,
+                "image": "https://static.showroom-live.com/image/room/cover/33b9a09551fb56e388c636720e88c310983d759c7be62230d59aa4a84303e1dc_m.jpeg?v=1776737021",
+                "image_square": "https://static.showroom-live.com/image/room/cover/33b9a09551fb56e388c636720e88c310983d759c7be62230d59aa4a84303e1dc_square_m.jpeg?v=1776737021",
+                "name": "Ella /エラ（JKT48）",
+                "nickname": "Ella /エラ（JKT48）"
+              }
+            },
+            {
+              "rank": 26,
+              "point": 148907,
+              "room": {
+                "room_id": 400717,
+                "image": "https://static.showroom-live.com/image/room/cover/261d835846ccd54052d7bede79f89171d1f79af054ada2fecf81086644ff6ea4_m.jpeg?v=1776737047",
+                "image_square": "https://static.showroom-live.com/image/room/cover/261d835846ccd54052d7bede79f89171d1f79af054ada2fecf81086644ff6ea4_square_m.jpeg?v=1776737047",
+                "name": "Lyn /リーン（JKT48）",
+                "nickname": "Lyn /リーン（JKT48）"
+              }
+            },
+            {
+              "rank": 27,
+              "point": 114341,
+              "room": {
+                "room_id": 461451,
+                "image": "https://static.showroom-live.com/image/room/cover/0a1644ab1bc0333a175bbd13744995241b42a796d81fb939b5def608942a8e96_m.jpeg?v=1788847631",
+                "image_square": "https://static.showroom-live.com/image/room/cover/0a1644ab1bc0333a175bbd13744995241b42a796d81fb939b5def608942a8e96_square_m.jpeg?v=1788847631",
+                "name": "Alya /アリア（JKT48）",
+                "nickname": "Alya /アリア（JKT48）"
+              }
+            },
+            {
+              "rank": 28,
+              "point": 99411,
+              "room": {
+                "room_id": 510071,
+                "image": "https://static.showroom-live.com/image/room/cover/e44adf3c6b43f688c3203dc24922621299a959827611d233c5390bc97e68e217_m.jpeg?v=1783853733",
+                "image_square": "https://static.showroom-live.com/image/room/cover/e44adf3c6b43f688c3203dc24922621299a959827611d233c5390bc97e68e217_square_m.jpeg?v=1783853733",
+                "name": "Nala / ナラ（JKT48）",
+                "nickname": "Nala / ナラ（JKT48）"
+              }
+            },
+            {
+              "rank": 29,
+              "point": 76547,
+              "room": {
+                "room_id": 461481,
+                "image": "https://static.showroom-live.com/image/room/cover/fc878be06fb484b4edcb8051e8456a93279b2395e711aada3d7547b1b78e3720_m.jpeg?v=1776737507",
+                "image_square": "https://static.showroom-live.com/image/room/cover/fc878be06fb484b4edcb8051e8456a93279b2395e711aada3d7547b1b78e3720_square_m.jpeg?v=1776737507",
+                "name": "Michie /ミチー（JKT48）",
+                "nickname": "Michie /ミチー（JKT48）"
+              }
+            },
+            {
+              "rank": 30,
+              "point": 75237,
+              "room": {
+                "room_id": 461466,
+                "image": "https://static.showroom-live.com/image/room/cover/002771d7d8969132b8749564920a354426fad0c56857e3818de960035c560ed7_m.jpeg?v=1791638901",
+                "image_square": "https://static.showroom-live.com/image/room/cover/002771d7d8969132b8749564920a354426fad0c56857e3818de960035c560ed7_square_m.jpeg?v=1791638901",
+                "name": "Danella /ダネラ（JKT48）",
+                "nickname": "Danella /ダネラ（JKT48）"
+              }
+            },
+            {
+              "rank": 31,
+              "point": 72280,
+              "room": {
+                "room_id": 318232,
+                "image": "https://static.showroom-live.com/image/room/cover/b0dfb9a6b2a6d51b17d0149d72ac19992469d2734876ca2c1d55672ae91e0943_m.jpeg?v=1791461422",
+                "image_square": "https://static.showroom-live.com/image/room/cover/b0dfb9a6b2a6d51b17d0149d72ac19992469d2734876ca2c1d55672ae91e0943_square_m.jpeg?v=1791461422",
+                "name": "Lulu /ルル （JKT48）",
+                "nickname": "Lulu /ルル （JKT48）"
+              }
+            },
+            {
+              "rank": 32,
+              "point": 38596,
+              "room": {
+                "room_id": 461465,
+                "image": "https://static.showroom-live.com/image/room/cover/a5054230e2eeeae789ccdf134345e4f3cf05801d689d9ec57397d34eae090343_m.jpeg?v=1791465084",
+                "image_square": "https://static.showroom-live.com/image/room/cover/a5054230e2eeeae789ccdf134345e4f3cf05801d689d9ec57397d34eae090343_square_m.jpeg?v=1791465084",
+                "name": "Daisy /デイシー（JKT48）",
+                "nickname": "Daisy /デイシー（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 318112,
+                "image": "https://static.showroom-live.com/image/room/cover/8b704fbdc371c9dd64fa6b2a15839ae3e912e9a5f76173d40502969a31a936f4_m.jpeg?v=1776684876",
+                "image_square": "https://static.showroom-live.com/image/room/cover/8b704fbdc371c9dd64fa6b2a15839ae3e912e9a5f76173d40502969a31a936f4_square_m.jpeg?v=1776684876",
+                "name": "Christy/クリスティー（JKT48）",
+                "nickname": "Christy/クリスティー（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 318118,
+                "image": "https://static.showroom-live.com/image/room/cover/6ac7ec5ce772cca881de55354f99c07c0987240e057c4f2fecb11024eeaae6a6_m.jpeg?v=1776684965",
+                "image_square": "https://static.showroom-live.com/image/room/cover/6ac7ec5ce772cca881de55354f99c07c0987240e057c4f2fecb11024eeaae6a6_square_m.jpeg?v=1776684965",
+                "name": "Eli/エリ（JKT48）",
+                "nickname": "Eli/エリ（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 318218,
+                "image": "https://static.showroom-live.com/image/room/cover/6f5b72d14f8cf4d61ab8c16aa8b7a9c387c5f6de37f513a884b6fbadabb5784d_m.jpeg?v=1776685030",
+                "image_square": "https://static.showroom-live.com/image/room/cover/6f5b72d14f8cf4d61ab8c16aa8b7a9c387c5f6de37f513a884b6fbadabb5784d_square_m.jpeg?v=1776685030",
+                "name": "Oniel/オニエル（JKT48）",
+                "nickname": "Oniel/オニエル（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 318222,
+                "image": "https://static.showroom-live.com/image/room/cover/79b9c42d1f5ea5d5805fefcfac6e92198e434cd6b6244c79b309b9e93ab3f7cb_m.jpeg?v=1790958876",
+                "image_square": "https://static.showroom-live.com/image/room/cover/79b9c42d1f5ea5d5805fefcfac6e92198e434cd6b6244c79b309b9e93ab3f7cb_square_m.jpeg?v=1790958876",
+                "name": "Olla/オラ（JKT48）",
+                "nickname": "Olla/オラ（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 318227,
+                "image": "https://static.showroom-live.com/image/room/cover/58f3d939319e28956fd771e0f587a347ea0fec6b5c3415067e122f4794fd3514_m.jpeg?v=1776736743",
+                "image_square": "https://static.showroom-live.com/image/room/cover/58f3d939319e28956fd771e0f587a347ea0fec6b5c3415067e122f4794fd3514_square_m.jpeg?v=1776736743",
+                "name": "Indah/インダー（JKT48）",
+                "nickname": "Indah/インダー（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 318230,
+                "image": "https://static.showroom-live.com/image/room/cover/8da2ecaebb02c89b4f12ac22ba4b76f9777f610cdaf3194d0f556146b69f240c_m.jpeg?v=1776736861",
+                "image_square": "https://static.showroom-live.com/image/room/cover/8da2ecaebb02c89b4f12ac22ba4b76f9777f610cdaf3194d0f556146b69f240c_square_m.jpeg?v=1776736861",
+                "name": "Kathrina/カトリナ（JKT48）",
+                "nickname": "Kathrina/カトリナ（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 318233,
+                "image": "https://static.showroom-live.com/image/room/cover/31c718d6829b5e484fac4f3284acc40a9788271be0066153cb2bb48880558507_m.jpeg?v=1776736949",
+                "image_square": "https://static.showroom-live.com/image/room/cover/31c718d6829b5e484fac4f3284acc40a9788271be0066153cb2bb48880558507_square_m.jpeg?v=1776736949",
+                "name": "Marsha/マーシャ（JKT48）",
+                "nickname": "Marsha/マーシャ（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 400710,
+                "image": "https://static.showroom-live.com/image/room/cover/2f2a93fe26c52af0bb33db6044b796b9590efd9ed198b852184820bd9845fef6_m.jpeg?v=1777969902",
+                "image_square": "https://static.showroom-live.com/image/room/cover/2f2a93fe26c52af0bb33db6044b796b9590efd9ed198b852184820bd9845fef6_square_m.jpeg?v=1777969902",
+                "name": "Amanda/アマンダ（JKT48）",
+                "nickname": "Amanda/アマンダ（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 400718,
+                "image": "https://static.showroom-live.com/image/room/cover/b5e493484b3fdd07ebadfd478837295c9968208cf3721934b46611eca5cb92b8_m.jpeg?v=1776737074",
+                "image_square": "https://static.showroom-live.com/image/room/cover/b5e493484b3fdd07ebadfd478837295c9968208cf3721934b46611eca5cb92b8_square_m.jpeg?v=1776737074",
+                "name": "Raisha /ライシャ（JKT48）",
+                "nickname": "Raisha /ライシャ（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 461454,
+                "image": "https://static.showroom-live.com/image/room/cover/bd930dc883c8d96916deacf2bff1827f387b1cf86a3042b7fd95352c44a5bba3_m.jpeg?v=1787031993",
+                "image_square": "https://static.showroom-live.com/image/room/cover/bd930dc883c8d96916deacf2bff1827f387b1cf86a3042b7fd95352c44a5bba3_square_m.jpeg?v=1787031993",
+                "name": "Cathy/キャシー（JKT48）",
+                "nickname": "Cathy/キャシー（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 461476,
+                "image": "https://static.showroom-live.com/image/room/cover/4e2f064db08d9b22d45a2ff98271ca8754e2f058981823193d38c8e22cb09e00_m.jpeg?v=1784912731",
+                "image_square": "https://static.showroom-live.com/image/room/cover/4e2f064db08d9b22d45a2ff98271ca8754e2f058981823193d38c8e22cb09e00_square_m.jpeg?v=1784912731",
+                "name": "Gendis /ゲンディス（JKT48）",
+                "nickname": "Gendis /ゲンディス（JKT48）"
+              }
+            },
+            {
+              "rank": 33,
+              "point": 0,
+              "room": {
+                "room_id": 509997,
+                "image": "https://static.showroom-live.com/image/room/cover/bbf5793ce9431e26532a55331376e1f2428e8bc1365960f1468602383361ad68_m.jpeg?v=1777748551",
+                "image_square": "https://static.showroom-live.com/image/room/cover/bbf5793ce9431e26532a55331376e1f2428e8bc1365960f1468602383361ad68_square_m.jpeg?v=1777748551",
+                "name": "Lana / ラナ（JKT48）",
+                "nickname": "Lana / ラナ（JKT48）"
+              }
+            }
+          ]
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom_competition_detail",
+      "description": "`room_id`; ranking/statistik member; API-key required",
+      "group": "Publik",
+      "auth": "API key / JWT",
+      "query": {
+        "room_id": "ROOM_ID"
+      },
+      "examplePath": "/api/showroom_competition_detail",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/showroom_competition_detail"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom_competition_top_fans",
+      "description": "`room_id`; kontribusi fans; API-key required",
+      "group": "Publik",
+      "auth": "API key / JWT",
+      "query": {
+        "room_id": "ROOM_ID"
+      },
+      "examplePath": "/api/showroom_competition_top_fans",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/showroom_competition_top_fans"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/first_data",
+      "description": "Timestamp data live pertama",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/first_data",
+      "response": {
+        "status": 200,
+        "body": {
+          "date": ""
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/records",
+      "description": "Rekor viewers, durasi, gifts Showroom/IDN",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/records",
+      "response": {
+        "status": 200,
+        "body": []
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/screenshots/:id",
+      "description": "Screenshot dari log; `DISABLE_SCREENSHOTS`/`HALF_SCREENSHOTS` mempengaruhi hasil",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/screenshots/ID",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/recent",
+      "description": "Signature/API-key; pagination/filter di bawah",
+      "group": "Publik",
+      "auth": "API key / HMAC",
+      "query": {
+        "page": "1",
+        "perpage": "10",
+        "group": "jkt48",
+        "type": "all",
+        "sort": "date",
+        "order": "-1"
+      },
+      "examplePath": "/api/recent",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/recent"
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/recent/:id",
+      "description": "Signature/API-key; lookup `data_id` atau `live_id`",
+      "group": "Publik",
+      "auth": "API key / HMAC",
+      "query": {},
+      "examplePath": "/api/recent/ID",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/recent/ID"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/recent/:data_id/gifts",
+      "description": "`page`, `perpage`, `s` pencarian fans/gifts",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "page": "1",
+        "perpage": "10",
+        "s": ""
+      },
+      "examplePath": "/api/recent/DATA_ID/gifts",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/recent/:data_id/stagelist",
+      "description": "Riwayat stage users",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/recent/DATA_ID/stagelist",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sitemap/recent",
+      "description": "`year` 2020..tahun berjalan, `image_limit` 1..5; array sitemap entries",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "year": "2026",
+        "image_limit": "1"
+      },
+      "examplePath": "/api/sitemap/recent",
+      "response": {
+        "status": 200,
+        "body": []
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/next_schedule",
+      "description": "Jadwal berikutnya",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/next_schedule",
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "id": "7359",
+            "date": "2026-10-14T09:30:00.000Z",
+            "code": "EX2F12",
+            "category": "exclusive",
+            "title": "Smiles Come to You",
+            "url": "ex2f12-14102026"
+          },
+          {
+            "id": "7363",
+            "date": "2026-10-15T09:30:00.000Z",
+            "code": "EX2F12",
+            "category": "exclusive",
+            "title": "Smiles Come to You",
+            "url": "ex2f12-15102026"
+          },
+          {
+            "id": "7347",
+            "date": "2026-10-16T12:00:00.000Z",
+            "code": "SH6B09",
+            "category": "show",
+            "title": "Pajama Drive",
+            "url": "sh6b09-pajama-drive"
+          },
+          {
+            "id": "7362",
+            "date": "2026-10-17T04:45:00.000Z",
+            "code": "EX2F12",
+            "category": "exclusive",
+            "title": "Smiles Come to You",
+            "url": "ex2f12-17102026"
+          },
+          {
+            "id": "7348",
+            "date": "2026-10-17T07:00:00.000Z",
+            "code": "SH8A81",
+            "category": "show",
+            "title": "DREAM BAKUDAN",
+            "url": "sh8a81-dream-bakudan"
+          },
+          {
+            "id": "7349",
+            "date": "2026-10-17T12:00:00.000Z",
+            "code": "SH2892",
+            "category": "show",
+            "title": "Sambil Menggandeng Erat Tanganku",
+            "url": "sh2892-sambil-menggandeng-erat-tanganku"
+          },
+          {
+            "id": "7360",
+            "date": "2026-10-18T04:45:00.000Z",
+            "code": "EX2F12",
+            "category": "exclusive",
+            "title": "Smiles Come to You",
+            "url": "ex2f12-18102026"
+          },
+          {
+            "id": "7350",
+            "date": "2026-10-18T07:00:00.000Z",
+            "code": "SH06BC",
+            "category": "show",
+            "title": "Pertaruhan Cinta",
+            "url": "sh06bc-pertaruhan-cinta"
+          },
+          {
+            "id": "7351",
+            "date": "2026-10-18T12:00:00.000Z",
+            "code": "SHCD32",
+            "category": "show",
+            "title": "ITADAKI♥LOVE",
+            "url": "shcd32-itadakilove"
+          },
+          {
+            "id": "7361",
+            "date": "2026-10-19T09:30:00.000Z",
+            "code": "EX2F12",
+            "category": "exclusive",
+            "title": "Smiles Come to You",
+            "url": "ex2f12-19102026"
+          }
+        ]
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/event",
+      "description": "Ringkasan upcoming event/theater",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/event",
+      "response": {
+        "status": 200,
+        "body": {
+          "theater": {
+            "upcoming": [
+              {
+                "id": "SH6B09",
+                "title": "Pajama Drive",
+                "member_count": 0,
+                "member": 0,
+                "team": "TRAINEE",
+                "start_date": "2026-10-16T12:00:00.000Z",
+                "end_date": "2026-10-16T14:00:00.000Z",
+                "url": "SH6B09",
+                "date": "2026-10-16T00:00:00.000Z"
+              },
+              {
+                "id": "SH2892",
+                "title": "Sambil Menggandeng Erat Tanganku",
+                "member_count": 0,
+                "member": 0,
+                "team": "PASSION",
+                "start_date": "2026-10-17T12:00:00.000Z",
+                "end_date": "2026-10-17T14:00:00.000Z",
+                "url": "SH2892",
+                "date": "2026-10-17T00:00:00.000Z"
+              },
+              {
+                "id": "SH8A81",
+                "title": "DREAM BAKUDAN",
+                "member_count": 0,
+                "member": 0,
+                "team": "DREAM",
+                "start_date": "2026-10-17T07:00:00.000Z",
+                "end_date": "2026-10-17T09:00:00.000Z",
+                "seitansai": [
+                  {
+                    "id": "undefined",
+                    "url_key": ""
+                  }
+                ],
+                "url": "SH8A81",
+                "date": "2026-10-17T00:00:00.000Z"
+              },
+              {
+                "id": "SHCD32",
+                "title": "ITADAKI♥LOVE",
+                "member_count": 0,
+                "member": 0,
+                "team": "LOVE",
+                "start_date": "2026-10-18T12:00:00.000Z",
+                "end_date": "2026-10-18T14:00:00.000Z",
+                "seitansai": [
+                  {
+                    "id": "undefined",
+                    "url_key": ""
+                  }
+                ],
+                "url": "SHCD32",
+                "date": "2026-10-18T00:00:00.000Z"
+              },
+              {
+                "id": "SH06BC",
+                "title": "Pertaruhan Cinta",
+                "member_count": 0,
+                "member": 0,
+                "team": "JKT48",
+                "start_date": "2026-10-18T07:00:00.000Z",
+                "end_date": "2026-10-18T09:00:00.000Z",
+                "seitansai": [
+                  {
+                    "id": "undefined",
+                    "url_key": ""
+                  }
+                ],
+                "url": "SH06BC",
+                "date": "2026-10-18T00:00:00.000Z"
+              }
+            ],
+            "recent": [
+              {
+                "id": "SH4A49",
+                "title": "PASSION 200%",
+                "member_count": 0,
+                "member": 0,
+                "team": "PASSION",
+                "start_date": "2026-10-11T12:00:00.000Z",
+                "end_date": "2026-10-11T14:00:00.000Z",
+                "url": "SH4A49",
+                "date": "2026-10-11T00:00:00.000Z"
+              },
+              {
+                "id": "SH866E",
+                "title": "Pajama Drive",
+                "member_count": 0,
+                "member": 0,
+                "team": "TRAINEE",
+                "start_date": "2026-10-11T07:00:00.000Z",
+                "end_date": "2026-10-11T09:00:00.000Z",
+                "url": "SH866E",
+                "date": "2026-10-11T00:00:00.000Z"
+              },
+              {
+                "id": "SHA101",
+                "title": "Pajama Drive",
+                "member_count": 0,
+                "member": 0,
+                "team": "TRAINEE",
+                "start_date": "2026-10-10T12:00:00.000Z",
+                "end_date": "2026-10-10T14:00:00.000Z",
+                "url": "SHA101",
+                "date": "2026-10-10T00:00:00.000Z"
+              },
+              {
+                "id": "SHF5FE",
+                "title": "Sambil Menggandeng Erat Tanganku",
+                "member_count": 0,
+                "member": 0,
+                "team": "DREAM",
+                "start_date": "2026-10-10T07:00:00.000Z",
+                "end_date": "2026-10-10T09:00:00.000Z",
+                "url": "SHF5FE",
+                "date": "2026-10-10T00:00:00.000Z"
+              },
+              {
+                "id": "SHAB0F",
+                "title": "Pertaruhan Cinta",
+                "member_count": 0,
+                "member": 0,
+                "team": "JKT48",
+                "start_date": "2026-10-09T12:00:00.000Z",
+                "end_date": "2026-10-09T14:00:00.000Z",
+                "url": "SHAB0F",
+                "date": "2026-10-09T00:00:00.000Z"
+              },
+              {
+                "id": "SH696D",
+                "title": "Sambil Menggandeng Erat Tanganku",
+                "member_count": 0,
+                "member": 0,
+                "team": "LOVE",
+                "start_date": "2026-10-08T12:00:00.000Z",
+                "end_date": "2026-10-08T14:00:00.000Z",
+                "url": "SH696D",
+                "date": "2026-10-08T00:00:00.000Z"
+              }
+            ]
+          },
+          "other_schedule": [
+            {
+              "id": "7359",
+              "date": "2026-10-14T09:30:00.000Z",
+              "code": "EX2F12",
+              "category": "exclusive",
+              "title": "Smiles Come to You",
+              "url": "ex2f12-14102026"
+            },
+            {
+              "id": "7363",
+              "date": "2026-10-15T09:30:00.000Z",
+              "code": "EX2F12",
+              "category": "exclusive",
+              "title": "Smiles Come to You",
+              "url": "ex2f12-15102026"
+            },
+            {
+              "id": "7362",
+              "date": "2026-10-17T04:45:00.000Z",
+              "code": "EX2F12",
+              "category": "exclusive",
+              "title": "Smiles Come to You",
+              "url": "ex2f12-17102026"
+            },
+            {
+              "id": "7360",
+              "date": "2026-10-18T04:45:00.000Z",
+              "code": "EX2F12",
+              "category": "exclusive",
+              "title": "Smiles Come to You",
+              "url": "ex2f12-18102026"
+            },
+            {
+              "id": "7361",
+              "date": "2026-10-19T09:30:00.000Z",
+              "code": "EX2F12",
+              "category": "exclusive",
+              "title": "Smiles Come to You",
+              "url": "ex2f12-19102026"
+            },
+            {
+              "id": "7364",
+              "date": "2026-10-20T09:30:00.000Z",
+              "code": "EX2F12",
+              "category": "exclusive",
+              "title": "Smiles Come to You",
+              "url": "ex2f12-20102026"
+            },
+            {
+              "id": "7328",
+              "date": "2026-10-24T03:00:00.000Z",
+              "code": "EX5B99",
+              "category": "exclusive",
+              "title": "JKT48 2Shot @ Personal Meet and Greet Festival “Ayo Senyumlah”",
+              "url": "ex5b99-24102026"
+            },
+            {
+              "id": "7331",
+              "date": "2026-10-24T03:00:00.000Z",
+              "code": "EXA6F1",
+              "category": "exclusive",
+              "title": "AKB48 Photocard @ Personal Meet and Greet Festival “Ayo Senyumlah”",
+              "url": "exa6f1-24102026"
+            },
+            {
+              "id": "7329",
+              "date": "2026-10-24T03:00:00.000Z",
+              "code": "EX24AE",
+              "category": "exclusive",
+              "title": "JKT48 Photocard @ Personal Meet and Greet Festival “Ayo Senyumlah”",
+              "url": "ex24ae-24102026"
+            },
+            {
+              "id": "7330",
+              "date": "2026-10-24T03:00:00.000Z",
+              "code": "EXD1A1",
+              "category": "exclusive",
+              "title": "AKB48 2Shot @ Personal Meet and Greet Festival “Ayo Senyumlah”",
+              "url": "exd1a1-24102026"
+            }
+          ]
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/theater",
+      "description": "`page`, `perpage`, `type`; theater/event schedule",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "page": "1",
+        "perpage": "10",
+        "type": "show"
+      },
+      "examplePath": "/api/theater",
+      "response": {
+        "status": 200,
+        "body": {
+          "theater": [
+            {
+              "id": "SHCD32",
+              "title": "ITADAKI♥LOVE",
+              "member_count": 0,
+              "member": 0,
+              "team": "LOVE",
+              "start_date": "2026-10-18T12:00:00.000Z",
+              "end_date": "2026-10-18T14:00:00.000Z",
+              "seitansai": [
+                {
+                  "id": "undefined",
+                  "url_key": ""
+                }
+              ],
+              "url": "SHCD32",
+              "date": "2026-10-18T00:00:00.000Z"
+            }
+          ],
+          "page": 1,
+          "perpage": 1,
+          "total_count": 33
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/theater/:id",
+      "description": "ID/code schedule; detail dan member",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/theater/SHCD32",
+      "response": {
+        "status": 200,
+        "body": {
+          "shows": [
+            {
+              "id": "SHCD32",
+              "title": "ITADAKI♥LOVE",
+              "url": "https://jkt48.com/purchase/schedule/show?code=SHCD32",
+              "setlist": {
+                "__v": 0,
+                "gallery": [],
+                "songs": [],
+                "_id": "b996e586e7ccb6ce06660436",
+                "title": "ITADAKI♥LOVE",
+                "id": "itadaki♥love"
+              },
+              "members": [
+                {
+                  "id": 26,
+                  "name": "Anindya",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/anindya_ramadhani.jpg",
+                  "jkt_key": "anindya-ramadhani-26",
+                  "url_key": "anindya-ramadhani"
+                },
+                {
+                  "id": 31,
+                  "name": "Lia",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/aurellia.jpg",
+                  "jkt_key": "aurellia-31",
+                  "url_key": "aurellia"
+                },
+                {
+                  "id": 33,
+                  "name": "Lana",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/aurhel_alana.jpg",
+                  "jkt_key": "aurhel-alana-33",
+                  "url_key": "aurhel-alana"
+                },
+                {
+                  "id": 46,
+                  "name": "Elin",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/celline_thefani.jpg",
+                  "jkt_key": "celline-thefani-46",
+                  "url_key": "celline-thefani"
+                },
+                {
+                  "id": 60,
+                  "name": "Cynthia",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/cynthia_yaputera.jpg",
+                  "jkt_key": "cynthia-yaputera-60",
+                  "url_key": "cynthia-yaputera"
+                },
+                {
+                  "id": 91,
+                  "name": "Fiony",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fiony_alveria.jpg",
+                  "jkt_key": "fiony-alveria-91",
+                  "url_key": "fiony-alveria"
+                },
+                {
+                  "id": 96,
+                  "name": "Fritzy",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/fritzy_rosmerian.jpg",
+                  "jkt_key": "fritzy-rosmerian-96",
+                  "url_key": "fritzy-rosmerian"
+                },
+                {
+                  "id": 105,
+                  "name": "Gracie",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/grace_octaviani.jpg",
+                  "jkt_key": "grace-octaviani-105",
+                  "url_key": "grace-octaviani"
+                },
+                {
+                  "id": 116,
+                  "name": "Indah",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/indah_cahya.jpg",
+                  "jkt_key": "indah-cahya-116",
+                  "url_key": "indah-cahya"
+                },
+                {
+                  "id": 121,
+                  "name": "Trisha",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/jazzlyn_trisha.jpg",
+                  "jkt_key": "jazzlyn-trisha-121",
+                  "url_key": "jazzlyn-trisha"
+                },
+                {
+                  "id": 159,
+                  "name": "Michie",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/michelle_alexandra.jpg",
+                  "jkt_key": "michelle-alexandra-159",
+                  "url_key": "michelle-alexandra"
+                },
+                {
+                  "id": 175,
+                  "name": "Nayla",
+                  "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/nayla_suji.jpg",
+                  "jkt_key": "nayla-suji-175",
+                  "url_key": "nayla-suji"
+                }
+              ],
+              "seitansai": [
+                {
+                  "jkt_key": "undefined-undefined"
+                }
+              ],
+              "graduation": [],
+              "date": "2026-10-18T12:00:00.000Z",
+              "team": "LOVE",
+              "showroomTheater": {},
+              "idnTheater": {}
+            }
+          ],
+          "date": "2026-10-18T00:00:00.000Z"
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jkt48event",
+      "description": "`page`, `perpage`; daftar event",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "page": "1",
+        "perpage": "10"
+      },
+      "examplePath": "/api/jkt48event",
+      "response": {
+        "status": 200,
+        "body": {
+          "events": [
+            {
+              "id": "7314",
+              "title": "JKT48 Theater 14th Anniversary “TEAM ON!”",
+              "member_count": 0,
+              "url": "7314",
+              "date": "2026-09-12T08:00:00.000Z"
+            }
+          ],
+          "page": 1,
+          "perpage": 1,
+          "total_count": 1
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jkt48event/:id",
+      "description": "Detail event dan member",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/jkt48event/ID",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/setlist",
+      "description": "Daftar setlist",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/setlist",
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "id": "carameminumramune",
+            "title": "Cara Meminum Ramune"
+          },
+          {
+            "id": "sambilmenggandengerattanganku",
+            "title": "Sambil Menggandeng Erat Tanganku"
+          },
+          {
+            "id": "pajamadrive",
+            "title": "Pajama Drive"
+          },
+          {
+            "id": "itadaki♥love",
+            "title": "ITADAKI♥LOVE"
+          },
+          {
+            "id": "passion200%",
+            "title": "PASSION 200%"
+          },
+          {
+            "id": "pertaruhancinta",
+            "title": "Pertaruhan Cinta"
+          },
+          {
+            "id": "dreambakudan",
+            "title": "DREAM BAKUDAN"
+          }
+        ]
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/news",
+      "description": "`page`, `perpage`; daftar berita",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {
+        "page": "1",
+        "perpage": "10"
+      },
+      "examplePath": "/api/news",
+      "response": {
+        "status": 200,
+        "body": {
+          "news": [
+            {
+              "date": "2026-10-09T17:00:00.000Z",
+              "title": "Pengumuman Mengenai Pre-Order JKT48 Digital Photobook “Smiles Come to You” dengan bonus Video Call with JKT48",
+              "category": "Theater",
+              "id": "1876",
+              "link": "pengumuman-mengenai-pre-order-jkt48-digital-photobook-smiles-come-to-you-dengan-bonus-video-call-wit",
+              "url": "https://jkt48.com/news/pengumuman-mengenai-pre-order-jkt48-digital-photobook-smiles-come-to-you-dengan-bonus-video-call-wit"
+            }
+          ],
+          "page": 1,
+          "perpage": 1,
+          "total_count": 30
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/news/:id",
+      "description": "News ID/link key; detail berita",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/news/1876",
+      "response": {
+        "status": 200,
+        "body": {
+          "date": "2026-10-09T17:00:00.000Z",
+          "id": "1876",
+          "title": "Pengumuman Mengenai Pre-Order JKT48 Digital Photobook “Smiles Come to You” dengan bonus Video Call with JKT48",
+          "category": "Theater",
+          "url": "https://jkt48.com/news/pengumuman-mengenai-pre-order-jkt48-digital-photobook-smiles-come-to-you-dengan-bonus-video-call-wit",
+          "content": "<div>Terima kasih atas dukungannya untuk JKT48.</div><div><br></div><div>Pada tanggal 12 Oktober 2026, JKT48 akan membuka Pre-Order untuk pembelian Digital Photobook “Smiles Come to You” dengan bonus Video Call bersama JKT48.</div><div><br></div><div>Untuk menyambut perilisan single ke-28 JKT48, “Ayo Senyumlah”, JKT48 menghadirkan buku foto digital “Smiles Come to You” yang mengabadikan momen penuh tawa dan senyuman para member JKT48 dalam proses shooting Music Video&nbsp; di Jakarta Car Free Day pada 20 September 2026 lalu. Setiap foto menyimpan cerita tentang kebahagiaan, kehangatan, dan indahnya berbagi senyuman.</div><div><br></div><div>Melalui “Smiles Come to You”, JKT48 berharap senyuman yang dibagikan dapat menyentuh hati, membawa warna dalam keseharian, dan menjadi alasan bagi siapa pun untuk ikut tersenyum. Sebab, kami percaya bahwa dari sebuah senyuman sederhana, dapat tumbuh beribu-ribu kebahagiaan yang berarti.</div><div><br></div><div>Berikut adalah detailnya:</div><div><ul><li>Nama produk<span style=\"white-space:pre\">\t\t</span>: “Smiles Come to You”</li><li>Pre-Order OFC<span style=\"white-space:pre\">\t</span>: 12 Oktober 2026, 20.00 WIB</li><li>Pre-Order General&nbsp; &nbsp; &nbsp; : 13 Oktober 2026, 20.00 WIB</li><li>Tanggal Rilis<span style=\"white-space:pre\">\t\t</span>: 14 Oktober 2026 (download via jkt48.com)</li><li>Harga<span style=\"white-space:pre\">\t\t\t</span>: IDR 120.000</li></ul></div><div>*Pembelian hanya bisa dilakukan melalui website jkt48.com</div><div>&nbsp;</div><div>Untuk setiap pembelian Digital Photobook “Smiles Come to You” kalian akan mendapat bonus tiket Video Call with JKT48. Video Call with JKT48 adalah layanan dimana kamu dapat melakukan percakapan berdua dengan member JKT48.</div><div><br></div><div>Berikut adalah jadwal Video Call untuk bulan Oktober 2026:</div><div><br></div><div><img src=\"https://jkt48.com/api/v1/storages/media/media/general/2026/10/14-17-ed010a.jpg\" alt=\"\"></div><div><br></div><div><span class=\"copyable-value s3-util-word-break-all\"><img src=\"https://jkt48.com/api/v1/storages/media/media/general/2026/10/18-20-025150.jpg\" alt=\"\"></span></div><div><br></div><div>Kami tunggu partisipasinya!</div><div><br></div><div>Mohon dukungannya selalu untuk JKT48.</div><div><br></div><div>JKT48 Operation Team</div>",
+          "slug": "pengumuman-mengenai-pre-order-jkt48-digital-photobook-smiles-come-to-you-dengan-bonus-video-call-wit"
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "description": "`room_id`, optional user auth/session; profil Showroom",
+      "group": "Publik",
+      "auth": "Session opsional",
+      "query": {
+        "room_id": "ROOM_ID"
+      },
+      "examplePath": "/api/profile",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/client",
+      "description": "User-agent dan status embedded; no-store",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/client",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/my_ip",
+      "description": "IP dari `CF-Connecting-IP`",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/my_ip",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/beta",
+      "description": "JSON `fingerprint`, optional `key`; `{enabled:boolean}`",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "body": {
+        "fingerprint": "DEVICE_FINGERPRINT"
+      },
+      "contentType": "application/json",
+      "examplePath": "/api/beta",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js",
+      "successExample": {
+        "enabled": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/user/profile",
+      "description": "Query diteruskan ke Showroom `/api/user/profile`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/user/profile",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/status",
+      "description": "Query diteruskan ke Showroom `/api/room/status`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/status",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/onlives",
+      "description": "Query diteruskan ke Showroom `/api/live/onlives`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/onlives",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/polling",
+      "description": "Query diteruskan ke Showroom `/api/live/polling`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/polling",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/summary_ranking",
+      "description": "Query diteruskan ke Showroom `/api/live/summary_ranking`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/summary_ranking",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/stage_user_list",
+      "description": "Query diteruskan ke Showroom `/api/live/stage_user_list`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/stage_user_list",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/live_info",
+      "description": "Query diteruskan ke Showroom `/api/live/live_info`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/live_info",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/telop",
+      "description": "Query diteruskan ke Showroom `/api/live/telop`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/telop",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/greeting",
+      "description": "Query diteruskan ke Showroom `/api/room/greeting`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/greeting",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/streaming_url",
+      "description": "Query diteruskan ke Showroom `/api/live/streaming_url`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/streaming_url",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/current_user",
+      "description": "Query diteruskan ke Showroom `/api/live/current_user`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/current_user",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/csrf_token",
+      "description": "Query diteruskan ke Showroom `/api/csrf_token`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/csrf_token",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom/follow",
+      "description": "Query diteruskan ke Showroom `/api/follow/rooms`",
+      "group": "Showroom",
+      "auth": "Session opsional",
+      "query": {},
+      "examplePath": "/api/showroom/follow",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/showroom.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "description": "Form `account_id`, `password`, optional captcha",
+      "group": "User",
+      "auth": "Publik",
+      "query": {},
+      "body": {
+        "account_id": "ACCOUNT_ID",
+        "password": "PASSWORD"
+      },
+      "contentType": "application/x-www-form-urlencoded",
+      "examplePath": "/api/auth/login",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/auth.js",
+      "successExample": {
+        "access_token": "ACCESS_TOKEN",
+        "refresh_token": "REFRESH_TOKEN",
+        "user": {
+          "id": "USER_ID",
+          "name": "Nama demo",
+          "account_id": "ACCOUNT_ID"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "description": "Auth/session headers; logout upstream",
+      "group": "User",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/auth/logout",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/auth.js",
+      "successExample": {
+        "success": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/user",
+      "description": "User dari access/refresh token",
+      "group": "User",
+      "auth": "User token",
+      "query": {},
+      "examplePath": "/api/user",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/user"
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/user.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/history",
+      "description": "Pagination/search/date/filter seperti recent, dibatasi user",
+      "group": "User",
+      "auth": "User token",
+      "query": {
+        "page": "1",
+        "perpage": "10"
+      },
+      "examplePath": "/api/user/history",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/user/history"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/user.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/likes",
+      "description": "`page`, `perpage` maksimal 20; bookmarks user",
+      "group": "User",
+      "auth": "User token",
+      "query": {
+        "page": "1",
+        "perpage": "10"
+      },
+      "examplePath": "/api/user/likes",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/user/likes"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/user.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/like",
+      "description": "`data_id`; `{is_liked:boolean}`",
+      "group": "User",
+      "auth": "User token",
+      "query": {
+        "data_id": "DATA_ID"
+      },
+      "examplePath": "/api/user/like",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/user/like"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/user.js",
+      "successExample": {
+        "is_liked": false
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/user/like",
+      "description": "Query `liked_id`, `type` (2 untuk bookmark live); user_id selalu dari token",
+      "group": "User",
+      "auth": "User token",
+      "query": {
+        "liked_id": "DATA_ID",
+        "type": "2"
+      },
+      "examplePath": "/api/user/like",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/user/like"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/user.js",
+      "successExample": {
+        "status": 200,
+        "message": "Success!"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/user/like",
+      "description": "Query `liked_id`, `type`",
+      "group": "User",
+      "auth": "User token",
+      "query": {
+        "liked_id": "DATA_ID",
+        "type": "2"
+      },
+      "examplePath": "/api/user/like",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/user/like"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/user.js",
+      "successExample": {
+        "status": 200,
+        "message": "Success!"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/user/comment",
+      "description": "Form `comment`, `live_id`, optional `is_delay`; auth/session required",
+      "group": "User",
+      "auth": "User token",
+      "query": {},
+      "body": {
+        "comment": "Komentar demo",
+        "live_id": "LIVE_ID",
+        "is_delay": "0"
+      },
+      "contentType": "application/x-www-form-urlencoded",
+      "examplePath": "/api/user/comment",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/user/comment"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/user.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/user/follow",
+      "description": "Form `room_id`, `flag`; auth/session required",
+      "group": "User",
+      "auth": "User token",
+      "query": {},
+      "body": {
+        "room_id": "ROOM_ID",
+        "flag": "1"
+      },
+      "contentType": "application/x-www-form-urlencoded",
+      "examplePath": "/api/user/follow",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/user/follow"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/user.js",
+      "successExample": {
+        "ok": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/user/follow/reorder",
+      "description": "Form `room_id` berupa daftar room yang diurutkan sesuai upstream; auth/session required",
+      "group": "User",
+      "auth": "User token",
+      "query": {},
+      "body": {
+        "room_id": "ROOM_ID_1,ROOM_ID_2"
+      },
+      "contentType": "application/x-www-form-urlencoded",
+      "examplePath": "/api/user/follow/reorder",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/user/follow/reorder"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/user.js",
+      "successExample": {
+        "ok": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/update_lives",
+      "description": "JSON `{api_key,group?,lives}`; Zod validasi, HLS URLs Showroom, publish state",
+      "group": "Admin",
+      "auth": "API key dalam JSON",
+      "query": {},
+      "body": {
+        "api_key": "SERVER_API_KEY",
+        "group": "jkt48",
+        "lives": []
+      },
+      "contentType": "application/json",
+      "examplePath": "/api/admin/update_lives",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": 401,
+          "message": "Unauthorized!",
+          "path": "/api/admin/update_lives"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa autentikasi (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "ok": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/get_token",
+      "description": "JWT admin singkat untuk channel WebSocket admin",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/get_token",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/get_token"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/beta",
+      "description": "Daftar key tanpa keyHash; create JSON `{expiresAt,note?,maxDevices?}` mengembalikan key sekali",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/beta",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/beta"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/beta",
+      "description": "Daftar key tanpa keyHash; create JSON `{expiresAt,note?,maxDevices?}` mengembalikan key sekali",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "expiresAt": "2027-01-01T00:00:00.000Z",
+        "note": "Demo",
+        "maxDevices": 1
+      },
+      "contentType": "application/json",
+      "examplePath": "/api/admin/beta",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/beta"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/beta/:id",
+      "description": "Hapus key",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/beta/ID",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/beta/ID"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "deleted": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/beta_device",
+      "description": "Daftar perangkat; allow JSON `{fingerprint,note?}`",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/beta_device",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/beta_device"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/beta_device",
+      "description": "Daftar perangkat; allow JSON `{fingerprint,note?}`",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "fingerprint": "DEVICE_FINGERPRINT",
+        "note": "Perangkat demo"
+      },
+      "contentType": "application/json",
+      "examplePath": "/api/admin/beta_device",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/beta_device"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "enabled": true,
+        "fingerprint": "DEVICE_FINGERPRINT"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/beta_device/:fingerprint",
+      "description": "Hapus akses perangkat",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/beta_device/DEVICE_FINGERPRINT",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/beta_device/DEVICE_FINGERPRINT"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "enabled": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/banner",
+      "description": "Banner konfigurasi",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/banner",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/banner"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/update_banner",
+      "description": "JSON daftar group banners sesuai Zod",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": [
+        {
+          "group": "jkt48",
+          "banners": [
+            {
+              "title": "Judul",
+              "img": "https://example.com/banner.webp",
+              "url": "https://jkt48connect.com"
+            }
+          ]
+        }
+      ],
+      "contentType": "application/json",
+      "examplePath": "/api/admin/update_banner",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/update_banner"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/missing_jikosokai",
+      "description": "Member dengan data belum lengkap",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/missing_jikosokai",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/missing_jikosokai"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/missing_jkt48id",
+      "description": "Member dengan data belum lengkap",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/missing_jkt48id",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/missing_jkt48id"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/setlist",
+      "description": "Data admin; fans pagination, stage/member optional group",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/setlist",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/setlist"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/event",
+      "description": "Data admin; fans pagination, stage/member optional group",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/event",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/event"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/stage48",
+      "description": "Data admin; fans pagination, stage/member optional group",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/stage48",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/stage48"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/jkt48member",
+      "description": "Data admin; fans pagination, stage/member optional group",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/jkt48member",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/jkt48member"
+        }
+      },
+      "responseLabel": "Respons produksi • 13 Oktober 2026",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/member",
+      "description": "Data admin; fans pagination, stage/member optional group",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/member",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/member"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/fans_list",
+      "description": "Data admin; fans pagination, stage/member optional group",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/fans_list",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/fans_list"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/member/data",
+      "description": "Query `room_id`; data untuk editor",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {
+        "room_id": "ROOM_ID"
+      },
+      "examplePath": "/api/admin/member/data",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/member/data"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/theater/:id",
+      "description": "Data schedule/event untuk editor",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/theater/ID",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/theater/ID"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/event/:id",
+      "description": "Data schedule/event untuk editor",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/event/ID",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/event/ID"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/jkt48_sync",
+      "description": "JWT admin; refresh news, schedules/theater/event dan members; hasil per dataset, status 503 jika ada kegagalan",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {},
+      "contentType": "application/json",
+      "examplePath": "/api/admin/jkt48_sync",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/jkt48_sync"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/set_memberdata",
+      "description": "Query `room_id`, `memberDataId`; relasi Showroom/member",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {
+        "room_id": "ROOM_ID",
+        "memberDataId": "MEMBER_DOCUMENT_ID"
+      },
+      "examplePath": "/api/admin/set_memberdata",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/set_memberdata"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "code": 200,
+        "message": "Request success!"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/set_graduate",
+      "description": "Query `id`, `value=true|false`",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {
+        "id": "MEMBER_DOCUMENT_ID",
+        "value": "true"
+      },
+      "examplePath": "/api/admin/set_graduate",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/set_graduate"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "code": 200,
+        "message": "Request success!"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/edit_showroom",
+      "description": "Query `_id`, name, room_id, img, description, generation, group, url",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {
+        "_id": "SHOWROOM_DOCUMENT_ID",
+        "name": "Nama room",
+        "room_id": "ROOM_ID",
+        "group": "jkt48",
+        "url": "ROOM_URL_KEY"
+      },
+      "examplePath": "/api/admin/edit_showroom",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/edit_showroom"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "code": 200,
+        "message": "Request success!"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/edit_memberdata",
+      "description": "Multipart member editor; announcement memakai handler member sesuai sumber",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "_id": "MEMBER_DOCUMENT_ID",
+        "name": "Nama Member",
+        "slug": "nama-member",
+        "group": "jkt48",
+        "nicknames[]": [
+          "Nama"
+        ],
+        "jkt48id[]": [
+          "MEMBER_ID"
+        ],
+        "socials[]": [
+          "{\"title\":\"Instagram\",\"url\":\"https://instagram.com/example\"}"
+        ]
+      },
+      "contentType": "multipart/form-data",
+      "examplePath": "/api/admin/edit_memberdata",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/edit_memberdata"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/edit/announcement",
+      "description": "Multipart member editor; announcement memakai handler member sesuai sumber",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "_id": "MEMBER_DOCUMENT_ID",
+        "name": "Nama Member",
+        "slug": "nama-member",
+        "group": "jkt48",
+        "nicknames[]": [
+          "Nama"
+        ],
+        "jkt48id[]": [
+          "MEMBER_ID"
+        ],
+        "socials[]": [
+          "{\"title\":\"Instagram\",\"url\":\"https://instagram.com/example\"}"
+        ]
+      },
+      "contentType": "multipart/form-data",
+      "examplePath": "/api/admin/edit/announcement",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/edit/announcement"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/edit_theater",
+      "description": "JSON `_id` (schedule code), optional `seitansaiIds`, `graduationIds`, `memberIds` arrays",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "_id": "SH2D31",
+        "memberIds": [
+          "MEMBER_ID"
+        ],
+        "seitansaiIds": [],
+        "graduationIds": []
+      },
+      "contentType": "application/json",
+      "examplePath": "/api/admin/edit_theater",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/edit_theater"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "birthday_member": [],
+        "graduation_member": [],
+        "jkt48_member": [],
+        "is_birthday": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/edit_jkt48event",
+      "description": "JSON `_id` (event ID lama), `id` (ID baru), optional `eventId`, `url`, `memberIds` arrays",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "_id": "OLD_EVENT_ID",
+        "id": "NEW_EVENT_ID",
+        "memberIds": []
+      },
+      "contentType": "application/json",
+      "examplePath": "/api/admin/edit_jkt48event",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/edit_jkt48event"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/setlist",
+      "description": "Multipart `_id?`, id, title, description, poster/banner optional",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "id": "setlist-id",
+        "title": "Judul",
+        "title_alt": "Judul alternatif",
+        "description": "Deskripsi",
+        "poster": "@poster.png"
+      },
+      "contentType": "multipart/form-data",
+      "examplePath": "/api/admin/setlist",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/setlist"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "code": 200,
+        "message": "Success!"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/event",
+      "description": "Multipart `_id?`, id, title, description, poster/banner optional",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "id": "event-id",
+        "title": "Judul",
+        "title_alt": "Judul alternatif",
+        "description": "Deskripsi",
+        "poster": "@poster.png"
+      },
+      "contentType": "multipart/form-data",
+      "examplePath": "/api/admin/event",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/event"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "code": 200,
+        "message": "Success!"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/setlist/:id",
+      "description": "Hapus item",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/setlist/ID",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/setlist/ID"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "success": true
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/event/:id",
+      "description": "Hapus item",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/event/ID",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/event/ID"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/member/jikosokai",
+      "description": "Query `_id`, `jiko`",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {
+        "_id": "MEMBER_DOCUMENT_ID",
+        "jiko": "Teks jikosokai"
+      },
+      "examplePath": "/api/admin/member/jikosokai",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/member/jikosokai"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "code": 200,
+        "message": "Request success!"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/member/jkt48id",
+      "description": "Multipart `_id`, `jkt48id[]` berulang",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "_id": "MEMBER_DOCUMENT_ID",
+        "jkt48id[]": [
+          "MEMBER_ID"
+        ]
+      },
+      "contentType": "multipart/form-data",
+      "examplePath": "/api/admin/member/jkt48id",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/member/jkt48id"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "code": 200,
+        "message": "Request success!"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/member/banner",
+      "description": "Multipart `id`, `banner`/`image`",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "id": "MEMBER_DOCUMENT_ID",
+        "banner": "@banner.png"
+      },
+      "contentType": "multipart/form-data",
+      "examplePath": "/api/admin/member/banner",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/member/banner"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "url": "https://example.com/banner.webp",
+        "status": 200
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/member/image",
+      "description": "Multipart `id`, `banner`/`image`",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "id": "MEMBER_DOCUMENT_ID",
+        "image": "@image.png"
+      },
+      "contentType": "multipart/form-data",
+      "examplePath": "/api/admin/member/image",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/member/image"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "url": "https://example.com/image.webp",
+        "status": 200
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/input/showroom_log",
+      "description": "Multipart JSON gifts + roomId/liveId/comments/commentsBy/excitement/penontonAktif/dateStart/dateEnd",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "body": {
+        "gifts": "@gifts.json",
+        "roomId": "ROOM_ID",
+        "liveId": "LIVE_ID",
+        "comments": "0",
+        "commentsBy": "0",
+        "excitement": "0",
+        "penontonAktif": "0",
+        "dateStart": "13 October 2026 07:00:00 WIB",
+        "dateEnd": "13 October 2026 08:00:00 WIB"
+      },
+      "contentType": "multipart/form-data",
+      "examplePath": "/api/admin/input/showroom_log",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/input/showroom_log"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "data_id": "DATA_ID",
+        "status": 200
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/stats/rebuild",
+      "description": "Query `group`, `month`, `months` 1..24; rebuild data statistik",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {
+        "group": "jkt48",
+        "month": "2026-10",
+        "months": "1"
+      },
+      "examplePath": "/api/admin/stats/rebuild",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/stats/rebuild"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/watch/sr_cache",
+      "description": "Cache watch lokal untuk diagnosis",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/watch/sr_cache",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/watch/sr_cache"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/clear_cache",
+      "description": "Hapus cache respons D1",
+      "group": "Admin",
+      "auth": "Admin token",
+      "query": {},
+      "examplePath": "/api/admin/clear_cache",
+      "response": {
+        "status": 404,
+        "body": {
+          "status": 404,
+          "message": "Endpoint not found!",
+          "path": "/api/admin/clear_cache"
+        }
+      },
+      "responseLabel": "Contoh penolakan tanpa hak admin (berdasarkan handler)",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/admin.js",
+      "successExample": {
+        "code": 200,
+        "message": "Success!"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/ws",
+      "description": "Upgrade WebSocket, token JWT HS256. Pesan binary CBOR.",
+      "group": "Realtime",
+      "auth": "JWT WebSocket",
+      "query": {},
+      "examplePath": "/ws",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/live-hub.js"
+    },
+    {
+      "method": "POST",
+      "path": "/webhook/saweria",
+      "description": "Callback Saweria dengan header Saweria-Callback-Signature dan JSON callback resmi.",
+      "group": "Webhook",
+      "auth": "HMAC Saweria",
+      "query": {},
+      "body": {
+        "version": "VERSION",
+        "id": "DONATION_ID",
+        "amount_raw": 10000,
+        "donator_name": "Nama demo",
+        "donator_email": "demo@example.com"
+      },
+      "contentType": "application/json",
+      "examplePath": "/webhook/saweria",
+      "response": null,
+      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/webhooks/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/media/jkt48/:path",
+      "group": "Media",
+      "auth": "Publik",
+      "description": "Gambar JKT48 dilayani dari R2. Cache miss diunduh melalui scraper privat dan disimpan sebelum respons.",
+      "query": {},
+      "examplePath": "/media/jkt48/media/jkt48-member/anindya_ramadhani.jpg",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Gambar biner dari R2; Content-Type image/*, X-Media-Storage: r2; HEAD tanpa body.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/runtime/jkt48-media.js"
+    },
+    {
+      "method": "HEAD",
+      "path": "/media/jkt48/:path",
+      "group": "Media",
+      "auth": "Publik",
+      "description": "Metadata gambar R2; mendukung ETag dan If-None-Match.",
+      "query": {},
+      "examplePath": "/media/jkt48/media/jkt48-member/anindya_ramadhani.jpg",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Gambar biner dari R2; Content-Type image/*, X-Media-Storage: r2; HEAD tanpa body.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/runtime/jkt48-media.js"
+    },
+    {
+      "method": "GET",
+      "path": "/control/admin",
+      "group": "Control",
+      "auth": "Publik",
+      "description": "Halaman login control admin.",
+      "query": {},
+      "examplePath": "/control/admin",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js"
+    },
+    {
+      "method": "POST",
+      "path": "/control/api/login",
+      "group": "Control",
+      "auth": "Email/password",
+      "description": "JSON email dan password admin. Session menggunakan cookie HttpOnly, Secure, SameSite=Strict.",
+      "query": {},
+      "examplePath": "/control/api/login",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js",
+      "body": {
+        "email": "ADMIN_EMAIL",
+        "password": "ADMIN_PASSWORD"
+      },
+      "contentType": "application/json"
+    },
+    {
+      "method": "POST",
+      "path": "/control/api/logout",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "Keluar dan hapus cookie sesi.",
+      "query": {},
+      "examplePath": "/control/api/logout",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/control/api/session",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "Identitas admin pada sesi aktif.",
+      "query": {},
+      "examplePath": "/control/api/session",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/control/api/settings",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "Daftar pengaturan; secret dimasker.",
+      "query": {},
+      "examplePath": "/control/api/settings",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js"
+    },
+    {
+      "method": "PUT",
+      "path": "/control/api/settings",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "JSON changes berisi name:value; null mengembalikan nilai deployment. Secret terenkripsi dalam D1.",
+      "query": {},
+      "examplePath": "/control/api/settings",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js",
+      "body": {
+        "changes": {
+          "JKT48_NEWS_PAGES": "3"
+        }
+      },
+      "contentType": "application/json"
+    },
+    {
+      "method": "GET",
+      "path": "/control/api/key",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "Tampilkan API key aktif hanya setelah admin login.",
+      "query": {},
+      "examplePath": "/control/api/key",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js"
+    },
+    {
+      "method": "POST",
+      "path": "/control/api/key/new",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "Buat key acak baru; belum aktif hingga disimpan.",
+      "query": {},
+      "examplePath": "/control/api/key/new",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/control/api/status",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "Jumlah koleksi, cache dan gambar R2.",
+      "query": {},
+      "examplePath": "/control/api/status",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js"
+    },
+    {
+      "method": "POST",
+      "path": "/control/api/sync",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "JSON dataset: news, schedules, members atau all. Memaksa sinkronisasi.",
+      "query": {},
+      "examplePath": "/control/api/sync",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js",
+      "body": {
+        "dataset": "all"
+      },
+      "contentType": "application/json"
+    },
+    {
+      "method": "POST",
+      "path": "/control/api/cache/clear",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "Hapus cache API; data dan gambar dipertahankan.",
+      "query": {},
+      "examplePath": "/control/api/cache/clear",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js"
+    },
+    {
+      "method": "POST",
+      "path": "/control/api/media/warm",
+      "group": "Control",
+      "auth": "Cookie control admin",
+      "description": "Unduh dan simpan maksimal 20 gambar member yang belum ada di R2 per batch.",
+      "query": {},
+      "examplePath": "/control/api/media/warm",
+      "tryEnabled": false,
+      "response": null,
+      "responseLabel": "Memerlukan gambar atau sesi control yang sesuai; lihat source.",
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/control/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/internal/collector/config",
+      "description": "Konfigurasi runtime dan pemetaan member untuk VPS.",
+      "group": "Collector",
+      "auth": "Collector token",
+      "query": {},
+      "examplePath": "/internal/collector/config",
+      "responseLabel": "Endpoint privat VPS; lihat kontrak dan schema collector.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js"
+    },
+    {
+      "method": "POST",
+      "path": "/internal/collector/heartbeat",
+      "description": "Heartbeat collector privat.",
+      "group": "Collector",
+      "auth": "Collector token",
+      "query": {},
+      "examplePath": "/internal/collector/heartbeat",
+      "responseLabel": "Endpoint privat VPS; lihat kontrak dan schema collector.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js",
+      "body": {
+        "active": 1,
+        "pending": 0,
+        "showroom_ok": true,
+        "idn_ok": true,
+        "version": "1.0.0"
+      },
+      "contentType": "application/json"
+    },
+    {
+      "method": "PUT",
+      "path": "/internal/collector/archive",
+      "description": "Checkpoint / arsip live idempotent. Payload lengkap sesuai schema di source; bukan endpoint gift publik.",
+      "group": "Collector",
+      "auth": "Collector token",
+      "query": {},
+      "examplePath": "/internal/collector/archive",
+      "responseLabel": "Endpoint privat VPS; lihat kontrak dan schema collector.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js"
+    },
+    {
+      "method": "PUT",
+      "path": "/internal/collector/screenshot/:data_id/:frame",
+      "description": "Upload byte JPEG ke R2; maksimal 1.5 MB.",
+      "group": "Collector",
+      "auth": "Collector token",
+      "query": {},
+      "examplePath": "/internal/collector/screenshot/:data_id/:frame",
+      "responseLabel": "Endpoint privat VPS; lihat kontrak dan schema collector.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js"
+    },
+    {
+      "method": "POST",
+      "path": "/internal/collector/video/start",
+      "description": "Mulai multipart R2 untuk fragmented MP4.",
+      "group": "Collector",
+      "auth": "Collector token",
+      "query": {},
+      "examplePath": "/internal/collector/video/start",
+      "responseLabel": "Endpoint privat VPS; lihat kontrak dan schema collector.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js",
+      "body": {
+        "data_id": "DATA_ID",
+        "run": "1791890000000"
+      },
+      "contentType": "application/json"
+    },
+    {
+      "method": "PUT",
+      "path": "/internal/collector/video/part/:upload_id/:part",
+      "description": "Upload part video; 5 MiB minimum kecuali part terakhir, maksimal 8 MiB.",
+      "group": "Collector",
+      "auth": "Collector token",
+      "query": {},
+      "examplePath": "/internal/collector/video/part/:upload_id/:part",
+      "responseLabel": "Endpoint privat VPS; lihat kontrak dan schema collector.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js"
+    },
+    {
+      "method": "POST",
+      "path": "/internal/collector/video/finish",
+      "description": "Selesaikan multipart dengan partNumber/etag yang dikembalikan server.",
+      "group": "Collector",
+      "auth": "Collector token",
+      "query": {},
+      "examplePath": "/internal/collector/video/finish",
+      "responseLabel": "Endpoint privat VPS; lihat kontrak dan schema collector.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js",
+      "body": {
+        "id": "UPLOAD_UUID",
+        "parts": [
+          {
+            "partNumber": 1,
+            "etag": "PART_ETAG"
+          }
+        ]
+      },
+      "contentType": "application/json"
+    },
+    {
+      "method": "POST",
+      "path": "/internal/collector/video/abort",
+      "description": "Batalkan multipart belum selesai.",
+      "group": "Collector",
+      "auth": "Collector token",
+      "query": {},
+      "examplePath": "/internal/collector/video/abort",
+      "responseLabel": "Endpoint privat VPS; lihat kontrak dan schema collector.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js",
+      "body": {
+        "id": "UPLOAD_UUID"
+      },
+      "contentType": "application/json"
+    },
+    {
+      "method": "GET",
+      "path": "/media/live/:data_id/:file",
+      "description": "JPEG/MP4 dari R2; mendukung HTTP Range untuk replay.",
+      "group": "Media",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/media/live/:data_id/:file",
+      "responseLabel": "Media biner dari R2.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js"
+    },
+    {
+      "method": "HEAD",
+      "path": "/media/live/:data_id/:file",
+      "description": "Metadata JPEG/MP4 R2 tanpa body.",
+      "group": "Media",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/media/live/:data_id/:file",
+      "responseLabel": "Media biner dari R2.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/index.js"
+    }
+  ]
+}

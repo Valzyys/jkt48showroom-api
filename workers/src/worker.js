@@ -1,3 +1,9 @@
+import {serveGiftImage} from './runtime/gift-media';
+import { collectorResponse, cleanupCollectorUploads } from './collector/index.js';
+import { controlResponse } from './control/index.js';
+import { effectiveBindings } from './control/settings.js';
+import { serveMedia, rewriteMediaResponse } from './runtime/jkt48-media.js';
+import { documentation } from './docs/index.js';
 import { runWithEnv, env } from './runtime/env.js';
 import { streamProxy } from './runtime/proxy-core.js';
 import { ensureJKT48 } from './library/jkt48/scraper/sync.js';
@@ -12,7 +18,7 @@ export function getApp() {
       import('hono'),import('./routes/index.js'),import('./webhooks/index.js'),import('./utils/errorResponse.js'),import('./runtime/http.js')
     ]);
     const app=new Hono();
-    app.get('/',c=>c.json({author:'crstlnz',website:'https://48live.my.id',version:'0.14.2-workers.1'}));
+    app.get('/',c=>c.json({author:'valzy',website:'https://jkt48connect.com',version:'0.14.2-workers.1'}));
     app.use('*',async(c,next)=>{
       c.header('X-Content-Type-Options','nosniff');
       const privateRequest=c.req.method!=='GET'||Boolean(c.req.header('Authorization')||c.req.header('X-Refresh-Token')||c.req.header('Cookie'))||/^\/api\/(auth|user|admin|showroom)(\/|$)/.test(c.req.path)||c.req.path==='/api/profile';
@@ -47,7 +53,18 @@ function cors(response,request,bindings) {
 }
 export default {
   async fetch(request,bindings,execution) {
-    return runWithEnv(bindings,execution,async()=>{
+    const incoming=new URL(request.url);if(incoming.hostname==='apitest.jkt48connect.com'){incoming.hostname='api.jkt48connect.app';return new Response(null,{status:308,headers:{Location:incoming.href,'Cache-Control':'no-store'}});}
+    const collector = await collectorResponse(request,bindings,execution);
+    if (collector) return collector;
+    const docs = documentation(request);
+    if (docs) return docs;
+    const control = await controlResponse(request,bindings,execution);
+    if (control) return rewriteMediaResponse(control,request);
+    bindings = await effectiveBindings(bindings);
+    const giftMedia=await serveGiftImage(request,bindings);if(giftMedia)return giftMedia;
+    const media = await serveMedia(request,bindings);
+    if (media) return media;
+    return runWithEnv({...bindings,REQUEST_ORIGIN:new URL(request.url).origin},execution,async()=>{
       const url=new URL(request.url);
       if(url.pathname==='/health') {
         try { if(!bindings.DB) throw new Error('Missing DB'); await bindings.DB.prepare('SELECT 1 FROM documents LIMIT 1').first(); return Response.json({ok:true,runtime:'cloudflare-workers'}); }
@@ -69,7 +86,7 @@ export default {
           return bindings.LIVE_HUB.get(bindings.LIVE_HUB.idFromName('global')).fetch(new Request(new URL('/ws'+url.search,request.url),request));
         }
         if(url.pathname==='/api/beta' || /^\/api\/admin\/beta(?:_device)?(?:\/|$)/.test(url.pathname)) return bindings.COORDINATOR.get(bindings.COORDINATOR.idFromName('global')).fetch(request);
-        return (await getApp()).fetch(request,bindings,execution);
+        return rewriteMediaResponse(await (await getApp()).fetch(request,bindings,execution),request);
       } catch(error) {
         const sourceError=publicSyncError(error,url.pathname);
         if(sourceError)return cors(Response.json(sourceError,{status:error.status,headers:{'Cache-Control':'no-store',...(error.retryAfter?{'Retry-After':String(error.retryAfter)}:{})}}),request,bindings);
@@ -80,8 +97,10 @@ export default {
     });
   },
   async scheduled(event,bindings,execution) {
-    return runWithEnv(bindings,execution,async()=>{
+    bindings = await effectiveBindings(bindings);
+    return runWithEnv({...bindings,REQUEST_ORIGIN:new URL(request.url).origin},execution,async()=>{
       execution.waitUntil(bindings.LIVE_HUB.get(bindings.LIVE_HUB.idFromName('global')).fetch('https://live.internal/refresh',{method:'POST'}));
+      execution.waitUntil(cleanupCollectorUploads(bindings));
       execution.waitUntil(bindings.DB.prepare('DELETE FROM cache_entries WHERE expires_at<=?').bind(Date.now()).run());
       for(const dataset of ['news','schedules','members'])execution.waitUntil(ensureJKT48(dataset).catch(error=>console.error({event:'jkt48-cron-failed',dataset,message:error.message})));
       // The source leaves competition/monthly jobs disabled. Enable explicitly.

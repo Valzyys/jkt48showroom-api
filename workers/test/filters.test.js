@@ -20,3 +20,9 @@ test('partial OR optimization never removes possible matches',()=>{
 });
 test('untrusted JSON field paths cannot enter SQL',()=>{ assert.equal(jsonPath("name') OR 1=1 --"),null); assert.equal(compileFilter({"name') OR 1=1 --":1},()=>true).sql,''); });
 test('array fields are left to the document query engine',()=>{const result=compileFilter({'users.user_id':1},()=>false);assert.equal(result.sql,'');});
+
+test('large gift catalogs use one bound JSON parameter and preserve numeric membership',()=>{
+ const ids=Array.from({length:350},(_,i)=>i+1);const result=compileFilter({gift_id:{$in:ids}},()=>true);assert.equal(result.values.length,1);
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE documents(document TEXT)');db.prepare('INSERT INTO documents VALUES(?)').run('{"gift_id":349}');db.prepare('INSERT INTO documents VALUES(?)').run('{"gift_id":999}');
+ assert.equal(db.prepare('SELECT count(*) AS n FROM documents WHERE '+result.sql).get(...result.values).n,1);db.close();
+});

@@ -1,3 +1,7 @@
+import {leaderboardImages} from '../../collector/leaderboards';
+import {ensureIdnGifts} from '../../idn/catalog';
+import {giftImageUrl} from '../../runtime/gift-media';
+import { giftCounts } from './gift-counts';
 import { env } from '@/runtime/env';
 import ShowroomGift from '@schema/showroom/ShowroomGift';
 import dayjs from 'dayjs';
@@ -10,6 +14,10 @@ import { createError } from '@/utils/errorResponse';
 import { calculateFansPoints } from '../fansPoints';
 export async function parseBase(data) {
     return {
+        leaderboard_image: (await leaderboardImages(env.DB,[data.data_id],env.REQUEST_ORIGIN||'https://api.jkt48connect.app')).get(data.data_id),
+        point_unit: data.type==='idn'?'idn_gold':'showroom_points',
+        recordings: (data.recordings||[]).map(r=>({...r,stream_url:r.stream_url||r.url?.replace(/\.mp4(?:\?.*)?$/,'.m3u8'),player_url:r.player_url||r.url?.replace(/\/media\/live\/([^/]+)\/video-(\d+)\.mp4(?:\?.*)?$/,'/replay/$1/$2')})),
+        capture: data.capture,
         data_id: data.data_id,
         live_id: data.live_id,
         room_id: data.room_id,
@@ -86,7 +94,7 @@ export async function parseShowroom(data) {
             point: gift.point,
             id: gift.gift_id,
             free: gift.free,
-            img: gift.image,
+            img: giftImageUrl('showroom',gift.gift_id),
             is_delete_from_stage: gift.is_delete_from_stage,
             user_count: 0,
             num: 0
@@ -115,7 +123,10 @@ export async function parseShowroom(data) {
         const gift = giftMap.get(g.gift_id);
         if (gift) {
             return {
-                ...gift
+                ...gift,
+                ...giftCounts(data.gift_data.gift_log,gift.id),
+                ...(data.type==='showroom'?{num:gift.num,user_count:gift.user_count}:{}),
+                count_source:'observed_events'
             };
         } else {
             return {
@@ -124,7 +135,7 @@ export async function parseShowroom(data) {
                 id: g.gift_id,
                 user_count: 0,
                 free: false,
-                img: config.giftUrl(g.gift_id),
+                img: giftImageUrl('showroom',g.gift_id),
                 is_delete_from_stage: true,
                 num: 0
             };
@@ -154,6 +165,7 @@ export async function parseShowroom(data) {
                             return {
                                 id: g.gift_id,
                                 num: g.num,
+                                send_count: g.send_count ?? null,
                                 date: g.date.toISOString()
                             };
                         }),
@@ -188,6 +200,7 @@ export async function parseShowroom(data) {
     };
 }
 export async function parseIDN(data) {
+    await ensureIdnGifts(env);
     const giftPagination = getGiftPagination(data);
     const giftList = await IDNGift.find({
         slug: data.gift_data.gift_id_list
@@ -207,7 +220,8 @@ export async function parseIDN(data) {
             point: gift.gold,
             id: gift.slug,
             free: false,
-            img: gift.image_url || '',
+            img: gift.image_url ? giftImageUrl('idn',gift.slug) : '',
+            image_available: Boolean(gift.image_url),
             user_count: 0,
             num: 0
         });
@@ -216,7 +230,7 @@ export async function parseIDN(data) {
         for (const gift of giftLog.gifts){
             const g = giftMap.get(String(gift.gift_id));
             if (g) {
-                g.num += 1;
+                g.num += gift.num || 1;
                 g.user_count += 1;
             }
         }
@@ -228,7 +242,10 @@ export async function parseIDN(data) {
         const gift = giftMap.get(g.slug);
         if (gift) {
             return {
-                ...gift
+                ...gift,
+                ...giftCounts(data.gift_data.gift_log,gift.id),
+                ...(data.type==='showroom'?{num:gift.num,user_count:gift.user_count}:{}),
+                count_source:'observed_events'
             };
         } else {
             return {
@@ -237,7 +254,8 @@ export async function parseIDN(data) {
                 id: g.slug,
                 user_count: 0,
                 free: false,
-                img: g.image_url || '',
+                img: g.image_url ? giftImageUrl('idn',g.slug) : '',
+                image_available: Boolean(g.image_url),
                 num: 0
             };
         }
@@ -252,6 +270,7 @@ export async function parseIDN(data) {
     return {
         ...await parseBase(data),
         idn: data.idn,
+        fans: [...(data.gift_data?.gift_log||[])].sort((a,b)=>(b.total||0)-(a.total||0)).slice(0,50).map((entry,index)=>{const person=data.users?.find(u=>String(u.user_id)===String(entry.user_id));return {rank:index+1,id:String(entry.user_id),name:person?.name||'Viewer',avatar_url:person?.avatar_url||'',gold:entry.total||0,source:'observed_chat'};}),
         live_info: {
             duration: data.live_info.duration,
             gift: {
@@ -261,6 +280,7 @@ export async function parseIDN(data) {
                             return {
                                 id: g.gift_id,
                                 num: g.num || 1,
+                                send_count: g.send_count ?? null,
                                 date: g.date.toISOString()
                             };
                         }),

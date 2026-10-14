@@ -1,5 +1,8 @@
 # Referensi API
 
+UI publik: [JKT48 Connect API Docs](https://api.jkt48connect.app/docs).
+Panduan lengkap dan contoh: [docs/guide.md](docs/guide.md).
+
 Path relatif terhadap domain Worker. Respons sukses mempertahankan bentuk handler asal: ada endpoint array, object, text dan playlist. Error umumnya `{ "status": 401, "message": "Unauthorized!", "path": "/api/..." }`; stream juga meneruskan body/status error upstream. Semua response pribadi `Cache-Control: no-store`.
 
 ## Autentikasi

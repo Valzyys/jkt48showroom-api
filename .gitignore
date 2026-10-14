@@ -8,3 +8,5 @@ node_modules
 
 tmp/
 /src/scripts/*
+# Local Wrangler state
+/.wrangler/

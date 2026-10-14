@@ -1,0 +1,9 @@
+[Unit]
+Description=Generate missing recent leaderboard images
+[Timer]
+OnBootSec=45s
+OnUnitInactiveSec=60s
+RandomizedDelaySec=5s
+Unit=jkt48-leaderboard.service
+[Install]
+WantedBy=timers.target

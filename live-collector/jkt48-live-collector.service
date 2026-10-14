@@ -1,0 +1,31 @@
+[Unit]
+Description=JKT48 live archive and media collector
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=jkt48collector
+Group=jkt48collector
+WorkingDirectory=/opt/jkt48-live-collector
+EnvironmentFile=/etc/jkt48-live-collector.env
+Environment=PYTHONUNBUFFERED=1
+Environment=COLLECTOR_STATE_DIR=/var/lib/jkt48-live-collector
+Environment=COLLECTOR_CHROME_PATH=/opt/jkt48-live-collector/chrome/chrome
+ExecStart=/opt/jkt48-live-collector/.venv/bin/python /opt/jkt48-live-collector/collector.py
+Restart=always
+RestartSec=10
+TimeoutStopSec=45
+StateDirectory=jkt48-live-collector
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jkt48-live-collector
+MemoryMax=1600M
+CPUQuota=120%
+TasksMax=300
+LimitNOFILE=2048
+[Install]
+WantedBy=multi-user.target

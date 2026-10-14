@@ -3,18 +3,22 @@ import { Buffer } from 'node:buffer';
 import crypto from 'node:crypto';
 const encoder = new TextEncoder();
 let signatureSecret = null;
+let signatureConfiguration = null;
+let sourceConfiguration = null;
 let sourceSignatureSecrets = null;
 function toHex(buffer) {
     return Buffer.from(buffer).toString('hex');
 }
 export function getSignatureSecret() {
-    if (signatureSecret == null) {
+    if (signatureSecret == null || signatureConfiguration !== env.JWT_SECRET + ":" + env.SECRET) {
+        signatureConfiguration = env.JWT_SECRET + ":" + env.SECRET;
         signatureSecret = crypto.createHmac('sha256', env.JWT_SECRET).update(env.SECRET).digest('hex');
     }
     return signatureSecret;
 }
 export function getSourceSignatureSecrets() {
-    if (sourceSignatureSecrets == null) {
+    if (sourceSignatureSecrets == null || sourceConfiguration !== env.SIGNATURE_SECRETS) {
+        sourceConfiguration = env.SIGNATURE_SECRETS;
         sourceSignatureSecrets = new Map((env.SIGNATURE_SECRETS ?? '').split(',').map((item)=>{
             const separatorIndex = item.indexOf(':');
             if (separatorIndex === -1) return null;

@@ -1,11 +1,8 @@
-import { env } from '@/runtime/env';
 import config from '@/config';
 import IdolMember from '@/database/schema/48group/IdolMember';
-import cache from '@/utils/cache';
 export async function getMembers(c) {
     const group = c == null ? 'jkt48' : typeof c === 'string' ? c || 'jkt48' : c.req.query('group') || 'jkt48';
-    if (env.NODE_ENV === 'development') return await fetch(group);
-    return await cache.fetch(group ? `${group}-memberv8` : 'memberv8', ()=>fetch(group), 86400000);
+    return fetch(group);
 }
 async function fetch(group = null) {
     try {
@@ -26,6 +23,7 @@ async function fetch(group = null) {
                 group: member.group,
                 socials: member?.info?.socials,
                 room_id: member.showroom_id,
+                archive_room_ids: member.collector_room_ids||[],
                 sr_exists: member?.showroom?.room_exists ?? false,
                 is_graduate: member.info?.is_graduate ?? member.group !== 'official',
                 generation: member.info?.generation,
@@ -35,6 +33,6 @@ async function fetch(group = null) {
         }).sort((a, b)=>a.name.localeCompare(b.name));
     } catch (e) {
         console.error(e);
-        return [];
+        throw e;
     }
 }

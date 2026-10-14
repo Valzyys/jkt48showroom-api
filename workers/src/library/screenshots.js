@@ -24,6 +24,6 @@ async function fetchData(data_id) {
     }
     return {
         ...data.live_info.screenshots,
-        list: env.HALF_SCREENSHOTS ? data.live_info.screenshots.list.filter((_, idx)=>idx % 2 === 0) : data.live_info.screenshots.list
+        list: env.HALF_SCREENSHOTS === 'true' ? data.live_info.screenshots.list.filter((_, idx)=>idx % 2 === 0) : data.live_info.screenshots.list
     };
 }

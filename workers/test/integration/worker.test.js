@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile,readdir } from 'node:fs/promises';
 import { Miniflare } from 'miniflare';
 import jwt from 'jsonwebtoken';
-import { createHmac,randomUUID } from 'node:crypto';
+import { createHmac,randomUUID,pbkdf2Sync } from 'node:crypto';
 import { encode,decode } from 'cbor-x';
 
 test('Workers runtime integrates routes, D1, proxy, authentication, beta and WebSockets',async t=>{
@@ -21,11 +21,12 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     compatibilityDate:'2026-07-01',compatibilityFlags:['nodejs_compat'],
     d1Databases:{DB:'test-database'},r2Buckets:{IMAGES_BUCKET:'test-images'},
     durableObjects:{LIVE_HUB:{className:'LiveHub',useSQLite:true},COORDINATOR:{className:'Coordinator',useSQLite:true}},
-    bindings:{NODE_ENV:'production',SECRET:secret,AUTH_SECRET:secret,JWT_SECRET:secret,API_KEY:'integration-key',ADMIN_IDS:'1',SHOWROOM_API:'https://sr.test',PROXY_URL:'https://relay.test/',ORIGINS:'https://frontend.test',LIVE_REFRESH_SECONDS:'300',SAWERIA_KEY:'saweria-test',CLOUDINARY_CLOUD_NAME:'test-cloud',CLOUDINARY_API_KEY:'image-test-key',CLOUDINARY_API_SECRET:'image-test-secret',IMAGE_PUBLIC_URL:'https://images.test',JKT48_SCRAPER_URL:'https://scrape.jkt48connect.com/api/v1/',JKT48_SCRAPER_TOKEN:'synthetic-vps-token-'.repeat(3)},
+    bindings:{CONTROL_ADMIN_EMAIL:'admin@example.test',CONTROL_SESSION_SECRET:'synthetic-control-session-secret',CONTROL_ADMIN_PASSWORD_HASH:'pbkdf2-sha256$100000$testsalt$'+pbkdf2Sync('synthetic-admin-password','testsalt',100000,32,'sha256').toString('hex'),NODE_ENV:'production',SECRET:secret,AUTH_SECRET:secret,JWT_SECRET:secret,API_KEY:'integration-key',ADMIN_IDS:'1',SHOWROOM_API:'https://sr.test',PROXY_URL:'https://relay.test/',ORIGINS:'https://frontend.test',LIVE_REFRESH_SECONDS:'300',SAWERIA_KEY:'saweria-test',CLOUDINARY_CLOUD_NAME:'test-cloud',CLOUDINARY_API_KEY:'image-test-key',CLOUDINARY_API_SECRET:'image-test-secret',IMAGE_PUBLIC_URL:'https://images.test',JKT48_SCRAPER_URL:'https://scrape.jkt48connect.com/api/v1/',JKT48_SCRAPER_TOKEN:'synthetic-vps-token-'.repeat(3)},
     outboundService:async request=>{
       upstreamRequests.push({url:request.url,cookie:request.headers.get('Cookie'),method:request.method,body:['POST','PUT'].includes(request.method)?await request.text():''});
       const target=request.url.replace('https://relay.test/','');
       const official=new URL(request.url);
+      if(official.hostname==='scrape.jkt48connect.com'&&official.pathname==='/images/media/test.jpg'){assert.equal(request.headers.get('Authorization'),'Bearer '+'synthetic-vps-token-'.repeat(3));return new Response(new Uint8Array([255,216,255,1]),{headers:{'Content-Type':'image/jpeg'}});}
       if(official.hostname==='scrape.jkt48connect.com'&&official.pathname.startsWith('/api/v1/')) {
         assert.equal(request.headers.get('Authorization'),'Bearer '+'synthetic-vps-token-'.repeat(3));
         assert.equal(request.headers.get('Cookie'),null);
@@ -64,6 +65,7 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     const request=new Request('https://worker.test'+path,{...init,headers:{Origin:'https://frontend.test',...init.headers}});
     return mf.dispatchFetch(request.url,{method:request.method,headers:Object.fromEntries(request.headers),body:['GET','HEAD'].includes(request.method)?undefined:await request.arrayBuffer()});
   };
+  await DB.prepare('INSERT INTO cache_entries(key,value,expires_at) VALUES(?,?,?)').bind('GROUP:jkt48-memberv8','[]',Date.now()+86400000).run();
   await t.test('health and member response preserve API contract',async()=>{
     assert.equal((await call('/health')).status,200);
     const response=await call('/api/member?group=jkt48');assert.equal(response.status,200);
@@ -195,4 +197,37 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     const response=await call('/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+accessToken,'X-SR-Token':srToken}});assert.equal(response.status,200);
     assert.ok(upstreamRequests.some(request=>request.url.includes('/user/logout_api')&&request.cookie?.includes('mock-session')));
   });
+  await t.test('birthdays tolerate missing dates and default next birthday selects JKT48',async()=>{
+    await insert('dcDB','members','000000000000000000000099',{name:'No Birthday',group:'jkt48',isGraduate:false});
+    await DB.prepare('DELETE FROM cache_entries').run();
+    const month=await call('/api/birthday');assert.equal(month.status,200,await month.clone().text());assert.equal((await month.json()).length,1);
+    const next=await call('/api/next_birthday');assert.equal(next.status,200);assert.equal((await next.json())[0].name,'Updated');
+  });
+  await t.test('private control authenticates, encrypts secrets and updates the active server API key',async()=>{
+    assert.equal((await call('/control/admin')).status,200);
+    assert.equal((await call('/control/api/settings')).status,401);
+    const loginBody=JSON.stringify({email:'admin@example.test',password:'synthetic-admin-password'});
+    assert.equal((await call('/control/api/login',{method:'POST',headers:{Origin:'https://evil.test'},body:loginBody})).status,403);
+    const login=await call('/control/api/login',{method:'POST',headers:{Origin:'https://worker.test'},body:loginBody});
+    assert.equal(login.status,200,await login.clone().text());const cookie=login.headers.get('Set-Cookie');assert.match(cookie,/HttpOnly; Secure; SameSite=Strict/);
+    const authHeaders={Cookie:cookie,Origin:'https://worker.test'};
+    const settings=await (await call('/control/api/settings',{headers:authHeaders})).json();
+    assert.equal(settings.settings.find(s=>s.name==='API_KEY').value,'');
+    const newKey='synthetic-control-api-key-'.padEnd(64,'x');
+    const save=await call('/control/api/settings',{method:'PUT',headers:authHeaders,body:JSON.stringify({changes:{API_KEY:newKey}})});
+    assert.equal(save.status,200,await save.clone().text());
+    const saved=await DB.prepare("SELECT value,is_secret FROM control_settings WHERE name='API_KEY'").first();assert.equal(saved.is_secret,1);assert.ok(!saved.value.includes(newKey));
+    assert.equal((await (await call('/control/api/key',{headers:authHeaders})).json()).key,newKey);
+    assert.equal((await call('/api/recent',{headers:{'x-api-key':'integration-key'}})).status,401);
+    assert.equal((await call('/api/recent',{headers:{'x-api-key':newKey}})).status,200);
+    assert.equal((await call('/control/api/settings',{method:'PUT',headers:{...authHeaders,Origin:'https://evil.test'},body:JSON.stringify({changes:{API_KEY:newKey}})})).status,403);
+    const logout=await call('/control/api/logout',{method:'POST',headers:authHeaders,body:'{}'});assert.equal(logout.status,200);assert.match(logout.headers.get('Set-Cookie'),/Max-Age=0/);
+  });
+
+  await t.test('public image route caches authenticated VPS images in R2',async()=>{
+    const first=await call('/media/jkt48/media/test.jpg');assert.equal(first.status,200,await first.clone().text());assert.equal(first.headers.get('X-Media-Storage'),'r2');
+    const bucket=await mf.getR2Bucket('IMAGES_BUCKET');const stored=await bucket.get('jkt48-origin/media/test.jpg');assert.ok(stored);assert.equal(stored.httpMetadata.contentType,'image/jpeg');
+    const again=await call('/media/jkt48/media/test.jpg',{method:'HEAD'});assert.equal(again.status,200);assert.equal(await again.text(),'');
+  });
+
 });

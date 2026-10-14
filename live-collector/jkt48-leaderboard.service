@@ -1,0 +1,20 @@
+[Unit]
+Description=Render recent leaderboard images and upload directly to R2
+After=network-online.target
+[Service]
+Type=oneshot
+User=jkt48collector
+Group=jkt48collector
+WorkingDirectory=/opt/jkt48-live-collector
+EnvironmentFile=/etc/jkt48-live-collector.env
+Environment=COLLECTOR_CHROME_PATH=/opt/jkt48-live-collector/chrome/chrome
+ExecStart=/usr/bin/node /opt/jkt48-live-collector/leaderboard-renderer.cjs
+TimeoutStartSec=12min
+CPUQuota=50%
+MemoryMax=800M
+TasksMax=120
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077

@@ -10,7 +10,7 @@ import time
 from curl_cffi.requests import AsyncSession
 from curl_cffi.requests.exceptions import Timeout as CurlTimeout
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 UPSTREAM = "https://jkt48.com/api/v1/"
 MAX_BYTES = 2 * 1024 * 1024
@@ -85,6 +85,53 @@ def create_app(token=None, session_factory=None, cache_seconds=60, requests_per_
     @app.get("/health")
     async def health():
         return {"ok": True, "service": "jkt48-scraper"}
+
+    @app.get("/images/{path:path}")
+    async def image(path: str, request: Request):
+        supplied = request.headers.get("Authorization", "").encode()
+        if not secrets.compare_digest(supplied, ("Bearer " + token).encode()):
+            return JSONResponse({"status": False, "message": "Unauthorized"}, status_code=401)
+        if (request.query_params or not re.fullmatch(r"media/[A-Za-z0-9_./-]+\.(?:jpe?g|png|webp|gif|avif)", path, re.IGNORECASE)
+                or any(part in ("", ".", "..") for part in path.split("/"))):
+            return JSONResponse({"status": False, "message": "Invalid image path"}, status_code=400)
+        now = time.monotonic()
+        while app.state.starts and app.state.starts[0] <= now - 60:
+            app.state.starts.popleft()
+        if len(app.state.starts) >= requests_per_minute:
+            return JSONResponse({"status": False, "message": "Scraper rate limit exceeded"}, status_code=429, headers={"Retry-After": "60"})
+        app.state.starts.append(now)
+        response = None
+        async def receive():
+            nonlocal response
+            response = await app.state.session.get("https://jkt48.com/api/v1/storages/" + path,
+                timeout=20, allow_redirects=False, stream=True)
+            if response.status_code != 200:
+                raise ScrapeError(response.status_code if 400 <= response.status_code <= 599 else 502, "Image source unavailable")
+            body = bytearray()
+            async for chunk in response.aiter_content():
+                body.extend(chunk)
+                if len(body) > 8 * 1024 * 1024:
+                    raise ScrapeError(413, "Image exceeds 8 MB")
+            data = bytes(body)
+            if data.startswith(b"\xff\xd8\xff"): mime = "image/jpeg"
+            elif data.startswith(b"\x89PNG\r\n\x1a\n"): mime = "image/png"
+            elif data.startswith((b"GIF87a", b"GIF89a")): mime = "image/gif"
+            elif data[:4] == b"RIFF" and data[8:12] == b"WEBP": mime = "image/webp"
+            elif data[4:8] == b"ftyp" and (b"avif" in data[8:32] or b"avis" in data[8:32]): mime = "image/avif"
+            else: raise ScrapeError(502, "Source did not return a supported image")
+            return Response(data, media_type=mime)
+        try:
+            async with app.state.semaphore:
+                return await asyncio.wait_for(receive(), timeout=25)
+        except ScrapeError as error:
+            return JSONResponse({"status": False, "message": error.message}, status_code=error.status)
+        except (TimeoutError, asyncio.TimeoutError, CurlTimeout):
+            return JSONResponse({"status": False, "message": "Image source timed out"}, status_code=504)
+        except Exception:
+            return JSONResponse({"status": False, "message": "Image source request failed"}, status_code=502)
+        finally:
+            if response is not None:
+                await response.aclose()
 
     async def fetch_upstream(resource, params):
         async def receive():

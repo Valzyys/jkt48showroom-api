@@ -81,7 +81,7 @@ export async function synchronize(dataset,storage,{force=false}={}) {
     const next={...result,attemptedAt:Date.now(),error:null,issue:null};
     phase='cache';
     // Empty responses from the old deployment must not survive successful sync.
-    await binding('DB').prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/news%' OR key LIKE '%/api/theater%' OR key LIKE '%/api/event%' OR key LIKE '%/api/jkt48event%' OR key LIKE '%/api/next_schedule%' OR key LIKE '%/api/setlist%' OR key LIKE '%/api/member%' OR key LIKE '%/api/birthday%' OR key LIKE '%memberv8' OR key LIKE '%birthday'").run();
+    await binding('DB').prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/news%' OR key LIKE '%/api/theater%' OR key LIKE '%/api/event%' OR key LIKE '%/api/jkt48event%' OR key LIKE '%/api/next_schedule%' OR key LIKE '%/api/setlist%' OR key LIKE '%/api/member%' OR key LIKE '%/api/48/member%' OR key LIKE '%/api/birthday%' OR key LIKE '%/api/next_birthday%' OR key LIKE '%memberv8' OR key LIKE '%birthday'").run();
     await storage.put('jkt48-sync',next);
     return next;
   } catch(error) {

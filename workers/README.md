@@ -124,3 +124,58 @@ Tes unit mencakup proxy HLS/Range/redirect/timeout, SQL migration/filter, adapte
 Mock membuktikan integrasi kode dan penerusan request, bukan menjamin upstream produksi menerima request Cloudflare. Login captcha, API IDN, YouTube quota, Saweria nyata dan CDN produksi perlu smoke test dengan konfigurasi account yang sebenarnya.
 
 Lihat [API.md](API.md) untuk endpoint, autentikasi dan contoh; [COMPATIBILITY.md](COMPATIBILITY.md) untuk perubahan serta status fitur.
+
+## Dokumentasi publik
+
+UI dokumentasi API tersedia pada `/docs` di domain Worker, contohnya
+[api.jkt48connect.app/docs](https://api.jkt48connect.app/docs).
+Katalog 113 kombinasi method/route mengikuti kontrak di `API.md`; perubahan
+route harus memperbarui `docs/routes.json` dan contoh pada `docs/guide.md`.
+`docs/response-samples.json` menyimpan snapshot output publik dengan tanggal
+pengambilan. Contoh endpoint privat berisi placeholder dan diberi label asal source.
+
+Halaman memuat pencarian, filter method, contoh cURL/JavaScript, parameter path
+serta query, contoh respons, panduan autentikasi, dan unduhan Markdown/JSON.
+Tombol uji hanya menjalankan GET publik pada origin yang sama. UI tidak menyimpan
+atau meminta secret pengguna. Source aset berada di `docs/`; build hook
+`node scripts/build-docs.js` menghasilkan bundle yang diabaikan Git.
+
+```sh
+node scripts/build-docs.js
+node --test test/docs.test.js
+npm run build
+```
+
+## Control admin dan gambar JKT48
+
+Panel `/control/admin` memakai login admin khusus dan cookie sesi delapan jam,
+HttpOnly/Secure/SameSite=Strict. Kredensial login disimpan sebagai secret Worker
+`CONTROL_ADMIN_EMAIL`, `CONTROL_ADMIN_PASSWORD_HASH` (PBKDF2-SHA256), dan
+`CONTROL_SESSION_SECRET`. Password plaintext tidak disimpan dalam repository.
+
+Panel mengelola variable dan secret API, akses CORS, scraper, interval sinkronisasi,
+Cloudinary/YouTube/Saweria, runtime, cache dan penyimpanan media. Secret tidak
+termasuk dalam daftar konfigurasi; API key aktif hanya dibaca atas tindakan admin.
+Override disimpan pada tabel `control_settings`; secret memakai AES-GCM dengan
+kunci dari secret sesi control. Override berlaku pada Worker, Coordinator dan
+LiveHub; cache konfigurasi maksimal sepuluh detik. Nilai deployment tetap menjadi
+fallback ketika override dihapus. Perubahan pada key/auth secret membatalkan
+integrasi/token lama yang memakai nilai sebelumnya.
+
+URL storage gambar JKT48 dan path `media/...` dinormalisasi pada respons JSON
+menjadi `/media/jkt48/...` pada origin API. Cache miss mengambil raster melalui
+endpoint scraper privat `/images/{path}`, menolak redirect dan HTML, membatasi
+ukuran delapan MB, lalu menyimpan ke R2 dengan prefix `jkt48-origin/`. Respons
+gambar selalu dibaca dari R2, mendukung HEAD/ETag, dan dapat dipakai lintas origin.
+Tombol pemanasan media mengunduh maksimal dua puluh gambar member per batch.
+
+
+### Automatic live archive and R2 recording
+
+The separate VPS service `jkt48-live-collector` discovers JKT48 Showroom/IDN lives,
+observes gifts, captures JPEG frames and pipes fragmented MP4 through memory into
+Worker-managed R2 multipart uploads. No video files are written on VPS disk.
+Completed sessions populate `/api/recent`; details expose capture completeness,
+point units, screenshots and replay URLs. Private ingestion uses a dedicated
+collector token. Configure recording/intervals and inspect sessions/replays in
+`/control/admin`. See [collector runtime documentation](../live-collector/README.md).

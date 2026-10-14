@@ -1,3 +1,4 @@
+import {leaderboardImages} from '../../collector/leaderboards';
 import { env } from '@/runtime/env';
 import ShowroomLog from '@schema/showroom/ShowroomLog';
 import dayjs from 'dayjs';
@@ -36,7 +37,7 @@ export async function getRecents(c) {
     let logs = [];
     let total = 0;
     let members = [];
-    const options = {};
+    const options = {'capture.status':{$ne:'live'}};
     if (type) options.type = type;
     if (env.NODE_ENV !== 'development') options.is_dev = false;
     if (query.room_id) {
@@ -70,7 +71,7 @@ export async function getRecents(c) {
                 return i.is_graduate === (q === 'graduated');
             });
         }
-        if (members?.length) options.room_id = members.map((i)=>i.room_id).filter((i)=>i != null);
+        if (members?.length) options.room_id = members.flatMap(i=>[i.room_id,...(i.archive_room_ids||[])]).filter(i=>i != null);
         if (query.date) {
             try {
                 const date = JSON.parse(String(query.date));
@@ -117,9 +118,11 @@ export async function getRecents(c) {
         }).lean();
         total = await LiveLog.countDocuments(options);
     }
+    const images=await leaderboardImages(env.DB,logs.map(i=>i.data_id),new URL(c.req.url).origin);
     return {
         recents: logs.map((i)=>({
                 _id: i._id,
+                leaderboard_image: images.get(i.data_id),
                 data_id: i.data_id,
                 idn: i.idn,
                 member: {
@@ -146,6 +149,7 @@ export async function getRecents(c) {
                 gift_rate: i.gift_rate,
                 room_id: i.room_id,
                 points: i.total_gifts || 0,
+                point_unit: i.type==='idn'?'idn_gold':'showroom_points',
                 type: i.type
             })),
         page,
