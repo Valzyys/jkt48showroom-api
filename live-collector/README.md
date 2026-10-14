@@ -66,3 +66,15 @@ versioned render lease prevents duplicate jobs and rejects cards for stale data.
 ```
 node --test tests/leaderboard.test.cjs
 ```
+
+
+Recording resilience: all discovered sessions get media tasks independently of the
+IDN chat page limit. Failed multipart requests retry the same buffer and upload;
+checkpointed uploads survive process restarts. Finalization is idempotent and the
+Worker's part ledger is authoritative during recovery. Interrupted prefixes are
+preserved as partial MP4s without inventing duration or an HLS index. Use
+`recording_session.stream_url` to play all indexed parts of one recent. Media
+permissions remain enforced. Temporary absence from a listing does not stop an
+advancing recording; provider checks and a grace period confirm the end. Chat
+reconnects independently, and unrelated/expected socket closures do not count as
+active chat failures.

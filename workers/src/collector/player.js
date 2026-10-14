@@ -43,7 +43,7 @@ async function start(){
     await append(join(pending,box));pending=null;
    }
   }if(!signal.aborted&&media.readyState==='open')media.endOfStream();
- }catch(error){if(!signal.aborted)show('Pemutaran terputus. Tekan Coba lagi untuk menghubungkan ulang.');}
+ }catch(error){if(error.message==='media_truncated'&&media.readyState==='open'){media.endOfStream();show('Rekaman parsial: diputar sampai bagian terakhir yang tersimpan.');return}if(!signal.aborted)show('Pemutaran terputus. Tekan Coba lagi untuk menghubungkan ulang.');}
 }
 document.querySelector('#retry').onclick=()=>{show('Memuat ulang rekaman…');start();video.play().catch(()=>show('Tekan Play untuk memutar rekaman.'));};
 start();

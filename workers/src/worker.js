@@ -53,7 +53,7 @@ function cors(response,request,bindings) {
 }
 export default {
   async fetch(request,bindings,execution) {
-    const incoming=new URL(request.url);if(incoming.hostname==='apitest.jkt48connect.com'){incoming.hostname='api.jkt48connect.app';return new Response(null,{status:308,headers:{Location:incoming.href,'Cache-Control':'no-store'}});}
+    const incoming=new URL(request.url);if(incoming.hostname==='apitest.jkt48connect.com'&&!incoming.pathname.startsWith('/internal/collector/')){incoming.hostname='api.jkt48connect.app';return new Response(null,{status:308,headers:{Location:incoming.href,'Cache-Control':'no-store'}});}
     const collector = await collectorResponse(request,bindings,execution);
     if (collector) return collector;
     const docs = documentation(request);

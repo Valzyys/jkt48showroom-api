@@ -41,4 +41,46 @@ class CollectorTests(unittest.TestCase):
   repaired=b''.join(chunks);self.assertEqual(profile(repaired),'LC');self.assertEqual(repair_moov(next(box(k,v) for k,v in boxes(repaired) if k==b'moov')),next(box(k,v) for k,v in boxes(repaired) if k==b'moov'))
   self.assertEqual(original_media,[v for k,v in boxes(repaired) if k==b'mdat'])
   result=subprocess.run(['ffmpeg','-v','error','-i','pipe:0','-f','null','-'],input=repaired,capture_output=True);self.assertEqual(result.returncode,0,result.stderr.decode())
-if __name__=='__main__' :unittest.main()
+
+class ResilienceTests(unittest.IsolatedAsyncioTestCase):
+ async def test_upload_survives_more_than_four_failures_without_replacing_data(self):
+  from unittest.mock import AsyncMock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();c.api=AsyncMock(side_effect=[RuntimeError('HTTP 401')]*5+[{'part':{'partNumber':1,'etag':'a'}}]);monitor={'errors':0};data=b'one original buffered part'
+   with patch('collector.asyncio.sleep',new=AsyncMock()):result=await c.reliable_video_api('video/part/test/1','PUT',data=data,monitor=monitor)
+   self.assertEqual(c.api.await_count,6);self.assertEqual(result['part']['etag'],'a');self.assertFalse(monitor['retrying']);self.assertTrue(all(call.args[3] is data for call in c.api.await_args_list))
+ async def test_recovery_uses_authoritative_parts_and_marks_interrupted_media(self):
+  from unittest.mock import AsyncMock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();parts=[{'partNumber':1,'etag':'a'},{'partNumber':2,'etag':'b'}];c.api=AsyncMock(side_effect=[{'parts':parts},{'bytes':100,'url':'https://api.test/media/video.mp4'}]);row={'data_id':'idn-test','recordings':[],'pending_uploads':{'123':{'id':'test','active':False,'complete':False,'recording':{'run':'123','bytes':50,'partial':True}}}}
+   await c.recover_uploads(row);self.assertEqual(c.api.await_args_list[1].args[2]['parts'],parts);self.assertFalse(row['pending_uploads']);self.assertFalse(row['recordings'][0]['index_available']);self.assertIsNone(row['recordings'][0]['duration_ms']);self.assertEqual(row['recordings'][0]['bytes'],100)
+ async def test_missing_listing_does_not_stop_an_advancing_recording(self):
+  import time
+  from unittest.mock import AsyncMock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();c.api=AsyncMock(return_value={'status':'ended'});row={'type':'idn','data_id':'idn-x','live_id':'slug','missing':20,'video_monitor':{'last_progress':int(time.time()*1000)}}
+   self.assertFalse(await c.confirm_ended(row));c.api.assert_not_awaited();row['video_monitor']['last_progress']=int((time.time()-90)*1000);self.assertTrue(await c.confirm_ended(row));self.assertEqual(row['end_reason'],'provider_confirmed')
+ async def test_all_detected_lives_start_even_when_legacy_limit_is_one(self):
+  import time
+  from unittest.mock import AsyncMock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();lives={f'idn-{i}':{'data_id':f'idn-{i}','live_id':f'live-{i}','room_id':i+1,'name':f'Member {i}','img':'','url_key':f'jkt48_{i}','type':'idn','started_at':time.time()-10,'stream':None,'viewers':1} for i in range(12)}
+   c.showroom=AsyncMock(return_value={});c.idn=AsyncMock(return_value=lives)
+   async def api(path,*args,**kwargs):
+    if path=='config':return {'enabled':True,'maxSessions':1,'pollSeconds':30}
+    if path=='heartbeat':c.stop.set()
+    return {'ok':True}
+   async def attach(row):c.tasks[row['data_id']]=[]
+   c.api=api;c.attach=AsyncMock(side_effect=attach);await c.run();self.assertEqual(c.attach.await_count,12);self.assertEqual(len(c.rows),12)
+ async def test_parallel_chat_adds_launch_exactly_one_bridge(self):
+  from unittest.mock import AsyncMock,Mock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();process=Mock();process.returncode=None;process.stdin.write=Mock();process.stdin.drain=AsyncMock();process.stdout.readline=AsyncMock(return_value=b'')
+   async def launch(*args,**kwargs):
+    import asyncio
+    await asyncio.sleep(0);return process
+   import asyncio
+   with patch('collector.asyncio.create_subprocess_exec',new=AsyncMock(side_effect=launch)) as spawn:
+    await asyncio.gather(*(c.bridge_send({'action':'add','id':str(i)}) for i in range(20)));await c.bridge_task;self.assertEqual(spawn.await_count,1);self.assertEqual(process.stdin.write.call_count,21)
+
+if __name__=='__main__':unittest.main()

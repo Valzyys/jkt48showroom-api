@@ -3037,7 +3037,7 @@ video yang disimpan di disk VPS. Codec-copy menghindari encoding ulang video.
 `/api/screenshots/:id` mengembalikan metadata frame. URL gambar dibentuk dengan
 `${base_url}/${frame}.${format}`. MP4 mendukung Range dan dapat diputar setelah
 multipart selesai. Jika koneksi rekaman terputus, hasilnya beberapa file parsial.
-Batas live bersamaan, video on/off, interval dan ukuran ada pada grup Live collector
+Batas observer chat IDN, video on/off, interval dan ukuran ada pada grup Live collector
 pada `/control/admin`. Status panel menampilkan sesi dan tautan replay.
 
 Gift Showroom berasal dari event bcsvr WebSocket; gift_list memasok nama, gambar,
@@ -3158,3 +3158,31 @@ perubahan versi data membatalkan hasil lama dan mengantrekan versi baru.
 
 Frame gelap atau hampir kosong disaring sebelum dipilih untuk kartu; jumlah
 screenshot pada statistik tetap mengikuti arsip asli.
+
+## Rekaman satu sesi dan penanganan gangguan
+
+Detail recent menyertakan `recording_session.stream_url`: satu playlist HLS yang
+menggabungkan semua potongan rekaman yang memiliki indeks. Gunakan URL sesi ini
+untuk memutar seluruh bagian yang tersimpan, bukan hanya `recordings[0]`.
+
+`recording_session.status` adalah `recording`, `complete`, `partial`, atau
+`unverified`. Durasi live, durasi playback seluruh potongan, serta estimasi cakupan
+waktu dibedakan. Potongan yang bertumpang tindih setelah reconnect tidak dihitung
+dua kali dalam cakupan waktu. Untuk arsip lama tanpa referensi waktu, API tidak
+mengklaim cakupan penuh. `minimum_missing_duration_ms` adalah batas minimum durasi
+yang belum tercakup ketika durasi media diketahui; bukan tebak lokasi kejadian.
+
+Upload memakai ulang multipart yang sama ketika Worker sementara gagal. Metadata
+upload di-checkpoint ke SQLite dan part tersimpan tetap di R2. Finalisasi dapat
+diulang dengan aman setelah respons jaringan hilang. Setelah proses terhenti,
+part yang sudah terkirim dipulihkan; bagian terputus diberi `interrupted: true`,
+`duration_ms: null`, dan `index_available: false` jika indeks akhirnya tidak ada.
+Bagian tersebut tersedia melalui MP4/player; API tidak memberikan playlist HLS
+palsu. Tidak ada cara mengembalikan part yang dahulu sudah dibatalkan/dihapus.
+
+Semua live yang terdeteksi langsung dijadwalkan untuk rekaman, tanpa dibuang karena
+batas enam sesi. Pemeriksaan izin dan media berjalan per sesi. Observer chat IDN
+memiliki batas sumber daya terpisah 1–16 halaman; jika kapasitas terpakai,
+`capture.chat_status` menunjukkan antrean. Polling default 15 detik. Live yang
+hilang dari listing diperiksa lagi; media yang masih bergerak tidak langsung
+dihentikan. Penutupan chat saat sesi selesai ditandai `closed`, bukan error aktif.

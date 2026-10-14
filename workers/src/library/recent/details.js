@@ -1,3 +1,4 @@
+import {recordingSession} from '../../collector/recording-session';
 import {leaderboardImages} from '../../collector/leaderboards';
 import {ensureIdnGifts} from '../../idn/catalog';
 import {giftImageUrl} from '../../runtime/gift-media';
@@ -15,8 +16,9 @@ import { calculateFansPoints } from '../fansPoints';
 export async function parseBase(data) {
     return {
         leaderboard_image: (await leaderboardImages(env.DB,[data.data_id],env.REQUEST_ORIGIN||'https://api.jkt48connect.app')).get(data.data_id),
+        recording_session:recordingSession(data,env.REQUEST_ORIGIN||'https://api.jkt48connect.app'),
         point_unit: data.type==='idn'?'idn_gold':'showroom_points',
-        recordings: (data.recordings||[]).map(r=>({...r,stream_url:r.stream_url||r.url?.replace(/\.mp4(?:\?.*)?$/,'.m3u8'),player_url:r.player_url||r.url?.replace(/\/media\/live\/([^/]+)\/video-(\d+)\.mp4(?:\?.*)?$/,'/replay/$1/$2')})),
+        recordings: (data.recordings||[]).map(r=>({...r,stream_url:r.index_available===false?null:r.stream_url||r.url?.replace(/\.mp4(?:\?.*)?$/,'.m3u8'),player_url:r.player_url||r.url?.replace(/\/media\/live\/([^/]+)\/video-(\d+)\.mp4(?:\?.*)?$/,'/replay/$1/$2')})),
         capture: data.capture,
         data_id: data.data_id,
         live_id: data.live_id,

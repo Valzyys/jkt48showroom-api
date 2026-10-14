@@ -1,7 +1,7 @@
 """Persistent live observer. Media bytes go through RAM to Worker/R2, not local video files."""
 import asyncio, collections, contextlib, hashlib, json, logging, os, re, signal, sqlite3, time
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse,urljoin
 from datetime import datetime, timezone
 from curl_cffi.requests import AsyncSession
 import websockets
@@ -33,16 +33,22 @@ def video_command(url):
 
 class Store:
  def __init__(self,path):
-  self.db=sqlite3.connect(path);self.db.execute('PRAGMA journal_mode=WAL');self.db.execute('CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, value TEXT NOT NULL)');self.db.commit()
+  self.db=sqlite3.connect(path);self.db.execute('PRAGMA journal_mode=WAL');self.db.execute('CREATE TABLE IF NOT EXISTS completed_sessions (id TEXT PRIMARY KEY, ended_at REAL NOT NULL)');self.db.execute('DELETE FROM completed_sessions WHERE ended_at<?',(time.time()-7*86400,));self.db.execute('CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, value TEXT NOT NULL)');self.db.commit()
  def save(self,row):
   self.db.execute('INSERT INTO sessions VALUES(?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value',(row['data_id'],json.dumps(row)));self.db.commit()
  def rows(self):return [json.loads(r[0]) for r in self.db.execute('SELECT value FROM sessions')]
- def delete(self,id):self.db.execute('DELETE FROM sessions WHERE id=?',(id,));self.db.commit()
+ def delete(self,id):self.db.execute('INSERT OR REPLACE INTO completed_sessions VALUES(?,?)',(id,time.time()));self.db.execute('DELETE FROM sessions WHERE id=?',(id,));self.db.commit()
+ def completed(self):return {r[0] for r in self.db.execute('SELECT id FROM completed_sessions')}
 
 class Collector:
  def __init__(self):
-  self.base=os.environ['COLLECTOR_API_URL'].rstrip('/');self.token=os.environ['COLLECTOR_TOKEN'];self.stop=asyncio.Event();self.state=Path(os.environ.get('COLLECTOR_STATE_DIR','/var/lib/jkt48-live-collector'));self.state.mkdir(parents=True,exist_ok=True);os.chmod(self.state,0o700)
-  self.store=Store(self.state/'state.sqlite');self.rows={r['data_id']:r for r in self.store.rows()};self.tasks={};self.bridge=None;self.bridge_task=None;self.config={};self.client=None;self.frame_lock=asyncio.Semaphore(2);self.started=time.time();self.last_archive=0;self.last_completed=0;self.archive_errors=0
+  self.base=os.environ['COLLECTOR_API_URL'].rstrip('/');self.token=os.environ['COLLECTOR_TOKEN'];
+  if urlparse(self.base).hostname=='apitest.jkt48connect.com':self.base='https://api.jkt48connect.app'
+  self.stop=asyncio.Event();self.state=Path(os.environ.get('COLLECTOR_STATE_DIR','/var/lib/jkt48-live-collector'));self.state.mkdir(parents=True,exist_ok=True);os.chmod(self.state,0o700)
+  self.store=Store(self.state/'state.sqlite');self.rows={r['data_id']:r for r in self.store.rows()};self.finished=self.store.completed();
+  for saved in self.rows.values():
+   for pending in saved.get('pending_uploads',{}).values():pending['active']=False
+  self.tasks={};self.attach_jobs={};self.recover_tasks={};self.bridge=None;self.bridge_task=None;self.bridge_lock=asyncio.Lock();self.config={};self.client=None;self.frame_lock=asyncio.Semaphore(2);self.started=time.time();self.last_archive=0;self.last_completed=0;self.archive_errors=0
  def telemetry(self):
   sessions=[]
   for row in self.rows.values():
@@ -52,6 +58,53 @@ class Collector:
   response=await self.client.request(method,self.base+'/internal/collector/'+path,headers={'Authorization':'Bearer '+self.token,'Content-Type':'application/json' if data is None else 'application/octet-stream'},json=value if data is None else None,data=data,timeout=50)
   if response.status_code!=200:raise RuntimeError('Worker rejected '+path.split('/')[0]+': HTTP '+str(response.status_code))
   return response.json()
+ async def reliable_video_api(self,path,method='POST',value=None,data=None,monitor=None):
+  attempt=0
+  while True:
+   try:
+    result=await self.api(path,method,value,data)
+    if monitor is not None:monitor['retrying']=False;monitor.pop('last_error',None)
+    return result
+   except asyncio.CancelledError:raise
+   except Exception as error:
+    attempt+=1
+    if monitor is not None:monitor['retrying']=True;monitor['errors']=monitor.get('errors',0)+1;monitor['last_error']='worker_unavailable'
+    if attempt==1 or attempt%10==0:log.warning('video-upload-retrying operation=%s attempt=%s',path.split('/')[1],attempt)
+    if self.stop.is_set() and attempt>=2:raise
+    await asyncio.sleep(min(2**min(attempt-1,4),15))
+ async def recover_uploads(self,row):
+  for run,upload in list(row.get('pending_uploads',{}).items()):
+   if upload.get('active'):continue
+   try:
+    state=await self.api('video/state','POST',{'id':upload['id'],'data_id':row['data_id'],'run':run})
+    if state.get('missing'):
+     if upload.get('parts'):row['recording_loss']=row.get('recording_loss',0)+1
+     row['pending_uploads'].pop(run,None);self.store.save(row);continue
+    if not state.get('completed') and not state.get('parts'):
+     await self.api('video/abort','POST',{'id':upload['id']});row['pending_uploads'].pop(run,None);self.store.save(row);continue
+    result=state if state.get('completed') else await self.api('video/finish','POST',{'id':upload['id'],'data_id':row['data_id'],'run':run,'parts':state['parts']})
+    recording={**upload['recording'],'url':result['url'],'bytes':result['bytes']}
+    if not upload.get('complete'):recording.update(partial=True,index_available=False,duration_ms=None,interrupted=True)
+    if not any(r['run']==run for r in row['recordings']):row['recordings'].append(recording)
+    row['pending_uploads'].pop(run,None);self.store.save(row);log.info('video-recovered id=%s run=%s',row['data_id'],run)
+   except asyncio.CancelledError:raise
+   except Exception:log.warning('video-recovery-pending id=%s run=%s',row['data_id'],run)
+ async def confirm_ended(self,row):
+  progress=row.get('video_monitor',{}).get('last_progress',0)/1000
+  if progress and time.time()-progress<75:return False
+  try:
+   if row['type']=='showroom':
+    info=await self.source('https://www.showroom-live.com/api/live/live_info',{'room_id':row['room_id']})
+    if info.get('is_live') is True:return False
+    if info.get('is_live') is False:row['end_reason']='provider_confirmed';return True
+   else:
+    info=await self.api('live-status','POST',{'data_id':row['data_id'],'slug':row['live_id']})
+    if info.get('status')=='live':return False
+    if info.get('status')=='ended':row['end_reason']='provider_confirmed';return True
+    if info.get('status')=='missing' and row['missing']>=6:row['end_reason']='provider_missing';return True
+  except Exception:pass
+  if row['missing']>=20 and (not progress or time.time()-progress>300):row['end_reason']='source_unavailable';return True
+  return False
  async def source(self,url,params=None,headers=None):
   response=await self.client.get(url,params=params,headers=headers,timeout=20)
   if response.status_code!=200:raise RuntimeError('Source HTTP '+str(response.status_code))
@@ -63,11 +116,12 @@ class Collector:
     if not (str(live.get('room_url_key','')).lower().startswith('jkt48_') or 'jkt48' in str(live.get('main_name','')).lower()):continue
     id='sr-'+str(live['room_id'])+'-'+str(live['live_id']);member=match_member(live.get('main_name',''),live.get('room_url_key',''),self.config['members'])
     result[id]={'data_id':id,'live_id':live['live_id'],'room_id':int(live['room_id']),'member_id':member['id'] if member else None,'name':live.get('main_name',''),'img':live.get('image',''),'url_key':live.get('room_url_key',''),'type':'showroom','started_at':epoch(live.get('started_at')),'stream':next((s['url'] for s in live.get('streaming_url_list',[]) if s.get('type')=='hls' and stream_allowed(s.get('url',''))),None),'viewers':live.get('view_num',0),'bcsvr_key':live.get('bcsvr_key','')}
-  for row in result.values():
+  async def resolve_stream(row):
    if not row.get('stream'):
     urls=await self.source('https://www.showroom-live.com/api/live/streaming_url',{'room_id':row['room_id']})
     options=[s for s in urls.get('streaming_url_list',[]) if s.get('type')=='hls' and stream_allowed(s.get('url',''))]
     if options:row['stream']=max(options,key=lambda s:s.get('quality',0))['url']
+  await asyncio.gather(*(resolve_stream(row) for row in result.values()))
   return result
  async def idn(self):
   result={}
@@ -113,7 +167,7 @@ class Collector:
   value={k:row[k] for k in ['data_id','live_id','room_id','name','img','url_key','type','date','viewers','frames']}
   if row.get('member_id'):value['member_id']=row['member_id']
   if row.get('idn'):value['idn']=row['idn']
-  value.update(users=list(row['users'].values()),gift_log=list(users.values()),catalog=list(row['catalog'].values()),comments=sum(u.get('comments',0) for u in row['users'].values()),recordings=row['recordings'],capture={'status':'completed' if row['completed'] else 'live','observed_since':row['observed'],'gifts_status':row['gifts_status'],'gifts_source':'showroom-websocket' if row['type']=='showroom' else 'idn-observed-chat','gifts_error':row.get('gifts_error'),'last_gift_event':row.get('last_gift_event'),'disconnects':row['disconnects'],'screenshot_errors':row['screenshot_errors'],'screenshots_allowed':row['screenshots_allowed']})
+  value.update(users=list(row['users'].values()),gift_log=list(users.values()),catalog=list(row['catalog'].values()),comments=sum(u.get('comments',0) for u in row['users'].values()),recordings=row['recordings'],capture={'status':'completed' if row['completed'] else 'live','observed_since':row['observed'],'gifts_status':row['gifts_status'],'gifts_source':'showroom-websocket' if row['type']=='showroom' else 'idn-observed-chat','gifts_error':row.get('gifts_error'),'last_gift_event':row.get('last_gift_event'),'chat_status':row.get('chat_status','connecting'),'end_reason':row.get('end_reason'),'pending_recordings':len(row.get('pending_uploads',{})),'recording_loss':row.get('recording_loss',0),'disconnects':row['disconnects'],'screenshot_errors':row['screenshot_errors'],'screenshots_allowed':row['screenshots_allowed']})
   return value
  async def sr_socket(self,row):
   while not row['completed'] and not self.stop.is_set() and self.config.get('enabled',True):
@@ -162,6 +216,20 @@ class Collector:
     except Exception as error:row['screenshot_errors']+=1;self.store.save(row);log.warning('frame-failed id=%s reason=%s',row['data_id'],type(error).__name__)
    try:await asyncio.wait_for(self.stop.wait(),timeout=5)
    except asyncio.TimeoutError:pass
+ async def stream_window_start(self,url):
+  try:
+   for _ in range(2):
+    if not stream_allowed(url):return None
+    response=await self.client.get(url,timeout=5,allow_redirects=False)
+    if response.status_code!=200:return None
+    lines=response.content[:65536].decode(errors='replace').splitlines()
+    for line in lines:
+     if line.startswith('#EXT-X-PROGRAM-DATE-TIME:'):return datetime.fromisoformat(line.split(':',1)[1].replace('Z','+00:00')).timestamp()
+    variant=next((lines[i+1].strip() for i,line in enumerate(lines[:-1]) if line.startswith('#EXT-X-STREAM-INF:')),None)
+    if not variant:return None
+    url=urljoin(url,variant)
+  except Exception:return None
+  return None
  async def video(self,row):
   # One fragmented MP4 per connection, multipart chunks held only in memory.
   while not row['completed'] and not self.stop.is_set() and self.config.get('enabled',True):
@@ -169,13 +237,15 @@ class Collector:
    proc=None;progress_task=None;upload=None;parts=[];bytes_sent=0;buffer=bytearray();run=str(int(time.time()*1000))
    monitor={'status':'starting','bytes':0,'parts':0,'last_part':0,'errors':row.get('video_monitor',{}).get('errors',0)};row['video_monitor']=monitor
    try:
-    upload=await self.api('video/start','POST',{'data_id':row['data_id'],'run':run})
+    upload=await self.reliable_video_api('video/start',value={'data_id':row['data_id'],'run':run},monitor=monitor)
+    window_start=await self.stream_window_start(row['stream']);media_start=window_start if window_start is not None else time.time()
+    pending={'id':upload['id'],'parts':[],'active':True,'complete':False,'recording':{'run':run,'started_at':iso(media_start),'timing_source':'playlist' if window_start is not None else 'wall_clock','partial':True,'bytes':0}};row.setdefault('pending_uploads',{})[run]=pending;self.store.save(row)
     proc=await asyncio.create_subprocess_exec(*video_command(row['stream']),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
     monitor['status']='recording'
     async def read_progress():
      while line:=await proc.stderr.readline():
       if line.startswith(b'out_time_us='):
-       with contextlib.suppress(ValueError):monitor['duration_ms']=max(0,int(line.split(b'=',1)[1])//1000)
+       with contextlib.suppress(ValueError):monitor['duration_ms']=max(0,int(line.split(b'=',1)[1])//1000);monitor['last_progress']=int(time.time()*1000)
     progress_task=asyncio.create_task(read_progress())
     async def end_process():
      while not row['completed'] and not self.stop.is_set() and self.config.get('enabled',True) and self.config.get('recordVideo',True) and row['screenshots_allowed'] and proc.returncode is None:await asyncio.sleep(1)
@@ -187,12 +257,7 @@ class Collector:
     waiter=asyncio.create_task(end_process())
     async def send_part(body):
      nonlocal bytes_sent
-     for attempt in range(4):
-      try:
-       result=await self.api(f'video/part/{upload["id"]}/{len(parts)+1}','PUT',data=body);parts.append(result['part']);bytes_sent+=len(body);monitor.update(status='recording',bytes=bytes_sent,parts=len(parts),last_part=int(time.time()*1000));return
-      except Exception:
-       if attempt==3:raise
-       await asyncio.sleep(2**attempt)
+     result=await self.reliable_video_api(f'video/part/{upload["id"]}/{len(parts)+1}','PUT',data=body,monitor=monitor);parts.append(result['part']);bytes_sent+=len(body);monitor.update(status='recording',bytes=bytes_sent,parts=len(parts),last_part=int(time.time()*1000));pending.update(parts=parts.copy());pending['recording'].update(bytes=bytes_sent);self.store.save(row)
     try:
      while True:
       chunk=await proc.stdout.read(65536)
@@ -206,26 +271,28 @@ class Collector:
     finally:
      if not waiter.done():waiter.cancel()
      with contextlib.suppress(asyncio.CancelledError):await waiter
-    if parts and (proc.returncode==0 or bytes_sent>1000000):
+    if parts and bytes_sent>4096:
      monitor['status']='finalizing'
-     result=await self.api('video/finish','POST',{'id':upload['id'],'parts':parts});row['recordings'].append({'run':run,'url':result['url'],'bytes':bytes_sent,'duration_ms':monitor.get('duration_ms',0),'partial':proc.returncode!=0 or not row['completed'] or epoch(row['observed'])>epoch(row['date']['start'])});self.store.save(row);log.info('video-uploaded id=%s bytes=%s',row['data_id'],bytes_sent)
+     pending.update(complete=True);pending['recording'].update(bytes=bytes_sent,duration_ms=monitor.get('duration_ms',0),partial=proc.returncode!=0 or not row['completed'] or media_start>epoch(row['date']['start'])+10);self.store.save(row)
+     result=await self.reliable_video_api('video/finish',value={'id':upload['id'],'data_id':row['data_id'],'run':run,'parts':parts},monitor=monitor);row['recordings'].append({**pending['recording'],'url':result['url'],'bytes':result.get('bytes',bytes_sent)});row['pending_uploads'].pop(run,None);self.store.save(row);log.info('video-uploaded id=%s bytes=%s',row['data_id'],bytes_sent)
     else:
-     monitor['errors']+=1;monitor['status']='error';await self.api('video/abort','POST',{'id':upload['id']})
+     monitor['errors']+=1;monitor['status']='error';await self.api('video/abort','POST',{'id':upload['id']});row['pending_uploads'].pop(run,None)
    except asyncio.CancelledError:raise
    except Exception as error:
     monitor['errors']+=1;monitor['status']='error'
     log.warning('video-failed id=%s reason=%s',row['data_id'],str(error) if isinstance(error,RuntimeError) else type(error).__name__)
-    if upload:
-     with contextlib.suppress(Exception):await self.api('video/abort','POST',{'id':upload['id']})
+    if upload and run in row.get('pending_uploads',{}):row['pending_uploads'][run]['active']=False;self.store.save(row)
    finally:
     if proc and proc.returncode is None:proc.kill();await proc.wait()
     if progress_task and not progress_task.done():
      progress_task.cancel()
      with contextlib.suppress(asyncio.CancelledError):await progress_task
+    if run in row.get('pending_uploads',{}):row['pending_uploads'][run]['active']=False;self.store.save(row)
     if monitor['status']!='error':monitor['status']='completed' if row['completed'] else 'waiting'
-   if not row['completed']:await asyncio.sleep(10)
- async def bridge_read(self):
-  while line:=await self.bridge.stdout.readline():
+   if not row['completed']:await asyncio.sleep(2)
+ async def bridge_read(self,bridge=None):
+  stream=(bridge or self.bridge).stdout
+  while line:=await stream.readline():
    try:
     value=json.loads(line);row=self.rows.get(value.get('id'))
     if not row:continue
@@ -244,25 +311,30 @@ class Collector:
      if value['kind']=='comment':person['comments']+=1
      row['gifts_status']='partial';row['gifts_error']=None;self.store.save(row)
     elif value.get('kind')=='error':
+     if row['completed']:continue
+     if row.get('chat_status')=='connected':row['disconnects']+=1
+     row['chat_status']='queued' if value.get('code')=='chat_capacity' else 'reconnecting'
      row['gifts_error']=value.get('code','chat_unavailable');self.store.save(row);log.warning('gift-observer-error type=idn room=%s code=%s',row['room_id'],row['gifts_error'])
-    elif value.get('kind')=='connected':row['gifts_status']='partial';row['gifts_error']=None;self.store.save(row);log.info('gift-connected type=idn room=%s',row['room_id'])
+    elif value.get('kind')=='connected':row['chat_status']='connected';row['gifts_status']='partial';row['gifts_error']=None;self.store.save(row);log.info('gift-connected type=idn room=%s',row['room_id'])
    except (json.JSONDecodeError,KeyError,ValueError,TypeError):log.warning('idn-event-invalid')
  async def bridge_send(self,value):
-  if not self.bridge or self.bridge.returncode is not None:
-   self.bridge=await asyncio.create_subprocess_exec('node',str(Path(__file__).with_name('idn-bridge.cjs')),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL);self.bridge_task=asyncio.create_task(self.bridge_read());self.bridge.stdin.write((json.dumps({'action':'auth','value':self.config.get('idnAuth',{})})+'\n').encode());await self.bridge.stdin.drain()
-  self.bridge.stdin.write((json.dumps(value)+'\n').encode());await self.bridge.stdin.drain()
+  async with self.bridge_lock:
+   if not self.bridge or self.bridge.returncode is not None:
+    self.bridge=await asyncio.create_subprocess_exec('node',str(Path(__file__).with_name('idn-bridge.cjs')),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.DEVNULL);self.bridge_task=asyncio.create_task(self.bridge_read(self.bridge));self.bridge.stdin.write((json.dumps({'action':'auth','value':self.config.get('idnAuth',{})})+'\n').encode());await self.bridge.stdin.drain()
+   self.bridge.stdin.write((json.dumps(value)+'\n').encode());await self.bridge.stdin.drain()
  async def attach(self,row):
   jobs=[]
   if row['type']=='showroom':
    # Fetch recording permission before media tasks begin.
    try:info=await self.source('https://www.showroom-live.com/api/live/live_info',{'room_id':row['room_id']});row['screenshots_allowed']=not info.get('is_recording_prohibited',False)
-   except Exception:row['screenshots_allowed']=False
+   except Exception:row['screenshots_allowed']=False;log.warning('permission-check-retry room=%s',row['room_id']);return
    jobs.append(asyncio.create_task(self.sr_socket(row)))
   else:
    await self.bridge_send({'action':'add','id':row['data_id'],'url':'https://www.idn.app/'+row['url_key']+'/live/'+row['live_id']})
+  if row['completed'] or self.stop.is_set():return
   jobs.extend([asyncio.create_task(self.frames(row)),asyncio.create_task(self.video(row))]);self.tasks[row['data_id']]=jobs
  async def close(self,row):
-  row['completed']=True;row['date']['end']=iso(row['last_seen']);self.store.save(row)
+  row['completed']=True;row['chat_status']='closed';row['gifts_error']=None if row.get('gifts_error')=='chat_disconnected' else row.get('gifts_error');row['date']['end']=iso(row['last_seen']);self.store.save(row)
   for task in self.tasks.get(row['data_id'],[])[:1]:
    if row['type']=='showroom':task.cancel()
   jobs=self.tasks.pop(row['data_id'],[])
@@ -271,11 +343,11 @@ class Collector:
   if row['type']=='idn':await self.bridge_send({'action':'remove','id':row['data_id']})
   self.store.save(row);log.info('session-completed id=%s frames=%s',row['data_id'],len(row['frames']))
  async def run(self):
-  async with AsyncSession(impersonate='chrome',max_clients=12) as self.client:
+  async with AsyncSession(impersonate='chrome',max_clients=48) as self.client:
    while not self.stop.is_set():
     try:
      self.config=await self.api('config')
-     if self.bridge and self.bridge.returncode is None:await self.bridge_send({'action':'auth','value':self.config.get('idnAuth',{})})
+     if self.bridge and self.bridge.returncode is None:await self.bridge_send({'action':'auth','value':self.config.get('idnAuth',{})});await self.bridge_send({'action':'limits','value':self.config.get('maxSessions',16)})
      if not self.config['enabled'] and self.tasks:
       for id,jobs in self.tasks.items():
        if self.rows[id]['type']=='showroom':jobs[0].cancel()
@@ -289,22 +361,23 @@ class Collector:
       if ok[kind]:found.update(result)
       else:log.warning('discovery-failed type=%s reason=%s',kind,type(result).__name__)
      for id,live in found.items():
+      if id in self.finished:continue
       if id not in self.rows:
-       if len(self.tasks)>=self.config['maxSessions']:continue
        self.new(live)
       row=self.rows[id]
       if row['completed']:continue
       row.update(stream=live.get('stream'),last_seen=time.time(),missing=0,viewers=max(row['viewers'],live['viewers']));row['date']['end']=iso();self.store.save(row)
-      if id not in self.tasks:await self.attach(row)
+      if id not in self.tasks and (id not in self.attach_jobs or self.attach_jobs[id].done()):self.attach_jobs[id]=asyncio.create_task(self.attach(row))
       elif row['type']=='idn':await self.bridge_send({'action':'add','id':row['data_id'],'url':'https://www.idn.app/'+row['url_key']+'/live/'+row['live_id']})
      for id,row in list(self.rows.items()):
+      if row.get('pending_uploads') and (id not in self.recover_tasks or self.recover_tasks[id].done()):self.recover_tasks[id]=asyncio.create_task(self.recover_uploads(row))
       if not row['completed'] and id not in found and ok.get(row['type']):
        row['missing']+=1;self.store.save(row)
-       if row['missing']>=3:await self.close(row)
+       if row['missing']>=3 and await self.confirm_ended(row):await self.close(row)
       try:
        await self.api('archive','PUT',self.payload(row))
        row['last_archive']=int(time.time()*1000);row['archive_error']=False;self.last_archive=row['last_archive']
-       if row['completed']:self.last_completed=row['last_archive'];self.store.delete(id);self.rows.pop(id)
+       if row['completed'] and not row.get('pending_uploads'):self.last_completed=row['last_archive'];self.store.delete(id);self.finished.add(id);self.rows.pop(id)
       except Exception as error:
        row['archive_error']=True;self.archive_errors+=1;log.warning('archive-pending id=%s reason=%s',id,type(error).__name__)
      await self.api('heartbeat','POST',{'active':len(self.tasks),'pending':sum(r['completed'] for r in self.rows.values()),'showroom_ok':ok['showroom'],'idn_ok':ok['idn'],'version':'1.1.0','telemetry':self.telemetry()})
@@ -312,7 +385,7 @@ class Collector:
     try:await asyncio.wait_for(self.stop.wait(),timeout=self.config.get('pollSeconds',30))
     except asyncio.TimeoutError:pass
    # Close video pipes gracefully and retain sessions for restart.
-   all_tasks=[task for tasks in self.tasks.values() for task in tasks]
+   all_tasks=[task for tasks in self.tasks.values() for task in tasks]+[task for task in self.recover_tasks.values() if not task.done()]+[task for task in self.attach_jobs.values() if not task.done()]
    try:await asyncio.wait_for(asyncio.gather(*all_tasks,return_exceptions=True),30)
    except asyncio.TimeoutError:
     for task in all_tasks:task.cancel()
