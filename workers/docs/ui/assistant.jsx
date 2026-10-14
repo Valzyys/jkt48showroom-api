@@ -22,14 +22,15 @@ gsap.registerPlugin(Flip);
 const MarkdownContent = lazy(() => import("./markdown.jsx"));
 const STORE = "jkt48connect.pip";
 const SUGGESTIONS = [
+  ["Jelaskan halaman yang sedang kubuka", "book"],
   ["Buatkan kode JavaScript untuk ambil berita terbaru", "code"],
   ["Di mana tombol untuk mencoba endpoint?", "play"],
-  ["Endpoint apa untuk data live yang sedang berlangsung?", "live"],
   ["Bagaimana cara memutar replay sebuah sesi?", "replay"],
 ];
 const MOOD_TEXT = {
   idle: "Siap membantu",
   thinking: "Sedang berpikir…",
+  reading: "Membaca docs…",
   talking: "Sedang menjawab…",
   pointing: "Menunjukkan di halaman…",
   happy: "Selesai!",
@@ -153,6 +154,73 @@ export function dismissSpotlight() {
   dismissActive?.();
 }
 
+// The section heading the user is looking at, so "jelaskan bagian ini"
+// works. The server only accepts headings that exist in the docs.
+function currentHeading() {
+  let found = "";
+  for (const h of document.querySelectorAll("main h2, main h3")) {
+    if (h.closest(".pip-panel") || !h.getClientRects().length) continue;
+    if (h.getBoundingClientRect().top < innerHeight * 0.45)
+      found = h.textContent.trim();
+  }
+  return found.slice(0, 120);
+}
+
+// Sources come from this server, but they also round-trip through
+// sessionStorage, so only docs paths are ever followed.
+const docsHref = (href) =>
+  typeof href === "string" && /^\/docs(\/|$|\?)/.test(href) ? href : null;
+
+function Sources({ sources, reading, onOpen }) {
+  const list = useRef();
+  const items = (sources || []).filter((s) => docsHref(s.href));
+  useLayoutEffect(() => {
+    if (!reading || !list.current || !motion.getSnapshot()) return;
+    const tween = gsap.from(list.current.children, {
+      x: -10,
+      autoAlpha: 0,
+      duration: 0.45,
+      stagger: 0.12,
+      ease: "expo.out",
+      clearProps: "transform,opacity,visibility",
+    });
+    return () => tween.revert();
+  }, [reading, items.length]);
+  if (!items.length) return null;
+  return (
+    <div className={"pip-sources " + (reading ? "is-reading" : "")}>
+      <span className="pip-sources-label">
+        <PixelIcon name="book" size={11} />
+        {reading
+          ? `Membaca ${items.length} bagian docs…`
+          : `Dibaca dari ${items.length} bagian docs`}
+      </span>
+      <ul ref={list}>
+        {items.map((s, i) => (
+          <li key={s.href + i}>
+            <button
+              type="button"
+              onClick={() =>
+                onOpen([
+                  { type: "nav", href: docsHref(s.href), label: s.title },
+                ])
+              }
+              title={"Buka " + s.title}
+            >
+              <PixelIcon
+                name={s.kind === "endpoint" ? "code" : "book"}
+                size={11}
+              />
+              <span>{s.title}</span>
+              {s.section && <small>{s.section}</small>}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function visibleTargets() {
   return [
     ...new Set(
@@ -194,10 +262,25 @@ function Message({ message, onReplay }) {
         <PipBot
           size={20}
           track={false}
-          mood={message.error ? "error" : message.pending ? "thinking" : "idle"}
+          mood={
+            message.error
+              ? "error"
+              : message.pending
+                ? message.content
+                  ? "talking"
+                  : message.sources?.length
+                    ? "reading"
+                    : "thinking"
+                : "idle"
+          }
         />
         Pip
       </span>
+      <Sources
+        sources={message.sources}
+        reading={message.pending && !text}
+        onOpen={onReplay}
+      />
       {text ? (
         <Suspense fallback={<p>{text}</p>}>
           <MarkdownContent source={text} />
@@ -261,7 +344,12 @@ export function Assistant({ catalog, guides }) {
           messages
             .filter((m) => !m.pending)
             .slice(-20)
-            .map(({ role, content, actions }) => ({ role, content, actions })),
+            .map(({ role, content, actions, sources }) => ({
+              role,
+              content,
+              actions,
+              sources,
+            })),
         ),
       );
     } catch {}
@@ -464,6 +552,7 @@ export function Assistant({ catalog, guides }) {
           page: {
             path: location.pathname + location.search,
             title: document.title,
+            heading: currentHeading(),
             targets: visibleTargets(),
           },
         }),
@@ -492,7 +581,10 @@ export function Assistant({ catalog, guides }) {
           } catch {
             continue;
           }
-          if (data.t) {
+          if (Array.isArray(data.sources)) {
+            setMood("reading");
+            update({ sources: data.sources.slice(0, 6) });
+          } else if (data.t) {
             if (!raw) setMood("talking");
             raw += data.t;
             update({ content: raw });
@@ -616,8 +708,8 @@ export function Assistant({ catalog, guides }) {
               </div>
               <ul className="pip-caps">
                 <li>
-                  <PixelIcon name="book" size={13} /> Menjawab dari katalog dan
-                  panduan
+                  <PixelIcon name="book" size={13} /> Membaca isi docs sebelum
+                  menjawab
                 </li>
                 <li>
                   <PixelIcon name="search" size={13} /> Menggerakkan kursor dan
@@ -651,8 +743,9 @@ export function Assistant({ catalog, guides }) {
                     )}
                     <p>
                       Hai, aku <b>Pip</b>! Tanyakan apa saja soal API ini. Aku
-                      bisa menggerakkan kursorku untuk menunjukkan letaknya di
-                      halaman, membuka endpoint, dan membuatkan kode.
+                      membaca isi docs ini dulu sebelum menjawab, lalu bisa
+                      menunjukkan letaknya di halaman, membuka endpoint, dan
+                      membuatkan kode.
                     </p>
                     {!full && (
                       <div className="pip-suggest">

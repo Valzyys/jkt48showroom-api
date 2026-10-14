@@ -1,8 +1,15 @@
 import { assets, catalog } from "./assets.js";
+import {
+  knownHeading,
+  retrieve,
+  sourcesOf,
+  tableOfContents,
+} from "./knowledge.js";
 
-// Pip, the docs assistant. Grounded on the public catalog and guides only, it
-// answers, writes integration code, and asks the page to navigate or point at
-// UI elements through small action tags the browser executes.
+// Pip, the docs assistant. Before each answer it reads the docs sections that
+// fit the question and the page the user has open, then answers, writes
+// integration code, and asks the page to navigate or point at UI elements
+// through small action tags the browser executes.
 const CONSOLE_URL = "https://console.mistral.ai/api-ui/bora/v1/conversations";
 const API_URL = "https://api.mistral.ai/v1/chat/completions";
 const MAX_BODY = 32 * 1024;
@@ -48,10 +55,9 @@ const clip = (value, max) => {
   return text.length > max ? text.slice(0, max - 1) + "…" : text;
 };
 
-let knowledge;
-function buildKnowledge() {
-  if (knowledge) return knowledge;
-  const routes = catalog.routes
+let routeList;
+function routes() {
+  routeList ||= catalog.routes
     .map(
       (r) =>
         `- ${r.method} ${r.path} | ${r.auth} | ${r.group} | ${clip(r.description.replace(/`/g, ""), 180)}` +
@@ -60,16 +66,10 @@ function buildKnowledge() {
           : ""),
     )
     .join("\n");
-  const guides = assets.pages
-    .filter((p) => p.slug !== "markdown")
-    .map((p) => `### ${p.title} (slug: ${p.slug})\n${p.content.trim()}`)
-    .join("\n\n");
-  knowledge = { routes, guides };
-  return knowledge;
+  return routeList;
 }
 
-export function buildInstructions(page = {}) {
-  const { routes, guides } = buildKnowledge();
+export function buildInstructions(page = {}, reading = { read: [] }) {
   const targets = Object.entries(UI_TARGETS)
     .map(([id, label]) => `- ${id}: ${label}`)
     .join("\n");
@@ -85,6 +85,8 @@ ATURAN
 - JKT48Connect adalah proyek fans independen, bukan manajemen resmi JKT48.
 - Kode: gunakan blok markdown bertag bahasa (\`\`\`javascript, \`\`\`python, \`\`\`bash). Base URL ${catalog.baseUrl}. Tangani error HTTP. Endpoint ber-API key hanya dipanggil dari server dan key dibaca dari environment variable, jangan pernah ditulis langsung di kode frontend.
 - Jangan pernah meminta atau menampilkan password, cookie, token, atau API key asli.
+- Sebelum menjawab kamu sudah MEMBACA bagian docs di "DOKUMEN YANG KAMU BACA". Jadikan itu sumber utama: kutip nama field, parameter, dan nilai contoh persis seperti tertulis, jelaskan alasannya, dan sebutkan bagian docs yang kamu pakai (misal "menurut panduan Memutar replay"). Untuk kode, pakai nama field dari "Bentuk respons". Jika docs tidak menyebut sesuatu, katakan belum ada di docs.
+- Jika pengguna bertanya soal "halaman ini" atau "bagian ini", jelaskan isi HALAMAN PENGGUNA SAAT INI.
 - Format: markdown biasa (judul pendek, list, tabel kecil boleh).
 
 AKSI UI
@@ -101,13 +103,24 @@ Jika pengguna bertanya "di mana" atau "bagaimana cara" sesuatu di website ini, a
 HALAMAN PENGGUNA SAAT INI
 Path: ${clip(page.path, 200) || "/"}
 Judul: ${clip(page.title, 160) || "-"}
+Bagian yang sedang dilihat: ${page.heading || "-"}
 Target yang terlihat sekarang: ${(page.targets || []).join(", ") || "-"}
 
 KATALOG ENDPOINT (method path | akses | grup | ringkasan)
-${routes}
+${routes()}
 
-PANDUAN
-${guides}`;
+DAFTAR ISI PANDUAN
+${tableOfContents()}
+
+DOKUMEN YANG KAMU BACA (isi asli docs, paling relevan dulu)
+${
+  reading.read
+    .map(
+      (c) =>
+        `=== ${c.kind === "endpoint" ? "Endpoint" : "Panduan"}: ${c.title}${reading.current?.includes(c) ? " [halaman yang sedang dibuka]" : ""} (${c.href})\n${c.text}`,
+    )
+    .join("\n\n") || "-"
+}`;
 }
 
 export function sanitizeMessages(input) {
@@ -130,6 +143,7 @@ export function sanitizePage(page) {
   return {
     path: typeof page?.path === "string" ? page.path.slice(0, 200) : "/",
     title: typeof page?.title === "string" ? page.title.slice(0, 160) : "",
+    heading: knownHeading(page?.heading),
     targets: Array.isArray(page?.targets)
       ? [
           ...new Set(page.targets.filter((t) => valid.has(t) || guides.has(t))),
@@ -235,9 +249,10 @@ const encoder = new TextEncoder();
 const event = (value) =>
   encoder.encode("data: " + JSON.stringify(value) + "\n\n");
 
-function relay(kind, upstream, timeoutMs) {
+function relay(kind, upstream, timeoutMs, sources = []) {
   return new ReadableStream({
     async start(controller) {
+      if (sources.length) controller.enqueue(event({ sources }));
       const reader = upstream.body.getReader(),
         decoder = new TextDecoder();
       let buffer = "",
@@ -344,11 +359,16 @@ export async function assistant(request, bindings = {}) {
   if (!messages.length || messages.at(-1).role !== "user")
     return json(400, "Pertanyaan kosong");
   const page = sanitizePage(body?.page);
+  const asked = messages.filter((m) => m.role === "user").map((m) => m.content);
+  const reading = retrieve(asked.at(-1), {
+    history: asked.slice(0, -1),
+    path: page.path,
+  });
   const {
     kind,
     url: target,
     init,
-  } = upstreamRequest(bindings, buildInstructions(page), messages);
+  } = upstreamRequest(bindings, buildInstructions(page, reading), messages);
   const timeoutMs = Number(bindings.ASSISTANT_TIMEOUT_MS || 60000);
   let upstream;
   try {
@@ -368,10 +388,13 @@ export async function assistant(request, bindings = {}) {
         : "Model AI sedang sibuk. Coba lagi.",
     );
   }
-  return new Response(relay(kind, upstream, timeoutMs), {
-    headers: {
-      ...headers,
-      "Content-Type": "text/event-stream; charset=utf-8",
+  return new Response(
+    relay(kind, upstream, timeoutMs, sourcesOf(reading.read)),
+    {
+      headers: {
+        ...headers,
+        "Content-Type": "text/event-stream; charset=utf-8",
+      },
     },
-  });
+  );
 }
