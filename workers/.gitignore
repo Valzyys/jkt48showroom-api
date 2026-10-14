@@ -10,3 +10,6 @@ exports/
 
 # Generated documentation bundle
 src/docs/assets.js
+
+# Built public React documentation and bundled font/library assets
+public-docs/

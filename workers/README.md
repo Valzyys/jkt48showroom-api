@@ -129,12 +129,12 @@ Lihat [API.md](API.md) untuk endpoint, autentikasi dan contoh; [COMPATIBILITY.md
 
 UI dokumentasi API tersedia pada `/docs` di domain Worker, contohnya
 [api.jkt48connect.app/docs](https://api.jkt48connect.app/docs).
-Katalog 113 kombinasi method/route mengikuti kontrak di `API.md`; perubahan
-route harus memperbarui `docs/routes.json` dan contoh pada `docs/guide.md`.
+Katalog 53 kombinasi method/route berisi API untuk pengguna. Perubahan route
+publik memperbarui `docs/routes.json` serta panduan di `docs/public/`.
 `docs/response-samples.json` menyimpan snapshot output publik dengan tanggal
-pengambilan. Contoh endpoint privat berisi placeholder dan diberi label asal source.
+pengambilan. Panduan operasional dan endpoint internal tidak dipublikasikan.
 
-Halaman memuat pencarian, filter method, contoh cURL/JavaScript, parameter path
+Halaman memuat pencarian, filter method, contoh cURL/JavaScript/Python, parameter path
 serta query, contoh respons, panduan autentikasi, dan unduhan Markdown/JSON.
 Tombol uji hanya menjalankan GET publik pada origin yang sama. UI tidak menyimpan
 atau meminta secret pengguna. Source aset berada di `docs/`; build hook
@@ -179,3 +179,21 @@ Completed sessions populate `/api/recent`; details expose capture completeness,
 point units, screenshots and replay URLs. Private ingestion uses a dedicated
 collector token. Configure recording/intervals and inspect sessions/replays in
 `/control/admin`. See [collector runtime documentation](../live-collector/README.md).
+
+### Public developer portal
+
+The API origin serves the React developer landing page for HTML requests and `/docs`
+for documentation. The JSON API at `/` remains available for API clients; use
+`?format=json` explicitly if needed. GSAP handles navigation and scroll transitions;
+the interactive Pip mascot uses a lazy-loaded Three.js scene with a fallback.
+
+Edit public guides in `docs/public/` and their order in `docs/public/navigation.json`.
+`docs/pages/markdown.md` is the Markdown feature lab. `docs/routes.json` and
+`docs/response-samples.json` contain consumer API documentation only.
+`scripts/public-docs.js` enforces publication boundaries for the UI, search index,
+JSON downloads, and combined Markdown. Do not add operational endpoints or
+maintenance instructions to these public documents.
+
+`npm run build` and `npm run deploy` generate `public-docs/` automatically. Worker
+Static Assets serves the frontend through the `DOCS_ASSETS` binding; existing API,
+media, and protected application routes continue through the Worker handler.

@@ -2050,22 +2050,6 @@
         "path": "/api/recent"
       }
     },
-    "/api/user": {
-      "status": 401,
-      "body": {
-        "status": 401,
-        "message": "Unauthorized!",
-        "path": "/api/user"
-      }
-    },
-    "/api/admin/jkt48member": {
-      "status": 404,
-      "body": {
-        "status": 404,
-        "message": "Endpoint not found!",
-        "path": "/api/admin/jkt48member"
-      }
-    },
     "/api/news/1876": {
       "status": 200,
       "body": {

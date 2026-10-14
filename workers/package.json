@@ -19,24 +19,44 @@
     "pretest": "node scripts/build-docs.js"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
     "@paralleldrive/cuid2": "3.0.4",
     "cbor-x": "1.6.0",
     "dayjs": "1.11.12",
     "defu": "6.1.7",
+    "dompurify": "3.4.17",
     "fuse.js": "7.0.0",
+    "github-slugger": "2.0.0",
+    "gsap": "3.15.0",
     "hono": "4.13.13",
     "jsonwebtoken": "9.0.2",
     "lodash": "4.18.1",
+    "mermaid": "12.2.0",
     "mingo": "6.6.1",
     "mongoose-legacy-pluralize": "2.0.0",
     "node-html-parser": "6.1.13",
     "ofetch": "1.4.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "10.1.0",
+    "rehype-highlight": "7.0.2",
+    "rehype-katex": "7.0.1",
+    "rehype-raw": "7.0.0",
+    "rehype-sanitize": "6.0.0",
+    "rehype-slug": "6.0.0",
+    "remark-gfm": "4.0.1",
+    "remark-math": "6.0.0",
     "string-comparison": "1.3.0",
+    "three": "0.186.1",
     "zod": "4.1.12"
   },
   "devDependencies": {
-    "wrangler": "4.149.0",
-    "miniflare": "^4.0.0",
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "miniflare": "4.20260730.0",
+    "wrangler": "4.149.0"
+  },
+  "overrides": {
+    "katex": "0.18.11"
   }
 }
