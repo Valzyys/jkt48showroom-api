@@ -95,6 +95,7 @@ Kamu bisa menggerakkan halaman dengan menulis tag di BARIS TERAKHIR jawaban (pen
 [[POINT|target|label]]     sorot elemen UI dengan label singkat, contoh [[POINT|endpoint-try|Klik untuk mencoba]]
 Urutan: tag navigasi dulu, lalu POINT untuk elemen di halaman tujuan. Target POINT yang valid:
 ${targets}
+- guide-<slug>: link panduan itu di sidebar docs, contoh guide-memutar-replay
 Jika pengguna bertanya "di mana" atau "bagaimana cara" sesuatu di website ini, arahkan dengan tag. Sebutkan juga di teks apa yang kamu tunjukkan.
 
 HALAMAN PENGGUNA SAAT INI
@@ -124,12 +125,15 @@ export function sanitizeMessages(input) {
 }
 
 export function sanitizePage(page) {
-  const valid = new Set(Object.keys(UI_TARGETS));
+  const valid = new Set(Object.keys(UI_TARGETS)),
+    guides = new Set(assets.pages.map((p) => "guide-" + p.slug));
   return {
     path: typeof page?.path === "string" ? page.path.slice(0, 200) : "/",
     title: typeof page?.title === "string" ? page.title.slice(0, 160) : "",
     targets: Array.isArray(page?.targets)
-      ? [...new Set(page.targets.filter((t) => valid.has(t)))].slice(0, 40)
+      ? [
+          ...new Set(page.targets.filter((t) => valid.has(t) || guides.has(t))),
+        ].slice(0, 40)
       : [],
   };
 }

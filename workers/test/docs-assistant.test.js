@@ -151,11 +151,13 @@ test("assistant rate limits per client and sanitizes history", async () => {
   assert.ok(
     cleaned.every((m) => m.role !== "system" && m.content.length <= 4000),
   );
-  assert.deepEqual(sanitizePage({ path: 5, targets: ["toc", "x y"] }), {
-    path: "/",
-    title: "",
-    targets: ["toc"],
-  });
+  assert.deepEqual(
+    sanitizePage({
+      path: 5,
+      targets: ["toc", "x y", "guide-memutar-replay", "guide-nope"],
+    }),
+    { path: "/", title: "", targets: ["toc", "guide-memutar-replay"] },
+  );
   assert.throws(() =>
     deltaFrom("console", { type: "conversation.response.error", message: "x" }),
   );

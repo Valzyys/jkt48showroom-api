@@ -98,6 +98,7 @@ export function Sidebar({ catalog, guides, current }) {
                 <small className="num">
                   {String(all.indexOf(g) + 1).padStart(2, "0")}
                 </small>,
+                "guide-" + g.slug,
               ),
               { key: g.slug },
             ),
