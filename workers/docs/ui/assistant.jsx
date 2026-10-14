@@ -1,18 +1,40 @@
-import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
+import React, {
+  Suspense,
+  lazy,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { Flip } from "gsap/Flip";
 import { motion, useMotionEnabled } from "./motion.js";
 import { gsap, Icon, navigate } from "./shared.jsx";
 import { PixelIcon } from "./icons.jsx";
+import { PipBot } from "./pip-bot.jsx";
+import {
+  cursorMoveTo,
+  cursorClick,
+  cursorFollow,
+  cursorHide,
+} from "./pip-cursor.js";
 import { splitReply, resolveActions } from "./assistant-actions.js";
+gsap.registerPlugin(Flip);
 const MarkdownContent = lazy(() => import("./markdown.jsx"));
 const STORE = "jkt48connect.pip";
-const FACES = ["( o.o )", "( -.- )", "( o.o )", "( ^.^ )"];
-const THINK = ["( o.o )", "( o.o)", "(o.o )", "( ._. )"];
 const SUGGESTIONS = [
   ["Buatkan kode JavaScript untuk ambil berita terbaru", "code"],
   ["Di mana tombol untuk mencoba endpoint?", "play"],
   ["Endpoint apa untuk data live yang sedang berlangsung?", "live"],
   ["Bagaimana cara memutar replay sebuah sesi?", "replay"],
 ];
+const MOOD_TEXT = {
+  idle: "Siap membantu",
+  thinking: "Sedang berpikir…",
+  talking: "Sedang menjawab…",
+  pointing: "Menunjukkan di halaman…",
+  happy: "Selesai!",
+  error: "Ada kendala",
+};
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function load() {
@@ -23,9 +45,18 @@ function load() {
     return [];
   }
 }
+const visible = (el) => {
+  if (!el || !el.getClientRects().length || el.closest(".pip-panel"))
+    return false;
+  const r = el.getBoundingClientRect();
+  return (
+    r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth
+  );
+};
 
-// Spotlight: scrolls a data-pip element into view, dims the page around it,
-// and labels it. Dismisses on click, Escape, or after a few seconds.
+// Spotlight: scrolls a data-pip element into view, lets Pip's cursor reach
+// it, then dims the page around it with a label. Dismisses on click, Escape,
+// or after a few seconds.
 let dismissActive = null;
 export async function spotlight(id, label, hooks = {}) {
   dismissActive?.();
@@ -46,15 +77,18 @@ export async function spotlight(id, label, hooks = {}) {
   });
   if (animated) await wait(450);
   hooks.onShow?.(el.getBoundingClientRect());
+  await hooks.beforeRing?.(el);
   const ring = document.createElement("div"),
     tag = document.createElement("div"),
     face = document.createElement("b"),
     text = document.createElement("span");
   ring.className = "pip-spot";
   tag.className = "pip-spot-tag";
-  face.textContent = "(^.^)/";
+  face.textContent = "Pip";
   text.textContent = label;
   tag.append(face, text);
+  // When Pip's cursor is there, its own tag carries the label.
+  if (hooks.beforeRing) tag.hidden = true;
   document.body.append(ring, tag);
   el.classList.add("pip-target");
   let raf = 0;
@@ -69,9 +103,10 @@ export async function spotlight(id, label, hooks = {}) {
     });
     const below = r.bottom + 60 < innerHeight;
     Object.assign(tag.style, {
-      left: Math.max(12, Math.min(innerWidth - 300, r.left)) + "px",
+      left: Math.max(12, Math.min(innerWidth - 300, r.left + 34)) + "px",
       top: (below ? r.bottom + pad + 10 : r.top - pad - 54) + "px",
     });
+    hooks.onPlace?.(r);
     raf = requestAnimationFrame(place);
   };
   place();
@@ -107,7 +142,7 @@ export async function spotlight(id, label, hooks = {}) {
     hooks.onHide?.();
   };
   const onKey = (e) => e.key === "Escape" && dismiss();
-  const timer = setTimeout(dismiss, 6500);
+  const timer = setTimeout(dismiss, 7000);
   addEventListener("keydown", onKey);
   setTimeout(() => addEventListener("pointerdown", dismiss, true), 60);
   dismissActive = dismiss;
@@ -128,6 +163,23 @@ function visibleTargets() {
   ];
 }
 
+// The link Pip "clicks" before navigating: the exact link when it is on
+// screen (route row, sidebar guide), otherwise the matching header menu.
+function linkFor(href) {
+  const exact = [...document.querySelectorAll("a[href]")].find(
+    (a) => a.getAttribute("href") === href && visible(a),
+  );
+  if (exact) return exact;
+  const menu = href.startsWith("/docs/reference")
+    ? "nav-reference"
+    : href.startsWith("/docs/guide/markdown")
+      ? "nav-markdown"
+      : href.startsWith("/docs")
+        ? "nav-docs"
+        : "nav-home";
+  return [...document.querySelectorAll(`[data-pip="${menu}"]`)].find(visible);
+}
+
 function Message({ message, onReplay }) {
   if (message.role === "user")
     return (
@@ -138,6 +190,14 @@ function Message({ message, onReplay }) {
   const { text } = splitReply(message.content);
   return (
     <div className="pip-msg bot">
+      <span className="pip-msg-who">
+        <PipBot
+          size={20}
+          track={false}
+          mood={message.error ? "error" : message.pending ? "thinking" : "idle"}
+        />
+        Pip
+      </span>
       {text ? (
         <Suspense fallback={<p>{text}</p>}>
           <MarkdownContent source={text} />
@@ -175,16 +235,24 @@ function Message({ message, onReplay }) {
 
 export function Assistant({ catalog, guides }) {
   const [open, setOpen] = useState(false),
+    [full, setFull] = useState(false),
     [messages, setMessages] = useState(load),
     [input, setInput] = useState(""),
     [busy, setBusy] = useState(false),
-    [frame, setFrame] = useState(0),
+    [mood, setMood] = useState("idle"),
     panel = useRef(),
     launcher = useRef(),
     body = useRef(),
     field = useRef(),
     abort = useRef(),
+    flipState = useRef(null),
+    moodTimer = useRef(),
     motionEnabled = useMotionEnabled();
+  const settle = (next, after = 2600) => {
+    clearTimeout(moodTimer.current);
+    setMood(next);
+    moodTimer.current = setTimeout(() => setMood("idle"), after);
+  };
   useEffect(() => {
     try {
       sessionStorage.setItem(
@@ -198,11 +266,6 @@ export function Assistant({ catalog, guides }) {
       );
     } catch {}
   }, [messages]);
-  useEffect(() => {
-    if (!motionEnabled) return setFrame(0);
-    const id = setInterval(() => setFrame((f) => f + 1), busy ? 320 : 2200);
-    return () => clearInterval(id);
-  }, [busy, motionEnabled]);
   useEffect(() => {
     if (!motionEnabled || !launcher.current) return;
     const tween = gsap.from(launcher.current, {
@@ -233,13 +296,56 @@ export function Assistant({ catalog, guides }) {
         },
       );
   }, [open]);
+  // Docked <-> fullscreen with GSAP Flip: the panel grows from where it sits.
+  useLayoutEffect(() => {
+    const state = flipState.current;
+    flipState.current = null;
+    if (!state || !panel.current) return;
+    Flip.from(state, {
+      duration: 0.75,
+      ease: "expo.inOut",
+      scale: false,
+      simple: true,
+    });
+    const stage = panel.current.querySelector(".pip-stage");
+    if (stage)
+      gsap.from(stage.children, {
+        y: 24,
+        autoAlpha: 0,
+        duration: 0.7,
+        stagger: 0.06,
+        delay: 0.35,
+        ease: "expo.out",
+        clearProps: "transform,opacity,visibility",
+      });
+  }, [full]);
+  useEffect(() => {
+    document.documentElement.classList.toggle("pip-fullscreen", open && full);
+    return () => document.documentElement.classList.remove("pip-fullscreen");
+  }, [open, full]);
   useEffect(() => {
     const box = body.current;
     if (box) box.scrollTop = box.scrollHeight;
-  }, [messages, open]);
-  useEffect(() => () => abort.current?.abort(), []);
+  }, [messages, open, full]);
+  useEffect(
+    () => () => {
+      abort.current?.abort();
+      clearTimeout(moodTimer.current);
+    },
+    [],
+  );
+  function toggleFull(next = !full) {
+    if (next === full) return;
+    if (motionEnabled && panel.current)
+      flipState.current = Flip.getState(panel.current);
+    setFull(next);
+  }
   function close() {
-    if (!motionEnabled || !panel.current) return setOpen(false);
+    cursorHide();
+    if (!motionEnabled || !panel.current) {
+      setFull(false);
+      return setOpen(false);
+    }
     gsap.to(panel.current, {
       y: 20,
       scale: 0.95,
@@ -248,21 +354,38 @@ export function Assistant({ catalog, guides }) {
       ease: "power2.in",
       onComplete: () => {
         gsap.set(panel.current, { clearProps: "all" });
+        setFull(false);
         setOpen(false);
       },
     });
   }
   async function perform(actions) {
+    if (full) {
+      toggleFull(false);
+      await wait(motionEnabled ? 800 : 50);
+    }
+    setMood("pointing");
     const results = [];
+    let pointing = false;
     for (const action of actions) {
       if (action.type === "nav") {
         if (location.pathname + location.search !== action.href) {
+          const link = linkFor(action.href);
+          if (link) {
+            await cursorMoveTo(link, "Membuka " + action.label);
+            await cursorClick();
+          }
           navigate(action.href);
-          await wait(550);
+          await wait(600);
         }
         results.push(action);
       } else {
         const found = await spotlight(action.id, action.label, {
+          beforeRing: async (el) => {
+            await cursorMoveTo(el, action.label);
+            await cursorClick();
+          },
+          onPlace: cursorFollow,
           // Slide the panel down to its header while Pip points, so the
           // highlighted element is never hidden behind the chat.
           onShow: (rect) => {
@@ -281,6 +404,7 @@ export function Assistant({ catalog, guides }) {
             });
           },
           onHide: () => {
+            cursorHide(150);
             if (!panel.current?.classList.contains("is-peek")) return;
             panel.current.classList.remove("is-peek");
             gsap.to(panel.current, {
@@ -290,9 +414,12 @@ export function Assistant({ catalog, guides }) {
             });
           },
         });
+        pointing ||= found;
         results.push(found ? action : { ...action, missing: true });
       }
     }
+    if (!pointing) cursorHide(700);
+    settle("happy");
     return results;
   }
   async function send(text) {
@@ -315,6 +442,8 @@ export function Assistant({ catalog, guides }) {
       { role: "assistant", content: "", pending: true },
     ]);
     setBusy(true);
+    clearTimeout(moodTimer.current);
+    setMood("thinking");
     const controller = new AbortController();
     abort.current = controller;
     const update = (patch) =>
@@ -364,6 +493,7 @@ export function Assistant({ catalog, guides }) {
             continue;
           }
           if (data.t) {
+            if (!raw) setMood("talking");
             raw += data.t;
             update({ content: raw });
           } else if (data.error)
@@ -372,11 +502,11 @@ export function Assistant({ catalog, guides }) {
       }
       const actions = resolveActions(raw, catalog, guides);
       update({ content: raw, pending: false, actions });
-      if (actions.length) {
-        const results = await perform(actions);
-        update({ actions: results });
-      }
+      setBusy(false);
+      if (actions.length) update({ actions: await perform(actions) });
+      else settle("happy");
     } catch (error) {
+      settle("error", 3200);
       update({
         pending: false,
         content: raw,
@@ -392,7 +522,57 @@ export function Assistant({ catalog, guides }) {
       abort.current = null;
     }
   }
-  const face = (busy ? THINK : FACES)[frame % 4];
+  const header = (
+    <header
+      className="pip-head"
+      onClick={() => {
+        if (panel.current?.classList.contains("is-peek")) dismissSpotlight();
+      }}
+    >
+      {!full && (
+        <span className="pip-avatar">
+          <PipBot size={30} mood={mood} />
+        </span>
+      )}
+      <div className="pip-title">
+        <strong>Pip</strong>
+        <small>
+          <i className={"live-dot mood-" + mood} /> {MOOD_TEXT[mood]}
+        </small>
+      </div>
+      <button
+        type="button"
+        className="pip-icon-btn"
+        onClick={() => {
+          abort.current?.abort();
+          setMessages([]);
+          setMood("idle");
+        }}
+        aria-label="Mulai percakapan baru"
+        title="Percakapan baru"
+      >
+        <PixelIcon name="replay" size={13} />
+      </button>
+      <button
+        type="button"
+        className="pip-icon-btn"
+        onClick={() => toggleFull()}
+        aria-label={full ? "Keluar dari layar penuh" : "Layar penuh"}
+        aria-pressed={full}
+        title={full ? "Keluar dari layar penuh" : "Layar penuh"}
+      >
+        <Icon name={full ? "collapse" : "expand"} size={15} />
+      </button>
+      <button
+        type="button"
+        className="pip-icon-btn"
+        onClick={close}
+        aria-label="Tutup Pip"
+      >
+        <Icon name="close" size={15} />
+      </button>
+    </header>
+  );
   return (
     <>
       <button
@@ -405,7 +585,7 @@ export function Assistant({ catalog, guides }) {
         aria-label={open ? "Tutup Pip" : "Tanya Pip, asisten docs"}
       >
         <span className="pip-face" aria-hidden="true">
-          {open ? "( -_- )" : face}
+          <PipBot size={30} mood={open ? "happy" : mood} />
         </span>
         <span className="pip-launch-text">
           <b>Tanya Pip</b>
@@ -415,124 +595,132 @@ export function Assistant({ catalog, guides }) {
       {open && (
         <section
           id="pip-panel"
-          className="pip-panel"
+          className={"pip-panel " + (full ? "is-full" : "")}
           role="dialog"
           aria-label="Pip, asisten dokumentasi"
           ref={panel}
-          onKeyDown={(e) => e.key === "Escape" && close()}
+          onKeyDown={(e) => {
+            if (e.key !== "Escape") return;
+            full ? toggleFull(false) : close();
+          }}
         >
-          <header
-            className="pip-head"
-            onClick={() => {
-              if (panel.current?.classList.contains("is-peek"))
-                dismissSpotlight();
-            }}
-          >
-            <span className="pip-avatar" aria-hidden="true">
-              {face}
-            </span>
-            <div>
-              <strong>Pip</strong>
-              <small>
-                <i className="live-dot" /> Asisten docs · menjawab, menunjuk,
-                menulis kode
-              </small>
-            </div>
-            <button
-              type="button"
-              className="pip-icon-btn"
-              onClick={() => {
-                abort.current?.abort();
-                setMessages([]);
-              }}
-              aria-label="Mulai percakapan baru"
-              title="Percakapan baru"
-            >
-              <PixelIcon name="replay" size={13} />
-            </button>
-            <button
-              type="button"
-              className="pip-icon-btn"
-              onClick={close}
-              aria-label="Tutup Pip"
-            >
-              <Icon name="close" size={15} />
-            </button>
-          </header>
-          <div className="pip-body" ref={body} aria-live="polite">
-            {!messages.length && (
-              <div className="pip-intro">
-                <pre aria-hidden="true">
-                  {" /\\_/\\\n( o.o )  hai!\n > ^ <"}
-                </pre>
-                <p>
-                  Aku <b>Pip</b>. Tanyakan apa saja soal API ini. Aku bisa
-                  menunjukkan letaknya di halaman, membuka endpoint, dan
-                  membuatkan kode.
-                </p>
-                <div className="pip-suggest">
-                  {SUGGESTIONS.map(([q, icon]) => (
-                    <button type="button" key={q} onClick={() => send(q)}>
-                      <PixelIcon name={icon} size={12} />
-                      {q}
-                    </button>
-                  ))}
-                </div>
+          {full && (
+            <aside className="pip-stage">
+              <div className="pip-hero">
+                <PipBot size={176} mood={mood} />
+                <span className="pip-floor" aria-hidden="true" />
               </div>
-            )}
-            {messages.map((m, i) => (
-              <Message key={i} message={m} onReplay={perform} />
-            ))}
-          </div>
-          <form
-            className="pip-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-          >
-            <textarea
-              ref={field}
-              rows={1}
-              value={input}
-              maxLength={2000}
-              placeholder="Tanya Pip…"
-              aria-label="Pertanyaan untuk Pip"
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (
-                  e.key === "Enter" &&
-                  !e.shiftKey &&
-                  !e.nativeEvent.isComposing
-                ) {
-                  e.preventDefault();
-                  send(input);
-                }
+              <div className="pip-stage-copy">
+                <h2>Pip</h2>
+                <p>{MOOD_TEXT[mood]}</p>
+              </div>
+              <ul className="pip-caps">
+                <li>
+                  <PixelIcon name="book" size={13} /> Menjawab dari katalog dan
+                  panduan
+                </li>
+                <li>
+                  <PixelIcon name="search" size={13} /> Menggerakkan kursor dan
+                  menunjuk UI
+                </li>
+                <li>
+                  <PixelIcon name="code" size={13} /> Menulis kode JS, Python,
+                  cURL
+                </li>
+              </ul>
+              <div className="pip-suggest">
+                {SUGGESTIONS.map(([q, icon]) => (
+                  <button type="button" key={q} onClick={() => send(q)}>
+                    <PixelIcon name={icon} size={12} />
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </aside>
+          )}
+          <div className="pip-main">
+            {header}
+            <div className="pip-body" ref={body} aria-live="polite">
+              <div className="pip-thread">
+                {!messages.length && (
+                  <div className="pip-intro">
+                    {!full && (
+                      <div className="pip-intro-bot">
+                        <PipBot size={64} mood={mood} />
+                      </div>
+                    )}
+                    <p>
+                      Hai, aku <b>Pip</b>! Tanyakan apa saja soal API ini. Aku
+                      bisa menggerakkan kursorku untuk menunjukkan letaknya di
+                      halaman, membuka endpoint, dan membuatkan kode.
+                    </p>
+                    {!full && (
+                      <div className="pip-suggest">
+                        {SUGGESTIONS.map(([q, icon]) => (
+                          <button type="button" key={q} onClick={() => send(q)}>
+                            <PixelIcon name={icon} size={12} />
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {messages.map((m, i) => (
+                  <Message key={i} message={m} onReplay={perform} />
+                ))}
+              </div>
+            </div>
+            <form
+              className="pip-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                send(input);
               }}
-            />
-            {busy ? (
-              <button
-                type="button"
-                className="pip-send stop"
-                onClick={() => abort.current?.abort()}
-                aria-label="Hentikan jawaban"
-              >
-                <i />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                className="pip-send"
-                disabled={!input.trim()}
-                aria-label="Kirim"
-              >
-                <Icon name="up" size={16} />
-              </button>
-            )}
-          </form>
-          <p className="pip-note">
-            Pip bisa keliru. Cek ulang di referensi sebelum dipakai produksi.
-          </p>
+            >
+              <textarea
+                ref={field}
+                rows={1}
+                value={input}
+                maxLength={2000}
+                placeholder="Tanya Pip…"
+                aria-label="Pertanyaan untuk Pip"
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    !e.shiftKey &&
+                    !e.nativeEvent.isComposing
+                  ) {
+                    e.preventDefault();
+                    send(input);
+                  }
+                }}
+              />
+              {busy ? (
+                <button
+                  type="button"
+                  className="pip-send stop"
+                  onClick={() => abort.current?.abort()}
+                  aria-label="Hentikan jawaban"
+                >
+                  <i />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="pip-send"
+                  disabled={!input.trim()}
+                  aria-label="Kirim"
+                >
+                  <Icon name="up" size={16} />
+                </button>
+              )}
+            </form>
+            <p className="pip-note">
+              Pip bisa keliru. Cek ulang di referensi sebelum dipakai produksi.
+            </p>
+          </div>
         </section>
       )}
     </>

@@ -24,6 +24,8 @@ export function Icon({ name = "arrow", size = 18, ...props }) {
     pause: "M9 5v14M15 5v14",
     down: "M12 4v15m-6-6 6 6 6-6",
     up: "M12 20V5m-6 6 6-6 6 6",
+    expand: "M14 4h6v6m0-6-7 7M10 20H4v-6m0 6 7-7",
+    collapse: "M20 10h-6V4m0 6 7-7M4 14h6v6m0-6-7 7",
   };
   return (
     <svg
