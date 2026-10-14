@@ -43,13 +43,13 @@ export async function buildDocsUI() {
     logLevel: "silent",
   });
   const { catalog, pages, guide: source } = await loadPublicDocumentation();
-  const shell = `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#efefeb"><meta name="description" content="Dokumentasi publik JKT48Connect. Panduan API, ${catalog.routes.length} method dan route, autentikasi, live, recent, serta contoh request dan respons."><title>JKT48Connect Developers · Dari oshi. Jadi karyamu.</title><link rel="icon" href="/docs/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/docs/assets/app.css"><script type="module" src="/docs/assets/app.js"></script></head><body><div id="root"><main class="boot-error"><h1>JKT48Connect Developers</h1><p>Dari oshi. Jadi karyamu. Menyiapkan dokumentasi…</p><a href="/docs/guide.md">Baca panduan Markdown lengkap</a><noscript><p>Aktifkan JavaScript untuk navigasi interaktif, pencarian, serta playground. Panduan Markdown dan katalog JSON tersedia tanpa JavaScript.</p><a href="/docs/routes.json">Katalog route JSON</a></noscript></main></div></body></html>`;
+  const shell = `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ffffff"><meta name="description" content="Dokumentasi publik JKT48Connect. Panduan API, ${catalog.routes.length} method dan route, autentikasi, live, recent, serta contoh request dan respons."><title>JKT48Connect Developers · Dari oshi. Jadi karyamu.</title><link rel="icon" href="/docs/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/docs/assets/app.css"><script type="module" src="/docs/assets/app.js"></script></head><body><div id="root"><main class="boot-error"><h1>JKT48Connect Developers</h1><p>Dari oshi. Jadi karyamu. Menyiapkan dokumentasi…</p><a href="/docs/guide.md">Baca panduan Markdown lengkap</a><noscript><p>Aktifkan JavaScript untuk navigasi interaktif, pencarian, serta playground. Panduan Markdown dan katalog JSON tersedia tanpa JavaScript.</p><a href="/docs/routes.json">Katalog route JSON</a></noscript></main></div></body></html>`;
   await writeFile(path.join(out, "index.html"), shell);
   await writeFile(path.join(out, "docs", "pages.json"), JSON.stringify(pages));
   const favicon =
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#efefeb"/><path fill="#191a1b" d="M4 4h10v5H9v5H4zm14 0h10v10h-5V9h-5zM4 18h5v5h5v5H4zm19 0h5v10H18v-5h5z"/><circle cx="16" cy="16" r="4" fill="#d92a32"/></svg>';
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#ffffff"/><path fill="#0c0c0e" d="M4 4h10v5H9v5H4zm14 0h10v10h-5V9h-5zM4 18h5v5h5v5H4zm19 0h5v10H18v-5h5z"/><rect x="13" y="13" width="6" height="6" fill="#e4002b"/></svg>';
   await writeFile(path.join(out, "docs", "favicon.svg"), favicon);
-  for (const name of ["geist", "geist-mono"])
+  for (const name of ["geist", "geist-mono", "doto"])
     await copyFile(
       path.join(root, "node_modules", "@fontsource-variable", name, "LICENSE"),
       path.join(out, "docs", "assets", name + "-LICENSE.txt"),

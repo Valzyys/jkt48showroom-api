@@ -184,8 +184,11 @@ collector token. Configure recording/intervals and inspect sessions/replays in
 
 The API origin serves the React developer landing page for HTML requests and `/docs`
 for documentation. The JSON API at `/` remains available for API clients; use
-`?format=json` explicitly if needed. GSAP handles navigation and scroll transitions;
-the interactive Pip mascot uses a lazy-loaded Three.js scene with a fallback.
+`?format=json` explicitly if needed. GSAP handles navigation, scroll reveals and
+scrambled labels. The 3D figures are drawn by a small ASCII engine
+(`docs/ui/ascii.js`): signed-distance shapes, flat Lambert light, no shadows or
+reflections, rendered to canvas only while visible. One motion toggle controls CSS,
+GSAP and the ASCII scenes, and follows `prefers-reduced-motion` until changed.
 
 Edit public guides in `docs/public/` and their order in `docs/public/navigation.json`.
 `docs/pages/markdown.md` is the Markdown feature lab. `docs/routes.json` and

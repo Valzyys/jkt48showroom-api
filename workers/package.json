@@ -19,6 +19,7 @@
     "pretest": "node scripts/build-docs.js"
   },
   "dependencies": {
+    "@fontsource-variable/doto": "5.3.0",
     "@fontsource-variable/geist": "5.3.0",
     "@fontsource-variable/geist-mono": "5.3.0",
     "@paralleldrive/cuid2": "3.0.4",
@@ -48,7 +49,6 @@
     "remark-gfm": "4.0.1",
     "remark-math": "6.0.0",
     "string-comparison": "1.3.0",
-    "three": "0.186.1",
     "zod": "4.1.12"
   },
   "devDependencies": {

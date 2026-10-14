@@ -1,5 +1,6 @@
 import { motion, useMotionEnabled } from "./motion.js";
-import { AsciiFriend, LittleBadge } from "./personality.jsx";
+import { AsciiFriend } from "./personality.jsx";
+import { AsciiScene } from "./ascii-scene.jsx";
 import React, {
   Suspense,
   lazy,
@@ -11,7 +12,7 @@ import React, {
 import { createRoot } from "react-dom/client";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { MotionPathPlugin } from "gsap/MotionPathPlugin";
+import { ScrambleTextPlugin } from "gsap/ScrambleTextPlugin";
 import {
   routeKey,
   routeHref,
@@ -23,34 +24,31 @@ import {
 } from "./request.js";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
-import "./style.css";
-import "./redesign.css";
-const Character = lazy(() => import("./character.jsx"));
+import "@fontsource-variable/doto";
+import "./theme.css";
 const MarkdownContent = lazy(() => import("./markdown.jsx"));
-gsap.registerPlugin(ScrollTrigger, MotionPathPlugin);
+gsap.registerPlugin(ScrollTrigger, ScrambleTextPlugin);
 const GitHub = "https://github.com/Valzyys/jkt48showroom-api";
+const BASE = "https://api.jkt48connect.app";
 const groups = ["Publik", "Media"];
-const monoFace = String.raw`    /\___/\
-   ( o   o )
-    >  _  <
- .--|-----|--.
- |  | 48  |  |
- '--|_____|--'
-     /   \
-   (_)   (_)`;
+const SCRAMBLE_CHARS = "01<>/_#*+=.:";
+
 function Icon({ name = "arrow", size = 18, ...props }) {
   const paths = {
     arrow: "M5 12h14m-6-6 6 6-6 6",
     search: "m20 20-5-5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0",
-    menu: "M4 7h16M4 12h16M4 17h16",
+    menu: "M4 8h16M4 16h16",
     close: "m6 6 12 12M6 18 18 6",
-    code: "m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18",
+    code: "m8 6-6 6 6 6m8-12 6 6-6 6",
     book: "M12 6v15M3 3l9 3 9-3v15l-9 3-9-3Z",
     copy: "M8 8h13v13H8zM3 16V3h13",
-    sun: "M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
-    chevron: "m9 5 7 7-7 7",
     external: "M14 3h7v7m0-7L10 14M9 3H3v18h18v-6",
     check: "m4 12 5 5L20 6",
+    play: "m7 4 13 8-13 8Z",
+    pause: "M8 5v14M16 5v14",
+    down: "M12 4v15m-6-6 6 6 6-6",
+    up: "M12 20V5m-6 6 6-6 6 6",
+    hash: "M5 9h15M4 15h15M10 3 8 21M16 3l-2 18",
   };
   return (
     <svg
@@ -60,8 +58,7 @@ function Icon({ name = "arrow", size = 18, ...props }) {
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      strokeLinecap="square"
       aria-hidden="true"
       {...props}
     >
@@ -76,7 +73,7 @@ function Mark({ size = 28 }) {
         fill="currentColor"
         d="M4 4h10v5H9v5H4zm14 0h10v10h-5V9h-5zM4 18h5v5h5v5H4zm19 0h5v10H18v-5h5z"
       />
-      <circle cx="16" cy="16" r="4" fill="var(--red)" />
+      <rect x="13" y="13" width="6" height="6" fill="var(--accent)" />
     </svg>
   );
 }
@@ -95,7 +92,8 @@ function Link({ href, children, onClick, ...props }) {
           e.altKey ||
           e.button !== 0 ||
           !href?.startsWith("/") ||
-          props.target
+          props.target ||
+          props.download !== undefined
         )
           return;
         e.preventDefault();
@@ -134,6 +132,7 @@ function Copy({ text, label = "Salin", className = "" }) {
   useEffect(() => () => clearTimeout(timer.current), []);
   return (
     <button
+      type="button"
       className={"copy-button " + className}
       aria-label={label}
       onClick={async () => {
@@ -147,717 +146,748 @@ function Copy({ text, label = "Salin", className = "" }) {
         }
       }}
     >
-      {done ? (
-        <>
-          <Icon name="check" size={13} />
-          Tersalin
-        </>
-      ) : (
-        <>
-          <Icon name="copy" size={13} />
-          {label}
-        </>
-      )}
+      <Icon name={done ? "check" : "copy"} size={13} />
+      <span>{done ? "Tersalin" : label}</span>
       <span className="sr-only" aria-live="polite">
         {done ? "Berhasil disalin" : ""}
       </span>
     </button>
   );
 }
-function Header({ onSearch, docs = false, onMenu }) {
-  const headerLocation = useLocation(),
-    motionEnabled = useMotionEnabled();
+
+// Light tokenizer for the code shown outside Markdown: strings, keywords,
+// comments, numbers, and JSON keys. Output is plain React text, never HTML.
+const TOKENS =
+  /(\/\/[^\n]*|(?:^|\s)#[^\n]*)|('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*")|\b(const|let|await|async|import|from|return|if|throw|new|def|print|True|False|None|null|true|false|curl)\b|(-?\b\d+(?:\.\d+)?\b)/g;
+function tint(code) {
+  const out = [];
+  let last = 0,
+    m,
+    i = 0;
+  TOKENS.lastIndex = 0;
+  if (code.length > 60000) return code;
+  while ((m = TOKENS.exec(code))) {
+    if (m.index > last) out.push(code.slice(last, m.index));
+    const [text, comment, string, keyword] = m,
+      kind = comment
+        ? "tk-comment"
+        : string
+          ? /^\s*:/.test(code.slice(m.index + text.length))
+            ? "tk-key"
+            : "tk-string"
+          : keyword
+            ? "tk-keyword"
+            : "tk-number";
+    out.push(
+      <span key={i++} className={kind}>
+        {text}
+      </span>,
+    );
+    last = m.index + text.length;
+  }
+  out.push(code.slice(last));
+  return out;
+}
+
+// Shared entrance choreography: fade-up blocks, scrambled mono labels,
+// drawn rules, and counters. Everything is skipped when motion is off.
+function useReveal(scope, deps = []) {
+  const motionEnabled = useMotionEnabled();
+  useEffect(() => {
+    if (!motionEnabled || !scope.current) return;
+    const context = gsap.context(() => {
+      gsap.utils.toArray(".rv").forEach((el) =>
+        gsap.from(el, {
+          y: 26,
+          autoAlpha: 0,
+          duration: 0.8,
+          ease: "power3.out",
+          delay: Number(el.dataset.delay || 0),
+          scrollTrigger: { trigger: el, start: "top 90%", once: true },
+          clearProps: "opacity,visibility,transform",
+        }),
+      );
+      gsap.utils.toArray("[data-scramble]").forEach((el) => {
+        const text = el.textContent;
+        gsap.to(el, {
+          duration: Math.min(1.4, 0.35 + text.length * 0.025),
+          scrambleText: { text, chars: SCRAMBLE_CHARS, speed: 0.6 },
+          scrollTrigger: { trigger: el, start: "top 92%", once: true },
+        });
+      });
+      gsap.utils.toArray(".rule-draw").forEach((el) =>
+        gsap.from(el, {
+          scaleX: 0,
+          transformOrigin: "0 50%",
+          duration: 1.1,
+          ease: "power3.inOut",
+          scrollTrigger: { trigger: el, start: "top 95%", once: true },
+          clearProps: "transform",
+        }),
+      );
+      gsap.utils.toArray("[data-count]").forEach((el) => {
+        const value = Number(el.dataset.count),
+          proxy = { v: 0 };
+        gsap.to(proxy, {
+          v: value,
+          duration: 1.4,
+          ease: "power2.out",
+          scrollTrigger: { trigger: el, start: "top 92%", once: true },
+          onUpdate: () => (el.textContent = Math.round(proxy.v)),
+          onComplete: () => (el.textContent = value),
+        });
+      });
+      gsap.utils.toArray(".bar-fill").forEach((el, i) =>
+        gsap.from(el, {
+          width: 0,
+          duration: 1.1,
+          ease: "steps(" + Math.max(1, el.textContent.length) + ")",
+          delay: (i % 8) * 0.06,
+          scrollTrigger: { trigger: el, start: "top 95%", once: true },
+          clearProps: "width",
+        }),
+      );
+    }, scope);
+    let active = true;
+    document.fonts.ready.then(() => active && ScrollTrigger.refresh());
+    return () => {
+      active = false;
+      context.revert();
+    };
+  }, [motionEnabled, ...deps]);
+}
+
+function MotionToggle() {
+  const enabled = useMotionEnabled();
   return (
-    <header className="site-header connection-header">
-      <div className="header-frame">
+    <button
+      className="icon-button motion-toggle"
+      type="button"
+      aria-pressed={enabled}
+      aria-label={enabled ? "Matikan animasi" : "Aktifkan animasi"}
+      title={
+        enabled
+          ? "Animasi aktif. Klik untuk mematikan."
+          : motion.getPreference() === "auto"
+            ? "Animasi mengikuti pengaturan perangkat. Klik untuk mengaktifkan."
+            : "Animasi mati. Klik untuk mengaktifkan."
+      }
+      onClick={() => motion.setEnabled(!enabled)}
+    >
+      <Icon name={enabled ? "pause" : "play"} size={14} />
+      <span className="motion-label">{enabled ? "Motion" : "Static"}</span>
+    </button>
+  );
+}
+function Header({ onSearch, current, onMenu }) {
+  const path = current.split(/[?#]/)[0];
+  const nav = [
+    ["/docs", "Docs", path === "/docs" || path.startsWith("/docs/guide/")],
+    ["/docs/reference", "Reference", path === "/docs/reference"],
+    ["/docs/guide/markdown", "Markdown", path === "/docs/guide/markdown"],
+  ];
+  return (
+    <header className="site-header">
+      <div className="header-inner">
         <Link href="/" className="brand" aria-label="JKT48Connect, beranda">
-          <span className="brand-stamp">
-            <Mark size={29} />
-            <small>48</small>
+          <Mark size={24} />
+          <span className="brand-name">
+            jkt48<b>connect</b>
           </span>
-          <span>
-            jkt48<span className="brand-connect">connect</span>
-            <small>THE FAN DEVELOPER INTERFACE</small>
-          </span>
+          <span className="brand-tag">/ developers</span>
         </Link>
-        <nav aria-label="Navigasi utama">
-          <Link href="/docs" className={docs ? "current" : ""}>
-            <small>01</small>Dokumentasi
-          </Link>
-          <Link href="/docs/reference">
-            <small>02</small>Reference
-          </Link>
+        <nav className="main-nav" aria-label="Navigasi utama">
+          {nav.map(([href, label, active]) => (
+            <Link
+              key={href}
+              href={href}
+              className={active ? "current" : ""}
+              aria-current={active ? "page" : undefined}
+            >
+              {label}
+            </Link>
+          ))}
           <a href={GitHub} target="_blank" rel="noreferrer">
-            <small>03</small>Source ↗
+            GitHub <Icon name="external" size={12} />
           </a>
         </nav>
         <div className="header-actions">
           <button
-            className="motion-toggle"
             type="button"
-            aria-pressed={motionEnabled}
-            aria-label={motionEnabled ? "Matikan animasi" : "Aktifkan animasi"}
-            title={
-              motionEnabled
-                ? "Animasi aktif. Klik untuk mematikan."
-                : motion.getPreference() === "auto"
-                  ? "Animasi mengikuti pengaturan perangkat. Klik untuk mengaktifkan."
-                  : "Animasi mati. Klik untuk mengaktifkan."
-            }
-            onClick={() => motion.setEnabled(!motionEnabled)}
-          >
-            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
-              {motionEnabled ? (
-                <>
-                  <path
-                    d="M5 4v8M11 4v8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </>
-              ) : (
-                <path d="m5 3 8 5-8 5Z" fill="currentColor" />
-              )}
-            </svg>
-            <span>Animasi {motionEnabled ? "aktif" : "mati"}</span>
-          </button>
-          <button
             className="search-trigger"
             onClick={onSearch}
             aria-label="Cari dokumentasi"
           >
-            <Icon name="search" size={16} />
-            <span>Cari sesuatu</span>
-            <kbd>⌘ K</kbd>
+            <Icon name="search" size={15} />
+            <span>Cari…</span>
+            <kbd>⌘K</kbd>
           </button>
+          <MotionToggle />
+          <Link
+            href="/docs/guide/mulai-menggunakan"
+            className="button button-solid header-cta"
+          >
+            Mulai <Icon size={14} />
+          </Link>
           <button
-            className="menu-trigger"
+            type="button"
+            className="icon-button menu-trigger"
             onClick={onMenu}
             aria-label="Buka navigasi"
           >
             <Icon name="menu" />
           </button>
-          <Link href="/docs/guide/mulai-menggunakan" className="header-start">
-            Let's build <Icon size={15} />
-          </Link>
         </div>
-      </div>
-      <div className="header-wire">
-        <span>
-          <i />
-          PUBLIC API / OPEN DOCUMENTATION
-        </span>
-        <span className="header-ascii" aria-hidden="true">
-          <AsciiFriend compact key={headerLocation.split("#")[0]} />{" "}
-          <i>YOUR NEXT IDEA IS CONNECTED</i>
-        </span>
-        <span className="header-coordinate">JKT / UTC+07</span>
       </div>
       <div className="reading-progress" />
     </header>
   );
 }
-function SignalDiagram() {
+function Cross({ className = "" }) {
+  return <span className={"cross " + className} aria-hidden="true" />;
+}
+function SectionHead({ index, label, title, muted, text, align = "split" }) {
   return (
-    <div className="signal-diagram">
-      <svg viewBox="0 0 1040 280" aria-hidden="true" className="signal-wires">
-        <defs>
-          <pattern
-            id="micro-grid"
-            width="8"
-            height="8"
-            patternUnits="userSpaceOnUse"
-          >
-            <circle cx="1" cy="1" r=".6" fill="#c4beb6" />
-          </pattern>
-        </defs>
-        <rect
-          x="389"
-          y="27"
-          width="262"
-          height="224"
-          rx="36"
-          fill="url(#micro-grid)"
-        />
-        <g fill="none" stroke="#c5bfb6" strokeWidth="1">
-          <path id="wire-0" d="M30 61H305Q335 61 354 88L440 140" />
-          <path id="wire-1" d="M30 140H440" />
-          <path id="wire-2" d="M30 219H305Q335 219 354 192L440 140" />
-          <path id="wire-3" d="M600 140 686 88Q705 61 735 61H1010" />
-          <path id="wire-4" d="M600 140H1010" />
-          <path id="wire-5" d="M600 140 686 192Q705 219 735 219H1010" />
-        </g>
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <circle
-            key={i}
-            data-signal={i}
-            r="3.5"
-            fill={i % 2 ? "#171719" : "#e30b1c"}
-          />
-        ))}
-        <g fill="#171719">
-          {[
-            [32, 61],
-            [32, 140],
-            [32, 219],
-            [1008, 61],
-            [1008, 140],
-            [1008, 219],
-          ].map(([cx, cy], i) => (
-            <circle key={i} cx={cx} cy={cy} r="3" />
-          ))}
-        </g>
-      </svg>
-      <div className="signal-labels left">
-        <Link href={routeHref({ method: "GET", path: "/api/news" })}>
-          NEWS <span>01</span>
-        </Link>
-        <Link href={routeHref({ method: "GET", path: "/api/member" })}>
-          MEMBERS <span>02</span>
-        </Link>
-        <Link href={routeHref({ method: "GET", path: "/api/theater" })}>
-          THEATER <span>03</span>
-        </Link>
+    <div className={"section-head " + align}>
+      <div>
+        <span className="eyebrow">
+          <i />
+          <span data-scramble>{`${index} / ${label}`}</span>
+        </span>
+        <h2 className="rv">
+          {title} {muted && <span className="muted-text">{muted}</span>}
+        </h2>
       </div>
-      <Link
-        href="/docs"
-        className="signal-core"
-        aria-label="Jelajahi API JKT48Connect"
-      >
-        <div>
-          <Mark size={66} />
-        </div>
-        <small>ONE CONNECTION</small>
-      </Link>
-      <div className="signal-labels right">
-        <Link href={routeHref({ method: "GET", path: "/api/now_live" })}>
-          <span>04</span> LIVE
-        </Link>
-        <Link href={routeHref({ method: "GET", path: "/api/recent" })}>
-          <span>05</span> RECENT
-        </Link>
-        <Link href="/docs/guide/gambar-leaderboard-recent">
-          <span>06</span> MEDIA
-        </Link>
-      </div>
-      <span className="diagram-note">SUMBER DATA → API → IDE KAMU</span>
+      {text && (
+        <p className="rv" data-delay="0.1">
+          {text}
+        </p>
+      )}
     </div>
   );
 }
-function EndpointMap({ catalog }) {
-  const items = [
-      ["News", "/api/news"],
-      ["Member", "/api/member"],
-      ["Theater", "/api/theater"],
-      ["Live", "/api/idn"],
-      ["Recent", "/api/recent"],
-      ["Media", "media"],
-    ]
-      .map(([group, q]) => ({
-        group,
-        q,
-        count: catalog.routes.filter((r) =>
-          q === "media" ? r.group === "Media" : r.path.startsWith(q),
-        ).length,
-      }))
-      .filter((x) => x.count),
-    max = Math.max(...items.map((x) => x.count));
-  return (
-    <div className="endpoint-map">
-      <div className="map-top">
-        <span>PETA ENDPOINT</span>
-        <small>Berdasarkan katalog yang tersedia</small>
-      </div>
-      <div className="map-columns">
-        {items.map(({ group, count, q }) => (
-          <Link
-            key={group}
-            href={
-              "/docs/reference?" +
-              (q === "media" ? "group=Media" : "q=" + encodeURIComponent(q))
-            }
-            className="map-column"
-            aria-label={group + ", " + count + " route"}
-          >
-            <strong>{count}</strong>
-            <div className="pixel-bar">
-              {Array.from({ length: 12 }, (_, row) => (
-                <div
-                  key={row}
-                  className={
-                    row >= 12 - Math.max(1, Math.round((count / max) * 12))
-                      ? "filled"
-                      : ""
-                  }
-                >
-                  {Array.from({ length: 4 }, (_, i) => (
-                    <i key={i} />
-                  ))}
-                </div>
-              ))}
-            </div>
-            <span>{group}</span>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-function Landing({ catalog }) {
+
+function Landing({ catalog, guides }) {
   const scope = useRef(),
-    [wave, setWave] = useState(0),
-    motionEnabled = useMotionEnabled();
+    motionEnabled = useMotionEnabled(),
+    newsRoute = catalog.routes.find(
+      (r) => r.method === "GET" && r.path === "/api/news",
+    ) || { method: "GET", path: "/api/news", auth: "Publik", query: {} },
+    [lang, setLang] = useState("javascript");
+  useReveal(scope);
   useEffect(() => {
     if (!motionEnabled) return;
     const context = gsap.context(() => {
-      gsap.from(".hero-enter", {
-        y: 22,
-        opacity: 0,
-        duration: 0.8,
+      const tl = gsap.timeline({ defaults: { ease: "power4.out" } });
+      tl.from(".hero-line > span", {
+        yPercent: 110,
+        duration: 1.1,
         stagger: 0.09,
-        ease: "power2.out",
-        clearProps: "opacity,transform",
-      });
-      scope.current
-        .querySelectorAll("[data-signal]")
-        .forEach((dot, i) =>
-          gsap.to(dot, {
-            motionPath: {
-              path: "#wire-" + i,
-              align: "#wire-" + i,
-              alignOrigin: [0.5, 0.5],
-            },
-            duration: 3.8 + i * 0.2,
-            delay: i * 0.4,
-            repeat: -1,
-            ease: "none",
-          }),
-        );
-      gsap.to(".scene-sticker", {
-        y: -5,
-        rotation: 3.5,
-        duration: 2.8,
-        ease: "sine.inOut",
-        yoyo: true,
-        repeat: -1,
-      });
-      gsap.utils
-        .toArray(".reveal")
-        .forEach((el) =>
-          gsap.from(el, {
-            y: 28,
-            autoAlpha: 0.35,
-            duration: 0.7,
-            ease: "power2.out",
-            scrollTrigger: { trigger: el, start: "top 94%", once: true },
+        clearProps: "transform",
+      })
+        .from(
+          ".hero-fade",
+          {
+            y: 16,
+            autoAlpha: 0,
+            duration: 0.8,
+            stagger: 0.07,
             clearProps: "opacity,visibility,transform",
-          }),
+          },
+          "-=0.75",
+        )
+        .from(
+          ".hero-stage",
+          { autoAlpha: 0, duration: 0.9, clearProps: "opacity,visibility" },
+          "-=0.9",
         );
+      gsap.to(".hero-pixel", {
+        duration: 1.2,
+        delay: 0.35,
+        scrambleText: {
+          text: "karyamu.",
+          chars: "▓▒░#*+=-.",
+          speed: 0.5,
+        },
+      });
     }, scope);
-    let active = true;
-    document.fonts.ready.then(() => {
-      if (active) ScrollTrigger.refresh();
-    });
-    return () => {
-      active = false;
-      context.revert();
-    };
+    return () => context.revert();
   }, [motionEnabled]);
+  const code = requestCode(newsRoute, initialParams(newsRoute), lang);
+  const counts = [
+    ["News", "/api/news"],
+    ["Member", "/api/member"],
+    ["Theater", "/api/theater"],
+    ["Live", "/api/idn"],
+    ["Now live", "/api/now_live"],
+    ["Recent", "/api/recent"],
+    ["Media", "media"],
+  ]
+    .map(([group, q]) => ({
+      group,
+      q,
+      count: catalog.routes.filter((r) =>
+        q === "media" ? r.group === "Media" : r.path.startsWith(q),
+      ).length,
+    }))
+    .filter((x) => x.count);
+  const max = Math.max(1, ...counts.map((x) => x.count));
+  const strip = [
+    ["NEWS", "/api/news"],
+    ["MEMBER", "/api/member"],
+    ["THEATER", "/api/theater"],
+    ["NOW LIVE", "/api/now_live"],
+    ["RECENT", "/api/recent"],
+    ["SCREENSHOT", "/api/screenshots/:id"],
+  ];
   return (
     <div className="landing" ref={scope}>
-      <section className="hero workbench-hero">
+      <section className="hero frame-section" data-ascii-stage>
+        <Cross className="tl" />
+        <Cross className="tr" />
         <div className="hero-copy">
-          <div className="hero-index hero-enter">
-            <span className="status-dot" /> A LITTLE CONNECTION. A LOT OF
-            POSSIBILITIES.
-          </div>
-          <h1 className="hero-enter">
-            Dari oshi.
-            <br />
-            Jadi <span>karyamu.</span>
-            <svg
-              className="hero-scribble"
-              viewBox="0 0 260 18"
-              aria-hidden="true"
-            >
-              <path
-                d="M3 12Q100 0 250 8M70 15Q165 6 257 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
+          <span className="chip hero-fade">
+            <b>API</b>
+            <span>
+              PUBLIK · {catalog.routes.length} ENDPOINT · v{catalog.version}
+            </span>
+          </span>
+          <h1 className="hero-title">
+            <span className="hero-line">
+              <span>Dari oshi.</span>
+            </span>
+            <span className="hero-line">
+              <span>
+                Jadi <em className="hero-pixel">karyamu.</em>
+              </span>
+            </span>
           </h1>
-          <p className="hero-subtitle hero-enter">
-            Berita, theater, live, dan cerita setelahnya.
-            <br />
-            Data JKT48 yang siap kamu bawa ke aplikasi,
-            <br className="desktop-break" /> bot, atau ide kecil yang belum
+          <p className="hero-sub hero-fade">
+            Berita, theater, live, dan cerita setelahnya. Data JKT48 yang
+            terstruktur, siap dibawa ke aplikasi, bot, atau ide kecil yang belum
             sempat jadi.
           </p>
-          <div className="hero-actions hero-enter">
+          <div className="hero-actions hero-fade">
             <Link
               href="/docs/guide/mulai-menggunakan"
-              className="primary-button"
+              className="button button-solid"
             >
-              <span className="button-pixel">↗</span>Mulai membangun
-              <Icon size={16} />
+              Mulai membangun <Icon size={15} />
             </Link>
-            <Link href="/docs/reference" className="text-button">
-              Jelajahi API <Icon size={15} />
+            <Link href="/docs/reference" className="button button-line">
+              Lihat API <Icon name="code" size={15} />
             </Link>
           </div>
-          <div className="hero-footnote hero-enter">
-            <AsciiFriend />
+          <div className="terminal-line hero-fade">
+            <span className="prompt">$</span>
+            <code>
+              curl {BASE.replace("https://", "")}
+              /api/news
+            </code>
+            <i className="caret" aria-hidden="true" />
+            <Copy text={"curl '" + BASE + "/api/news'"} />
+          </div>
+        </div>
+        <div className="hero-stage">
+          <div className="stage-meta top">
+            <span>FIG. 048 — ONE CONNECTION</span>
+            <span>LAT −6.20 / LON 106.82</span>
+          </div>
+          <AsciiScene
+            shape="globe"
+            size={11}
+            speed={0.28}
+            yaw={0.1}
+            pitch={0.38}
+            zoom={1.12}
+            interactive
+            className="hero-ascii"
+          />
+          <div className="stage-meta bottom">
             <span>
-              <b>MADE FOR YOUR SIDE PROJECT.</b>
-              <br />
-              JSON, media, dan momen yang bisa disimpan.
+              <i className="live-dot" /> RENDER: ASCII / FLAT LIGHT
+            </span>
+            <span className="stage-hint">
+              ARAHKAN KURSOR · KLIK UNTUK PUTAR
             </span>
           </div>
         </div>
-        <div className="workbench-scene hero-enter">
-          <div className="scene-coordinate">
-            FIG. 048 <span>THE CONNECTION DESK</span>
-          </div>
-          <div className="scene-grid" aria-hidden="true" />
-          <div className="floating-request">
-            <div className="window-label">
-              <span>
-                <i />
-                <i />
-                <i />
-              </span>
-              request.js <span>↗</span>
-            </div>
-            <div className="request-filetree">
-              <span>jkt48 /</span>
-              <b>└ app.js</b>
-              <small>
-                {" "}
-                data
-                <br /> components
-                <br /> memories
-              </small>
-            </div>
-            <pre>
-              <span>const</span>
-              {" response = "}
-              <span>await</span>
-              {" fetch(\n  "}
-              <em>'/api/now_live'</em>
-              {"\n);\n\n"}
-              <span>const</span>
-              {" { lives } =\n  "}
-              <span>await</span>
-              {" response.json();"}
-            </pre>
-            <div className="request-window-foot">
-              GET <span>/api/now_live</span>
-              <i>PUBLIC</i>
-            </div>
-          </div>
-          <div className="scene-sticker">
-            <span>HELLO, I'M PIP.</span>
-            <strong>{wave ? "(^_^)/" : "( o.o )"}</strong>
-            <small>
-              {wave
-                ? "Ada ide? Yuk, mulai dari docs."
-                : "Klik aku. Aku bisa menyapa."}
-            </small>
-          </div>
-          <Suspense
-            fallback={
-              <div className="character-stage">
-                <div className="scene-loading">
-                  <LittleBadge />
-                </div>
-              </div>
-            }
-          >
-            <Character wave={wave} onWave={() => setWave((v) => v + 1)} />
-          </Suspense>
-          <div className="scene-quickstart">
-            <span>YOUR FIRST CONNECTION</span>
-            <code>curl api.jkt48connect.app/api/news</code>
-            <Copy
-              text="curl 'https://api.jkt48connect.app/api/news'"
-              label="Salin"
-            />
-          </div>
-          <span className="scene-caption">FOLLOW THE DATA. MAKE IT YOURS.</span>
-        </div>
       </section>
-      <div className="connection-strip">
-        <span className="strip-label">
-          <Mark size={20} />
-          ONE API.
-          <br />
-          YOUR UNIVERSE.
+
+      <div className="ticker" aria-label="Kategori endpoint">
+        <span className="ticker-label">
+          <i /> DATA TERSEDIA
         </span>
-        {[
-          ["NEWS", "/api/news"],
-          ["MEMBERS", "/api/member"],
-          ["THEATER", "/api/theater"],
-          ["LIVE", "/api/now_live"],
-          ["RECENT", "/api/recent"],
-        ].map(([label, path], i) => (
-          <Link key={label} href={routeHref({ method: "GET", path })}>
-            <span>0{i + 1}</span>
-            {label}
-            <Icon size={15} />
-          </Link>
-        ))}
-      </div>
-      <section className="landing-intro reveal">
-        <div className="section-index">01 / THE CONNECTION</div>
-        <div className="intro-heading">
-          <h2>
-            Yang kamu ikuti.
-            <br />
-            <span>Yang bisa kamu buat.</span>
-          </h2>
-          <p>
-            Website fanbase, bot komunitas, atau proyek pertamamu. Mulai dari
-            data yang sudah terstruktur, lalu tentukan sendiri bentuknya.
-          </p>
+        <div className="ticker-track">
+          {[0, 1].map((copy) => (
+            <div className="ticker-row" key={copy} aria-hidden={copy === 1}>
+              {strip.map(([label, path]) => {
+                const route = catalog.routes.find(
+                  (r) => r.method === "GET" && r.path === path,
+                );
+                return (
+                  <Link
+                    key={label}
+                    tabIndex={copy ? -1 : undefined}
+                    href={route ? routeHref(route) : "/docs/reference"}
+                  >
+                    <span>[</span>
+                    {label}
+                    <span>]</span>
+                    <small>{path}</small>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </div>
-        <div className="connection-grid">
+      </div>
+
+      <section className="frame-section features">
+        <Cross className="tl" />
+        <Cross className="tr" />
+        <SectionHead
+          index="01"
+          label="APA YANG BISA DIBUAT"
+          title="Dibangun untuk proyek fans"
+          muted="yang ingin tumbuh."
+          text="Website fanbase, bot komunitas, atau proyek pertamamu. Mulai dari data yang sudah terstruktur, lalu tentukan sendiri bentuknya."
+        />
+        <div className="feature-grid">
           {[
             [
-              "01",
-              "Kabar & profil",
-              "Berita, member, ulang tahun, dan jadwal theater.",
+              "KABAR & PROFIL",
+              "Kabar & profil member",
+              "Berita, member, ulang tahun, dan jadwal theater dalam JSON yang rapi.",
               "/api/member",
+              "cube",
             ],
             [
-              "02",
-              "Saat live berlangsung",
-              "Live Showroom dan IDN dalam satu referensi.",
+              "SAAT LIVE",
+              "Live yang sedang berlangsung",
+              "Showroom dan IDN Live dalam satu referensi, lengkap dengan penonton.",
               "/api/now_live",
+              "torus",
             ],
             [
-              "03",
-              "Setelah layar padam",
-              "Recent, gold per pengguna, screenshot, dan replay.",
+              "SETELAH LAYAR PADAM",
+              "Recent, gift & replay",
+              "Rekap sesi, gold per pengguna, screenshot, dan rekaman yang bisa diputar.",
               "/api/recent",
+              "cross",
             ],
-          ].map(([no, title, text, path]) => (
+          ].map(([tag, title, text, path, shape], i) => (
             <Link
-              key={no}
+              key={tag}
               href={routeHref({ method: "GET", path })}
-              className="connection-cell"
+              className="feature-card rv"
+              data-delay={i * 0.08}
             >
-              <span className="cell-number">[ {no} ]</span>
-              <Icon
-                name={no === "01" ? "book" : no === "02" ? "code" : "external"}
-                size={30}
+              <span className="tag">{tag}</span>
+              <AsciiScene
+                shape={shape}
+                size={8}
+                speed={0.42 + i * 0.07}
+                yaw={i}
+                pitch={0.5}
+                zoom={1.12}
+                className="feature-ascii"
               />
               <h3>{title}</h3>
               <p>{text}</p>
-              <span className="cell-link">
-                Lihat endpoint <Icon size={16} />
+              <span className="card-link">
+                <code>GET {path}</code>
+                <Icon size={15} />
               </span>
             </Link>
           ))}
         </div>
-      </section>
-      <section className="build-section reveal">
-        <div className="build-copy">
-          <div className="section-index">02 / FIRST REQUEST</div>
-          <h2>
-            Satu request.
-            <br />
-            <span>Mulai dari sini.</span>
-          </h2>
+        <div className="stat-band rv">
           <p>
-            Berita dan profil member bisa diakses tanpa login. Contoh ini sudah
-            cukup untuk memulai.
+            Satu katalog untuk semua <br />
+            data yang kamu ikuti.
           </p>
-          <Link className="text-button" href="/docs/guide/mulai-menggunakan">
-            Buka quick start <Icon size={16} />
+          {[
+            [catalog.routes.length, "Endpoint publik"],
+            [guides.filter((g) => g.slug !== "markdown").length, "Panduan"],
+            [0, "API key untuk mulai"],
+          ].map(([value, label]) => (
+            <div key={label}>
+              <strong data-count={value}>{value}</strong>
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="frame-section first-request">
+        <Cross className="tl" />
+        <Cross className="tr" />
+        <div className="request-copy">
+          <SectionHead
+            index="02"
+            label="REQUEST PERTAMA"
+            title="Satu request."
+            muted="Mulai dari sini."
+            align="stack"
+          />
+          <ol className="steps">
+            {[
+              ["Pilih endpoint", "Cari di reference atau tekan ⌘K."],
+              ["Kirim request", "News dan member terbuka tanpa API key."],
+              ["Bangun idemu", "Tampilkan, simpan, atau olah datanya."],
+            ].map(([title, text], i) => (
+              <li key={title} className="rv" data-delay={i * 0.08}>
+                <span>0{i + 1}</span>
+                <div>
+                  <strong>{title}</strong>
+                  <p>{text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <Link
+            className="button button-line"
+            href="/docs/guide/mulai-menggunakan"
+          >
+            Buka quick start <Icon size={15} />
           </Link>
-          <div className="tiny-mascot">
-            <pre aria-hidden="true">{monoFace}</pre>
-            <span>
-              HELLO, BUILDER.
-              <br />
-              MAKE SOMETHING
-              <br />
-              FOR YOUR OSHI.
-            </span>
-          </div>
         </div>
-        <div className="landing-code">
-          <div className="code-toolbar">
-            <span>
-              <i /> request.js
-            </span>
-            <Copy
-              text={
-                "const response = await fetch('https://api.jkt48connect.app/api/news');\nconst { news } = await response.json();\nconsole.log(news);"
-              }
-            />
+        <div className="code-window rv" data-delay="0.1">
+          <div className="window-bar">
+            <div className="tabs" role="tablist" aria-label="Bahasa contoh">
+              {[
+                ["javascript", "JavaScript"],
+                ["python", "Python"],
+                ["curl", "cURL"],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={lang === id}
+                  onClick={() => setLang(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Copy text={code} />
           </div>
-          <pre>
-            <code>
-              <span className="token-muted">
-                {"// kabar terbaru, langsung ke aplikasimu\n"}
-              </span>
-              <span className="token-red">const</span>
-              {" response = "}
-              <span className="token-red">await</span>
-              {" fetch(\n  "}
-              <span className="token-string">
-                {"'https://api.jkt48connect.app/api/news'"}
-              </span>
-              {"\n);\n\n"}
-              <span className="token-red">const</span>
-              {" { news } = "}
-              <span className="token-red">await</span>
-              {" response.json();\nconsole.log(news);"}
-            </code>
+          <pre className="code-body" tabIndex={0}>
+            <code>{tint(code)}</code>
           </pre>
-          <div className="response-preview">
-            <span>RESPONSE SHAPE</span>
+          <div className="window-response">
+            <div className="response-bar">
+              <span className="status-pill ok">200 OK</span>
+              <span>application/json</span>
+            </div>
             <pre>
-              {
-                '{\n  "news": [ ... ],\n  "page": 1,\n  "perpage": 10,\n  "total_count": ...\n}'
-              }
+              <code>
+                {tint(
+                  '{\n  "news": [ { "title": "…", "date": "2026-…" } ],\n  "page": 1,\n  "perpage": 10,\n  "total_count": 30\n}',
+                )}
+              </code>
             </pre>
-            <small>
-              Bentuk respons ringkas. Contoh output lengkap ada di referensi.
-            </small>
           </div>
         </div>
       </section>
-      <section className="coverage-section reveal">
-        <div className="section-index">03 / FIND YOUR ROUTE</div>
-        <div className="intro-heading">
-          <h2>
-            Ada jalan untuk
-            <br />
-            <span>setiap ide.</span>
-          </h2>
-          <p>
-            Telusuri katalog berdasarkan jenis data dan akses yang dibutuhkan.
-            Setiap route punya parameter, autentikasi, serta contoh pemanggilan.
-          </p>
+
+      <section className="frame-section coverage">
+        <Cross className="tl" />
+        <Cross className="tr" />
+        <SectionHead
+          index="03"
+          label="PETA ENDPOINT"
+          title="Ada jalan"
+          muted="untuk setiap ide."
+          text="Telusuri katalog berdasarkan jenis data. Setiap route punya parameter, label akses, dan contoh pemanggilan."
+        />
+        <div className="ascii-chart rv" role="list">
+          <div className="chart-head" aria-hidden="true">
+            <span>KATEGORI</span>
+            <span>ROUTE</span>
+            <span>JML</span>
+          </div>
+          {counts.map(({ group, count, q }) => {
+            const cells = Math.max(1, Math.round((count / max) * 24));
+            return (
+              <Link
+                role="listitem"
+                key={group}
+                href={
+                  "/docs/reference?" +
+                  (q === "media" ? "group=Media" : "q=" + encodeURIComponent(q))
+                }
+                className="chart-row"
+                aria-label={group + ", " + count + " route"}
+              >
+                <span className="chart-label">{group}</span>
+                <span className="bar" aria-hidden="true">
+                  <span className="bar-fill">{"█".repeat(cells)}</span>
+                  <span className="bar-rest">{"░".repeat(24 - cells)}</span>
+                </span>
+                <span className="chart-count">
+                  {String(count).padStart(2, "0")}
+                </span>
+                <Icon size={14} />
+              </Link>
+            );
+          })}
         </div>
-        <EndpointMap catalog={catalog} />
       </section>
-      <section className="signal-section reveal">
-        <div>
-          <div className="section-index">04 / ALL CONNECTED</div>
-          <h2>
-            Dari satu sumber,
-            <br />
-            <span>ke banyak kemungkinan.</span>
-          </h2>
-          <p>
-            Temukan bentuk data yang tepat, periksa aksesnya, lalu sambungkan ke
-            proyekmu.
-          </p>
+
+      <section className="frame-section flow">
+        <Cross className="tl" />
+        <Cross className="tr" />
+        <SectionHead
+          index="04"
+          label="SEMUA TERHUBUNG"
+          title="Dari satu sumber,"
+          muted="ke banyak kemungkinan."
+        />
+        <div className="flow-diagram rv">
+          {[
+            ["SUMBER", ["SHOWROOM", "IDN LIVE", "JKT48.COM"]],
+            ["JKT48CONNECT", ["NORMALISASI", "CACHE", "MEDIA R2"]],
+            ["PROYEKMU", ["WEBSITE", "BOT", "DASHBOARD"]],
+          ].map(([title, items], i) => (
+            <React.Fragment key={title}>
+              {i > 0 && (
+                <div className="flow-wire" aria-hidden="true">
+                  <span className="wire-line" />
+                  <span className="wire-packet" />
+                  <span className="wire-label">
+                    {i === 1 ? "FETCH" : "JSON"}
+                  </span>
+                </div>
+              )}
+              <div className={"flow-node " + (i === 1 ? "core" : "")}>
+                <span className="node-corner" aria-hidden="true">
+                  {"┌─"}
+                </span>
+                <span className="node-index">0{i + 1}</span>
+                <strong>{title}</strong>
+                <ul>
+                  {items.map((x) => (
+                    <li key={x}>
+                      <span aria-hidden="true">├─ </span>
+                      {x}
+                    </li>
+                  ))}
+                </ul>
+                <span className="node-corner end" aria-hidden="true">
+                  {"─┘"}
+                </span>
+              </div>
+            </React.Fragment>
+          ))}
         </div>
-        <SignalDiagram />
       </section>
-      <section className="bottom-cta reveal">
-        <div>
-          <span className="section-index">YOUR NEXT COMMIT STARTS HERE</span>
-          <h2>
+
+      <section className="frame-section cta" data-ascii-stage>
+        <Cross className="tl" />
+        <Cross className="tr" />
+        <div className="cta-copy">
+          <span className="eyebrow">
+            <i />
+            <span data-scramble>YOUR NEXT COMMIT STARTS HERE</span>
+          </span>
+          <h2 className="rv">
             Ikuti datanya.
             <br />
-            Buat <em>sesuatu.</em>
+            <span className="muted-text">Buat sesuatu.</span>
           </h2>
+          <div className="hero-actions rv" data-delay="0.1">
+            <Link className="button button-solid" href="/docs">
+              Buka dokumentasi <Icon size={15} />
+            </Link>
+            <a
+              className="button button-line"
+              href={GitHub}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Source <Icon name="external" size={14} />
+            </a>
+          </div>
         </div>
-        <div className="cta-right">
-          <pre aria-hidden="true">
-            {
-              "  +---------+\n  |  >_ 48  |\n  +----+----+\n       |\n    [ READY ]"
-            }
-          </pre>
-          <Link className="primary-button" href="/docs">
-            <span className="button-pixel">+</span>Buka dokumentasi
-            <Icon size={16} />
-          </Link>
-        </div>
+        <AsciiScene
+          shape="48"
+          size={9}
+          zoom={1.2}
+          sway={0.55}
+          speed={0.7}
+          yaw={-0.2}
+          pitch={0.22}
+          interactive
+          className="cta-ascii"
+        />
       </section>
-      <Footer />
+      <Footer guides={guides} />
     </div>
   );
 }
-function Footer({ reader = false } = {}) {
-  if (reader)
-    return (
-      <footer className="reader-colophon">
-        <AsciiFriend compact />
-        <span>JKT48Connect / notes for your next idea.</span>
-        <a href="/docs/guide.md" download>
-          Catatan .md ↓
-        </a>
-      </footer>
-    );
+
+function Footer({ guides = [] }) {
   return (
-    <footer className="connection-footer">
-      <div className="footer-main">
-        <div className="footer-note">
-          <span className="footer-eyebrow">
-            A SMALL CORNER OF THE FAN INTERNET
-          </span>
-          <Link href="/" className="footer-wordmark">
-            <Mark size={35} />
-            <span>jkt48connect</span>
-            <small>© {new Date().getFullYear()}</small>
+    <footer className="site-footer">
+      <div className="footer-grid">
+        <div className="footer-brand">
+          <Link href="/" className="brand">
+            <Mark size={24} />
+            <span className="brand-name">
+              jkt48<b>connect</b>
+            </span>
           </Link>
           <p>
-            Dari yang kita ikuti,
-            <br />
-            untuk hal yang ingin kita buat.
+            Dari yang kita ikuti, untuk hal yang ingin kita buat. Proyek fans
+            independen, dibuat dengan sedikit perhatian ekstra.
           </p>
-          <span className="footer-byline">
-            INDEPENDENT FAN PROJECT · CRAFTED BY VALZY
-          </span>
+          <AsciiFriend caption={"SMALL FRIEND.\nBIG FAN ENERGY."} />
         </div>
-        <nav className="footer-index" aria-label="Tautan footer">
-          <Link href="/docs">
-            <span>01 / READ</span>
-            <strong>Dokumentasi</strong>
-            <Icon size={19} />
-          </Link>
-          <Link href="/docs/reference">
-            <span>02 / EXPLORE</span>
-            <strong>API reference</strong>
-            <Icon size={19} />
-          </Link>
-          <a href={GitHub} target="_blank" rel="noreferrer">
-            <span>03 / CONTRIBUTE</span>
-            <strong>Source di GitHub</strong>
-            <Icon name="external" size={17} />
-          </a>
+        <nav aria-label="Dokumentasi">
+          <span className="footer-label">DOKUMENTASI</span>
+          <Link href="/docs">Overview</Link>
+          <Link href="/docs/reference">API reference</Link>
+          <Link href="/docs/guide/mulai-menggunakan">Quick start</Link>
+          <Link href="/docs/guide/markdown">Markdown lab</Link>
         </nav>
-        <div className="footer-postcard">
-          <AsciiFriend />
-          <span className="postcard-greeting">
-            SEE YOU IN
-            <br />
-            YOUR NEXT COMMIT.
-          </span>
-          <a href="/docs/guide.md" download>
-            Take the notes with you <span>↓ .md</span>
+        <nav aria-label="Panduan populer">
+          <span className="footer-label">PANDUAN</span>
+          {guides
+            .filter((g) => g.slug !== "markdown")
+            .slice(2, 6)
+            .map((g) => (
+              <Link key={g.slug} href={"/docs/guide/" + g.slug}>
+                {g.title}
+              </Link>
+            ))}
+        </nav>
+        <nav aria-label="Sumber">
+          <span className="footer-label">SUMBER</span>
+          <a href={GitHub} target="_blank" rel="noreferrer">
+            GitHub ↗
           </a>
-        </div>
+          <a href={GitHub + "/issues"} target="_blank" rel="noreferrer">
+            Laporkan masalah ↗
+          </a>
+          <a href="/docs/guide.md" download>
+            Panduan .md ↓
+          </a>
+          <a href="/docs/routes.json">Katalog JSON</a>
+        </nav>
       </div>
-      <div className="footer-tear">
-        <span>JKT48CONNECT / PUBLIC INTERFACE</span>
-        <span className="footer-dotline" />
-        <span>MADE FOR FANS. WITH A LITTLE EXTRA CARE.</span>
+      <div className="footer-wordmark" aria-hidden="true">
+        JKT48CONNECT
       </div>
-      <div className="footer-colophon">
+      <div className="footer-bottom">
+        <span>
+          © {new Date().getFullYear()} JKT48Connect · crafted by Valzy
+        </span>
         <span>Tidak berafiliasi dengan manajemen JKT48.</span>
         <button
+          type="button"
           onClick={() =>
             window.scrollTo({
               top: 0,
@@ -865,147 +895,193 @@ function Footer({ reader = false } = {}) {
             })
           }
         >
-          Kembali ke atas <span>↑</span>
+          Kembali ke atas <Icon name="up" size={13} />
         </button>
-        <span className="footer-terminal" aria-hidden="true">
-          &lt; / &gt; &nbsp; END OF TRANSMISSION_
-        </span>
       </div>
     </footer>
   );
 }
+
 function Sidebar({ catalog, guides, current, onNavigate }) {
   const [filter, setFilter] = useState("");
+  const list = guides.filter(
+    (g) =>
+      g.slug !== "markdown" &&
+      g.title.toLowerCase().includes(filter.toLowerCase()),
+  );
+  const item = (href, label, active, extra) => (
+    <Link
+      onClick={onNavigate}
+      href={href}
+      className={active ? "selected" : ""}
+      aria-current={active ? "page" : undefined}
+    >
+      {label}
+      {extra}
+    </Link>
+  );
   return (
-    <>
-      <div className="sidebar-top">
-        <span>WORKSPACE</span>
-        <Link href="/docs" className="workspace">
-          <Mark size={22} />
-          <div>
-            JKT48Connect<small>Developer documentation</small>
-          </div>
-          <span className="workspace-dot" />
-        </Link>
-      </div>
-      <div className="sidebar-links">
-        <Link
-          onClick={onNavigate}
-          className={current === "/docs" ? "selected" : ""}
-          href="/docs"
-        >
-          <Icon name="book" size={15} />
-          Overview
-        </Link>
-        <Link
-          onClick={onNavigate}
-          className={current.startsWith("/docs/reference") ? "selected" : ""}
-          href="/docs/reference"
-        >
-          <Icon name="code" size={15} />
-          API Reference <small>{catalog.routes.length}</small>
-        </Link>
-        <Link
-          onClick={onNavigate}
-          className={current.endsWith("/markdown") ? "selected" : ""}
-          href="/docs/guide/markdown"
-        >
-          <span className="markdown-symbol">M↓</span>Markdown lab
-        </Link>
-      </div>
+    <div className="sidebar-inner">
       <label className="sidebar-filter">
         <Icon name="search" size={14} />
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter panduan…"
+          placeholder="Filter panduan"
           aria-label="Filter navigasi panduan"
         />
       </label>
-      <div className="sidebar-section-label">PANDUAN & INTEGRASI</div>
-      <nav aria-label="Panduan dokumentasi" className="guide-nav">
-        {guides
-          .filter(
-            (g) =>
-              g.slug !== "markdown" &&
-              g.title.toLowerCase().includes(filter.toLowerCase()),
-          )
-          .map((g) => (
+      <div className="side-group">
+        <span className="side-label">MULAI</span>
+        <nav aria-label="Dokumentasi utama" className="side-nav">
+          {item(
+            "/docs",
+            "Overview",
+            current === "/docs" || current === "/docs/",
+          )}
+          {item(
+            "/docs/reference",
+            "API Reference",
+            current.startsWith("/docs/reference"),
+            <small>{catalog.routes.length}</small>,
+          )}
+          {item(
+            "/docs/guide/markdown",
+            "Markdown lab",
+            current.endsWith("/markdown"),
+          )}
+        </nav>
+      </div>
+      <div className="side-group">
+        <span className="side-label">PANDUAN & INTEGRASI</span>
+        <nav aria-label="Panduan dokumentasi" className="side-nav numbered">
+          {list.map((g) => (
             <Link
               onClick={onNavigate}
               key={g.slug}
               href={"/docs/guide/" + g.slug}
               className={current === "/docs/guide/" + g.slug ? "selected" : ""}
+              aria-current={
+                current === "/docs/guide/" + g.slug ? "page" : undefined
+              }
             >
+              <span className="num">
+                {String(
+                  guides.filter((x) => x.slug !== "markdown").indexOf(g) + 1,
+                ).padStart(2, "0")}
+              </span>
               {g.title}
             </Link>
           ))}
-      </nav>
-      <div className="sidebar-bottom">
-        <span className="status-dot" /> PUBLIC DOCUMENTATION
-        <small>{catalog.version} · valzy</small>
+          {!list.length && <p className="side-empty">Tidak ada panduan.</p>}
+        </nav>
       </div>
-    </>
+      <div className="sidebar-foot">
+        <span>
+          <i className="live-dot" /> API ONLINE
+        </span>
+        <small>v{catalog.version}</small>
+      </div>
+    </div>
   );
 }
+
+function PageHead({ crumbs, title, lead, children }) {
+  return (
+    <header className="page-head">
+      <div className="crumbs">
+        {crumbs.map((c, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <span className="sep">/</span>}
+            <span>{c}</span>
+          </React.Fragment>
+        ))}
+      </div>
+      <h1>{title}</h1>
+      {lead && <p className="lead">{lead}</p>}
+      {children}
+    </header>
+  );
+}
+
 function Overview({ catalog, guides }) {
+  const list = guides.filter((g) => g.slug !== "markdown");
   return (
     <>
-      <div className="page-kicker">DOCUMENTATION / OVERVIEW</div>
-      <h1>
-        Buka catatannya.
-        <br />
-        <span>Bangun idemu.</span>
-      </h1>
-      <p className="article-lead">
-        Kenali API, temukan endpoint, lalu hubungkan ke aplikasimu. Semua
-        panduan dan referensi tersedia di sini.
-      </p>
-      <div className="overview-feature">
+      <div className="overview-hero">
+        <PageHead
+          crumbs={["docs", "overview"]}
+          title={
+            <>
+              Buka catatannya. <span className="muted-text">Bangun idemu.</span>
+            </>
+          }
+          lead="Kenali API, temukan endpoint, lalu hubungkan ke aplikasimu. Semua panduan dan referensi ada di sini."
+        />
+        <AsciiScene
+          shape="torus"
+          size={8}
+          speed={0.5}
+          pitch={0.9}
+          className="overview-ascii"
+        />
+      </div>
+      <div className="quick-panel">
         <div>
-          <span className="section-index">FIRST THINGS FIRST</span>
-          <h2>
-            Request pertama
-            <br />
-            dalam beberapa baris.
-          </h2>
+          <span className="eyebrow">
+            <i /> QUICK START
+          </span>
+          <h2 id="request-pertama">Request pertama dalam satu baris.</h2>
           <p>
-            News dan member bisa diakses tanpa API key. Untuk recent dan
-            integrasi server, baca kebutuhan autentikasinya.
+            News dan member terbuka tanpa API key. Untuk recent dan integrasi
+            server, baca kebutuhan autentikasinya.
           </p>
-          <Link href="/docs/guide/mulai-menggunakan" className="text-button">
-            Ikuti quick start <Icon size={15} />
+          <Link href="/docs/guide/mulai-menggunakan" className="text-link">
+            Ikuti quick start <Icon size={14} />
           </Link>
         </div>
-        <div className="overview-terminal">
-          <span>TERMINAL</span>
-          <pre>
-            {"curl 'https://api.jkt48connect.app/api/news?page=1&perpage=10'"}
+        <div className="mini-terminal">
+          <div className="window-bar">
+            <span className="dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span>terminal</span>
+            <Copy text={"curl '" + BASE + "/api/news?page=1&perpage=10'"} />
+          </div>
+          <pre tabIndex={0}>
+            <code>
+              <span className="tk-comment">
+                # endpoint publik · tanpa API key
+              </span>
+              {"\n"}
+              {tint("curl '" + BASE + "/api/news?page=1&perpage=10'")}
+            </code>
           </pre>
-          <small>Endpoint publik · tanpa API key.</small>
         </div>
       </div>
-      <h2 id="pilih-jalur">Pilih jalurmu.</h2>
-      <div className="guide-tiles">
+      <h2 id="pilih-jalur">Pilih jalurmu</h2>
+      <div className="tile-grid">
         {[
           [
             "API reference",
             catalog.routes.length +
-              " kombinasi method dan route. Parameter serta contoh output.",
+              " method dan route, lengkap dengan parameter dan contoh output.",
             "/docs/reference",
             "code",
           ],
           [
             "Autentikasi",
-            "Akses publik dan API key untuk aplikasi.",
+            "Akses publik dan API key untuk aplikasi server.",
             "/docs/guide/autentikasi-dan-integrasi",
-            "book",
+            "hash",
           ],
           [
             "Live & recent",
             "Rekap sesi, gold, screenshot, dan rekaman.",
             "/docs/guide/live-dan-recent",
-            "external",
+            "play",
           ],
           [
             "Markdown lab",
@@ -1013,17 +1089,20 @@ function Overview({ catalog, guides }) {
             "/docs/guide/markdown",
             "book",
           ],
-        ].map(([title, text, href, icon]) => (
-          <Link href={href} key={title} className="guide-tile">
-            <Icon name={icon} size={22} />
+        ].map(([title, text, href, icon], i) => (
+          <Link href={href} key={title} className="tile">
+            <span className="tile-top">
+              <Icon name={icon} size={18} />
+              <span>0{i + 1}</span>
+            </span>
             <h3>{title}</h3>
             <p>{text}</p>
-            <Icon className="tile-arrow" size={16} />
+            <Icon className="tile-arrow" size={15} />
           </Link>
         ))}
       </div>
       <h2 id="sebelum-memulai">Sebelum memulai</h2>
-      <div className="callout">
+      <div className="note">
         <strong>Kenali bentuk responsnya.</strong>
         <p>
           Respons mengikuti endpoint: JSON, teks, gambar, atau playlist. Tidak
@@ -1031,49 +1110,55 @@ function Overview({ catalog, guides }) {
           referensi sebelum melakukan parsing.
         </p>
       </div>
-      <div className="overview-facts">
+      <dl className="facts">
         <div>
-          <span>BASE URL</span>
-          <code>https://api.jkt48connect.app</code>
-          <Copy text="https://api.jkt48connect.app" />
+          <dt>BASE URL</dt>
+          <dd>
+            <code>{BASE}</code>
+            <Copy text={BASE} />
+          </dd>
         </div>
         <div>
-          <span>FORMAT & WAKTU</span>
-          <p>
-            JSON · UTC pada timestamp ISO
-            <br />
-            Tampilkan WIB dengan <code>Asia/Jakarta</code>.
-          </p>
+          <dt>FORMAT</dt>
+          <dd>JSON · UTF-8</dd>
         </div>
-      </div>
+        <div>
+          <dt>WAKTU</dt>
+          <dd className="prose">
+            UTC (ISO 8601). Tampilkan WIB dengan <code>Asia/Jakarta</code>.
+          </dd>
+        </div>
+      </dl>
       <h2 id="semua-panduan">Semua panduan</h2>
-      <div className="all-guides">
-        {guides
-          .filter((g) => g.slug !== "markdown")
-          .map((g, i) => (
-            <Link key={g.slug} href={"/docs/guide/" + g.slug}>
-              <span>{String(i + 1).padStart(2, "0")}</span>
-              {g.title}
-              <Icon size={15} />
-            </Link>
-          ))}
+      <div className="index-list">
+        {list.map((g, i) => (
+          <Link key={g.slug} href={"/docs/guide/" + g.slug}>
+            <span className="num">{String(i + 1).padStart(2, "0")}</span>
+            <span className="title">{g.title}</span>
+            <span className="leader" aria-hidden="true" />
+            <Icon size={14} />
+          </Link>
+        ))}
       </div>
     </>
   );
 }
-function CodeExample({ code, language }) {
+
+function CodeBlock({ code, label, tinted = true, actions }) {
   return (
     <div className="code-block">
       <div className="code-toolbar">
-        <span className="code-file-label">{language}</span>
+        <span className="code-file-label">{label}</span>
+        {actions}
         <Copy text={code} />
       </div>
       <pre tabIndex={0}>
-        <code>{code}</code>
+        <code>{tinted ? tint(code) : code}</code>
       </pre>
     </div>
   );
 }
+
 function Endpoint({ route }) {
   const [values, setValues] = useState(() => initialParams(route)),
     [language, setLanguage] = useState("curl"),
@@ -1082,16 +1167,22 @@ function Endpoint({ route }) {
     abort = useRef();
   useEffect(() => () => abort.current?.abort(), []);
   const code = requestCode(route, values, language),
-    pathNames = [...route.path.matchAll(/:([a-z_]+)/g)].map((m) => m[1]);
-  const sample = route.response?.body ?? route.successExample;
+    pathNames = [...route.path.matchAll(/:([a-z_]+)/g)].map((m) => m[1]),
+    sample = route.response?.body ?? route.successExample,
+    tryable = canTry(route);
+  let preview = "";
+  try {
+    preview = requestUrl(route, values).toString();
+  } catch {}
   async function run() {
-    if (!canTry(route)) return;
+    if (!tryable) return;
     setBusy(true);
     setOutput(null);
     abort.current?.abort();
     const controller = new AbortController();
     abort.current = controller;
-    const timer = setTimeout(() => controller.abort(), 15000);
+    const timer = setTimeout(() => controller.abort(), 15000),
+      started = performance.now();
     try {
       const generated = requestUrl(route, values, location.origin);
       if (generated.origin !== location.origin)
@@ -1130,6 +1221,8 @@ function Endpoint({ route }) {
         status: result.status,
         body: body + (truncated ? "\n… Preview dibatasi 128 KiB." : ""),
         ok: result.ok,
+        ms: Math.round(performance.now() - started),
+        size,
       });
     } catch (error) {
       setOutput({
@@ -1147,139 +1240,171 @@ function Endpoint({ route }) {
   }
   return (
     <>
-      <div className="page-kicker">
-        API REFERENCE / {route.group.toUpperCase()}
-      </div>
-      <div className="endpoint-title">
-        <span className={"method " + route.method}>{route.method}</span>
-        <h1>{route.path}</h1>
-      </div>
-      <div className="endpoint-meta">
-        <span>
-          <i
-            className={route.auth === "Publik" ? "public-dot" : "private-dot"}
-          />
-          {route.auth}
-        </span>
-        <span>{route.contentType || "Respons mengikuti endpoint"}</span>
-      </div>
-      <Suspense fallback={<p>Memuat deskripsi…</p>}>
+      <header className="page-head endpoint-head">
+        <div className="crumbs">
+          <Link href="/docs/reference">reference</Link>
+          <span className="sep">/</span>
+          <span>{route.group.toLowerCase()}</span>
+        </div>
+        <div className="endpoint-title">
+          <span className={"method " + route.method}>{route.method}</span>
+          <h1>
+            {route.path.split(/(:[a-z_]+)/g).map((part, i) =>
+              part.startsWith(":") ? (
+                <span key={i} className="path-param">
+                  {part}
+                </span>
+              ) : (
+                part
+              ),
+            )}
+          </h1>
+        </div>
+        <div className="meta-row">
+          <span
+            className={
+              "meta " + (route.auth === "Publik" ? "public" : "private")
+            }
+          >
+            <i /> {route.auth}
+          </span>
+          <span className="meta">
+            {route.contentType || "Respons mengikuti endpoint"}
+          </span>
+          {route.source && (
+            <a
+              className="meta link"
+              href={route.source}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Implementasi <Icon name="external" size={12} />
+            </a>
+          )}
+        </div>
+      </header>
+      <Suspense fallback={<p className="loading-note">Memuat deskripsi…</p>}>
         <MarkdownContent source={route.description} />
       </Suspense>
-      <div className="route-source">
-        <a href={route.source} target="_blank" rel="noreferrer">
-          Lihat implementasi <Icon name="external" size={13} />
-        </a>
-      </div>
       <h2 id="parameters">Parameter</h2>
       {Object.keys(values).length ? (
-        <div className="table-scroll">
-          <table className="param-table">
-            <thead>
-              <tr>
-                <th>Parameter</th>
-                <th>Lokasi</th>
-                <th>Contoh nilai</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(values).map(([name, value]) => (
-                <tr key={name}>
-                  <td>
-                    <code>{name}</code>
-                  </td>
-                  <td>
-                    <span className="location-tag">
-                      {pathNames.includes(name) ? "path" : "query"}
-                    </span>
-                  </td>
-                  <td>
-                    <input
-                      aria-label={"Parameter " + name}
-                      value={value}
-                      onChange={(e) =>
-                        setValues({ ...values, [name]: e.target.value })
-                      }
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="params">
+          {Object.entries(values).map(([name, value]) => (
+            <label key={name} className="param-row">
+              <span className="param-name">
+                <code>{name}</code>
+                <span className="location-tag">
+                  {pathNames.includes(name) ? "path" : "query"}
+                </span>
+              </span>
+              <input
+                aria-label={"Parameter " + name}
+                value={value}
+                spellCheck={false}
+                onChange={(e) =>
+                  setValues({ ...values, [name]: e.target.value })
+                }
+              />
+            </label>
+          ))}
         </div>
       ) : (
         <p className="muted">
           Contoh dasar tidak memerlukan parameter tambahan.
         </p>
       )}
+      {preview && (
+        <div className="url-preview">
+          <span className={"method " + route.method}>{route.method}</span>
+          <code>{preview}</code>
+          <Copy text={preview} label="URL" />
+        </div>
+      )}
       {route.body && (
         <>
           <h2 id="request-body">Request body</h2>
-          <CodeExample
+          <CodeBlock
             code={JSON.stringify(route.body, null, 2)}
-            language={route.contentType}
+            label={route.contentType}
           />
         </>
       )}
       <h2 id="request-example">Contoh request</h2>
-      <div className="code-tabs" role="tablist" aria-label="Bahasa contoh">
-        {["curl", "javascript", "python"].map((lang) => (
-          <button
-            key={lang}
-            role="tab"
-            aria-selected={language === lang}
-            onClick={() => setLanguage(lang)}
-          >
-            {lang === "curl"
-              ? "cURL"
-              : lang === "javascript"
-                ? "JavaScript"
-                : "Python"}
-          </button>
-        ))}
-      </div>
-      <CodeExample code={code} language={language} />
-      {!canTry(route) && (
-        <p className="code-caption">
+      <CodeBlock
+        code={code}
+        label={
+          <span className="tabs" role="tablist" aria-label="Bahasa contoh">
+            {[
+              ["curl", "cURL"],
+              ["javascript", "JavaScript"],
+              ["python", "Python"],
+            ].map(([lang, label]) => (
+              <button
+                type="button"
+                key={lang}
+                role="tab"
+                aria-selected={language === lang}
+                onClick={() => setLanguage(lang)}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+        }
+      />
+      {!tryable && (
+        <p className="caption">
           Contoh memakai placeholder. Endpoint ini tidak dijalankan dari halaman
           docs.
         </p>
       )}
       <div className="response-head">
         <h2 id="response">Respons</h2>
-        {canTry(route) && (
-          <button className="run-button" disabled={busy} onClick={run}>
-            {busy ? "Memuat…" : "Coba GET"}
-            <Icon size={14} />
+        {tryable && (
+          <button
+            type="button"
+            className={"button button-solid run-button " + (busy ? "busy" : "")}
+            disabled={busy}
+            onClick={run}
+          >
+            {busy ? "Mengirim…" : "Coba GET"}
+            <Icon name="play" size={12} />
           </button>
         )}
       </div>
-      <div className="response-label">
-        <span
-          className={"response-status " + (output && !output.ok ? "error" : "")}
-        >
-          {output
-            ? "HTTP " + (output.status || "—")
-            : route.response
-              ? "HTTP " + route.response.status
-              : "CONTOH SOURCE"}
-        </span>
-        <span>
-          {output
-            ? "Hasil request langsung"
-            : route.responseLabel || "Contoh berdasarkan source"}
-        </span>
-      </div>
-      <CodeExample
+      <CodeBlock
+        label={
+          <span className="response-label">
+            <span
+              className={
+                "status-pill " + (output ? (output.ok ? "ok" : "error") : "")
+              }
+            >
+              {output
+                ? "HTTP " + (output.status || "—")
+                : route.response
+                  ? "HTTP " + route.response.status
+                  : "CONTOH"}
+            </span>
+            <span>
+              {output
+                ? "Langsung" +
+                  (output.ms ? " · " + output.ms + " ms" : "") +
+                  (output.size
+                    ? " · " + (output.size / 1024).toFixed(1) + " KiB"
+                    : "")
+                : route.responseLabel || "Contoh berdasarkan source"}
+            </span>
+          </span>
+        }
         code={
           output?.body ??
           (sample === undefined
             ? "Contoh output belum tersedia untuk route ini. Lihat implementasi dan panduan autentikasi."
             : JSON.stringify(shortResponse(sample), null, 2))
         }
-        language="response"
       />
-      <p className="code-caption">
+      <p className="caption">
         Array contoh ditampilkan maksimal dua item.{" "}
         <a href="/docs/responses.json" download>
           Unduh arsip output lengkap ↓
@@ -1288,15 +1413,16 @@ function Endpoint({ route }) {
       {route.successExample && route.response && (
         <details className="extra-example">
           <summary>Contoh sukses dari source</summary>
-          <CodeExample
+          <CodeBlock
             code={JSON.stringify(route.successExample, null, 2)}
-            language="json"
+            label="json"
           />
         </details>
       )}
     </>
   );
 }
+
 function Reference({ catalog, search }) {
   const query = new URLSearchParams(search),
     selected = catalog.routes.find((r) => routeKey(r) === query.get("route")),
@@ -1306,6 +1432,7 @@ function Reference({ catalog, search }) {
   useEffect(() => setGroup(query.get("group") || ""), [search]);
   useEffect(() => setFilter(query.get("q") || ""), [search]);
   if (selected) return <Endpoint route={selected} key={routeKey(selected)} />;
+  const methods = [...new Set(catalog.routes.map((r) => r.method))];
   const routes = catalog.routes.filter(
     (r) =>
       (!method || r.method === method) &&
@@ -1316,19 +1443,21 @@ function Reference({ catalog, search }) {
   );
   return (
     <>
-      <div className="page-kicker">REFERENCE / ROUTE EXPLORER</div>
-      <h1>
-        Temukan
-        <br />
-        <span>jalur datamu.</span>
-      </h1>
-      <p className="article-lead">
-        {catalog.routes.length} kombinasi method dan route, dari data publik
-        sampai integrasi server. Periksa label akses pada setiap endpoint.
-      </p>
-      <div className="reference-filters">
-        <label>
-          <Icon name="search" size={16} />
+      <PageHead
+        crumbs={["docs", "reference"]}
+        title={
+          <>
+            Temukan <span className="muted-text">jalur datamu.</span>
+          </>
+        }
+        lead={
+          catalog.routes.length +
+          " kombinasi method dan route, dari data publik sampai media. Periksa label akses pada setiap endpoint."
+        }
+      />
+      <div className="filter-bar">
+        <label className="filter-search">
+          <Icon name="search" size={15} />
           <input
             aria-label="Cari endpoint"
             placeholder="Cari endpoint atau fungsi…"
@@ -1336,47 +1465,65 @@ function Reference({ catalog, search }) {
             onChange={(e) => setFilter(e.target.value)}
           />
         </label>
-        <select
-          aria-label="Filter method"
-          value={method}
-          onChange={(e) => setMethod(e.target.value)}
-        >
-          <option value="">Semua method</option>
-          {["GET", "HEAD", "POST", "PUT", "DELETE"].map((m) => (
-            <option key={m}>{m}</option>
+        <div className="segmented" role="group" aria-label="Filter method">
+          {["", ...methods].map((m) => (
+            <button
+              type="button"
+              key={m || "all"}
+              aria-pressed={method === m}
+              onClick={() => setMethod(m)}
+            >
+              {m || "ALL"}
+            </button>
           ))}
-        </select>
-        <select
-          aria-label="Filter grup"
-          value={group}
-          onChange={(e) => setGroup(e.target.value)}
-        >
-          <option value="">Semua grup</option>
-          {groups.map((g) => (
-            <option key={g}>{g}</option>
+        </div>
+        <div className="segmented" role="group" aria-label="Filter grup">
+          {["", ...groups].map((g) => (
+            <button
+              type="button"
+              key={g || "all"}
+              aria-pressed={group === g}
+              onClick={() => setGroup(g)}
+            >
+              {g || "Semua"}
+            </button>
           ))}
-        </select>
+        </div>
       </div>
-      <div className="result-count">{routes.length} ROUTE DITEMUKAN</div>
+      <div className="result-count">
+        <span>
+          {String(routes.length).padStart(2, "0")} / {catalog.routes.length}{" "}
+          ROUTE
+        </span>
+        <span className="rule" />
+      </div>
       <div className="route-list">
         {routes.map((r) => (
           <Link href={routeHref(r)} key={routeKey(r)} className="route-item">
             <span className={"method " + r.method}>{r.method}</span>
-            <div>
+            <span className="route-main">
               <code>{r.path}</code>
-              <p>{r.description.replace(/`/g, "").slice(0, 140)}</p>
-            </div>
-            <span className="auth-tag">{r.auth}</span>
-            <Icon size={15} />
+              <span>{r.description.replace(/[`*]/g, "").slice(0, 140)}</span>
+            </span>
+            <span
+              className={"auth-tag " + (r.auth === "Publik" ? "public" : "")}
+            >
+              {r.auth}
+            </span>
+            <Icon size={14} />
           </Link>
         ))}
       </div>
       {!routes.length && (
         <div className="empty-state">
-          <pre>{"( . _ . )"}</pre>
+          <pre aria-hidden="true">
+            {"  ┌───────┐\n  │ ? . ? │\n  └───────┘"}
+          </pre>
           <h2>Belum ketemu.</h2>
           <p>Coba kata kunci lain atau hapus filter.</p>
           <button
+            type="button"
+            className="button button-line"
             onClick={() => {
               setFilter("");
               setMethod("");
@@ -1390,75 +1537,117 @@ function Reference({ catalog, search }) {
     </>
   );
 }
+
 function Toc({ article, page }) {
-  const [headings, set] = useState([]);
+  const [headings, set] = useState([]),
+    [active, setActive] = useState("");
   useEffect(() => {
-    const update = () =>
+    let io;
+    const update = () => {
+      const nodes = [
+        ...(article.current?.querySelectorAll("h2[id],h3[id]") || []),
+      ];
       set(
-        [...(article.current?.querySelectorAll("h2[id],h3[id]") || [])].map(
-          (h) => ({ id: h.id, text: h.textContent, level: h.tagName }),
-        ),
+        nodes.map((h) => ({ id: h.id, text: h.textContent, level: h.tagName })),
       );
+      io?.disconnect();
+      io = new IntersectionObserver(
+        (entries) => {
+          const top = entries
+            .filter((e) => e.isIntersecting)
+            .sort(
+              (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
+            )[0];
+          if (top) setActive(top.target.id);
+        },
+        { rootMargin: "-80px 0px -65% 0px" },
+      );
+      nodes.forEach((n) => io.observe(n));
+    };
     update();
     const observer = new MutationObserver(update);
     if (article.current)
       observer.observe(article.current, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      io?.disconnect();
+    };
   }, [page]);
   return (
     <div className="toc-inner">
-      <span>DI HALAMAN INI</span>
-      <nav aria-label="Daftar isi halaman">
-        {headings.slice(0, 40).map((h) => (
-          <a
-            key={h.id}
-            href={"#" + h.id}
-            className={h.level === "H3" ? "nested" : ""}
-          >
-            {h.text}
-          </a>
-        ))}
-      </nav>
-      <div className="toc-help">
-        <span>ADA YANG KURANG?</span>
+      {headings.length > 0 && (
+        <>
+          <span className="side-label">DI HALAMAN INI</span>
+          <nav aria-label="Daftar isi halaman">
+            {headings.slice(0, 40).map((h) => (
+              <a
+                key={h.id}
+                href={"#" + h.id}
+                className={
+                  (h.level === "H3" ? "nested " : "") +
+                  (active === h.id ? "active" : "")
+                }
+              >
+                {h.text}
+              </a>
+            ))}
+          </nav>
+        </>
+      )}
+      <div className="toc-card">
+        <AsciiScene
+          shape="cube"
+          size={7}
+          speed={0.5}
+          pitch={0.6}
+          className="toc-ascii"
+        />
+        <span>Ada yang kurang?</span>
         <a href={GitHub + "/issues"} target="_blank" rel="noreferrer">
           Buka issue <Icon name="external" size={12} />
         </a>
         <a href="/docs/guide.md" download>
-          Unduh Markdown ↓
+          Unduh Markdown <Icon name="down" size={12} />
         </a>
       </div>
     </div>
   );
 }
+
 function Guide({ page, guides }) {
   const [edit, setEdit] = useState(false),
     [source, setSource] = useState(page.content),
-    index = guides.findIndex((g) => g.slug === page.slug);
+    index = guides.findIndex((g) => g.slug === page.slug),
+    minutes = Math.max(1, Math.ceil(page.content.split(/\s+/).length / 220));
   return (
     <>
-      <div className="reader-toolbar">
-        <span>
-          <LittleBadge />
-          FIELD NOTES / GUIDE
-        </span>
-        <span>
-          {Math.max(1, Math.ceil(page.content.split(/\s+/).length / 220))} MIN
-          READ <i>·</i> PUBLIC
-        </span>
-      </div>
-      <div className="page-kicker">
-        GUIDE / {String(index + 1).padStart(2, "0")}
-      </div>
-      <h1>{page.title}</h1>
+      <PageHead
+        crumbs={["docs", "panduan", String(index + 1).padStart(2, "0")]}
+        title={page.title}
+      >
+        <div className="meta-row">
+          <span className="meta">{minutes} MENIT BACA</span>
+          <span className="meta public">
+            <i /> PUBLIK
+          </span>
+        </div>
+      </PageHead>
       {page.slug === "markdown" && (
-        <div className="markdown-lab-controls">
-          <button className="run-button" onClick={() => setEdit(!edit)}>
+        <div className="lab-controls">
+          <button
+            type="button"
+            className="button button-solid"
+            onClick={() => setEdit(!edit)}
+          >
             {edit ? "Tutup editor" : "Coba Markdown sendiri"}
             <Icon name="code" size={14} />
           </button>
           {edit && (
-            <button onClick={() => setSource(page.content)}>
+            <button
+              type="button"
+              className="button button-line"
+              onClick={() => setSource(page.content)}
+            >
               Reset contoh
             </button>
           )}
@@ -1466,7 +1655,7 @@ function Guide({ page, guides }) {
       )}
       {edit && (
         <label className="markdown-editor">
-          MARKDOWN SOURCE
+          <span>MARKDOWN SOURCE</span>
           <textarea
             aria-label="Editor Markdown"
             spellCheck={false}
@@ -1478,7 +1667,7 @@ function Guide({ page, guides }) {
       <Suspense fallback={<p className="loading-note">Menyiapkan panduan…</p>}>
         <MarkdownContent source={source} />
       </Suspense>
-      <div className="page-pagination">
+      <div className="pager">
         {index > 0 ? (
           <Link href={"/docs/guide/" + guides[index - 1].slug}>
             <small>← SEBELUMNYA</small>
@@ -1488,7 +1677,7 @@ function Guide({ page, guides }) {
           <span />
         )}
         {index < guides.length - 1 && (
-          <Link href={"/docs/guide/" + guides[index + 1].slug}>
+          <Link className="next" href={"/docs/guide/" + guides[index + 1].slug}>
             <small>SELANJUTNYA →</small>
             {guides[index + 1].title}
           </Link>
@@ -1497,27 +1686,68 @@ function Guide({ page, guides }) {
     </>
   );
 }
+
 function SearchDialog({ open, onClose, catalog, guides }) {
   const ref = useRef(),
     input = useRef(),
-    [query, setQuery] = useState("");
+    list = useRef(),
+    [query, setQuery] = useState(""),
+    [active, setActive] = useState(0);
   useEffect(() => {
     if (open) {
       ref.current.showModal();
       input.current?.focus();
+      input.current?.select();
     } else ref.current?.close();
   }, [open]);
-  const needle = query.trim().toLowerCase(),
-    pages = guides
+  const needle = query.trim().toLowerCase();
+  const results = useMemo(() => {
+    const pages = guides
       .filter((g) => (g.title + " " + g.content).toLowerCase().includes(needle))
-      .slice(0, 5),
-    routes = catalog.routes
+      .slice(0, 5)
+      .map((g) => ({
+        kind: "PANDUAN",
+        key: g.slug,
+        href: "/docs/guide/" + g.slug,
+        title: g.title,
+        detail: g.content.replace(/[#*`>\-|\n]+/g, " ").slice(0, 96) + "…",
+      }));
+    const routes = catalog.routes
       .filter((r) =>
         (r.path + " " + r.description + " " + r.auth)
           .toLowerCase()
           .includes(needle),
       )
-      .slice(0, 8);
+      .slice(0, 8)
+      .map((r) => ({
+        kind: "ENDPOINT",
+        key: routeKey(r),
+        href: routeHref(r),
+        title: r.path,
+        method: r.method,
+        detail: r.group + " · " + r.auth,
+      }));
+    return [...pages, ...routes];
+  }, [needle, catalog, guides]);
+  useEffect(() => setActive(0), [needle]);
+  useEffect(() => {
+    list.current
+      ?.querySelector('[data-active="true"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }, [active]);
+  function key(e) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setActive(
+        (a) => (a + step + results.length) % Math.max(1, results.length),
+      );
+    } else if (e.key === "Enter" && results[active]) {
+      e.preventDefault();
+      onClose();
+      navigate(results[active].href);
+    }
+  }
   return (
     <dialog
       ref={ref}
@@ -1529,63 +1759,112 @@ function SearchDialog({ open, onClose, catalog, guides }) {
       }}
       aria-label="Cari dokumentasi"
     >
-      <div className="search-dialog-input">
+      <div className="search-input">
         <Icon name="search" />
         <input
           ref={input}
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="search-results"
+          aria-activedescendant={
+            results[active] ? "result-" + active : undefined
+          }
           aria-label="Pencarian dokumentasi"
           placeholder="Cari endpoint, panduan, atau topik…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={key}
         />
-        <button onClick={onClose} aria-label="Tutup pencarian">
+        <button type="button" onClick={onClose} aria-label="Tutup pencarian">
           <kbd>ESC</kbd>
         </button>
       </div>
-      <div className="search-results">
+      <div
+        className="search-results"
+        id="search-results"
+        role="listbox"
+        ref={list}
+      >
         {!needle && (
           <p className="search-hint">
-            Mulai dari{" "}
-            <button onClick={() => setQuery("recent")}>recent</button>,{" "}
-            <button onClick={() => setQuery("member")}>member</button>, atau{" "}
-            <button onClick={() => setQuery("gold")}>gold</button>.
+            Coba{" "}
+            <button type="button" onClick={() => setQuery("recent")}>
+              recent
+            </button>
+            <button type="button" onClick={() => setQuery("member")}>
+              member
+            </button>
+            <button type="button" onClick={() => setQuery("gold")}>
+              gold
+            </button>
+            <button type="button" onClick={() => setQuery("screenshot")}>
+              screenshot
+            </button>
           </p>
         )}
-        {pages.length > 0 && <span className="search-category">PANDUAN</span>}
-        {pages.map((g) => (
-          <Link key={g.slug} href={"/docs/guide/" + g.slug} onClick={onClose}>
-            <Icon name="book" size={16} />
-            <span>
-              {g.title}
-              <small>{g.content.replace(/[#*`\n]/g, " ").slice(0, 105)}…</small>
-            </span>
-            <Icon size={14} />
-          </Link>
+        {results.map((r, i) => (
+          <React.Fragment key={r.kind + r.key}>
+            {(i === 0 || results[i - 1].kind !== r.kind) && (
+              <span className="search-category">{r.kind}</span>
+            )}
+            <Link
+              id={"result-" + i}
+              role="option"
+              aria-selected={i === active}
+              data-active={i === active}
+              href={r.href}
+              onClick={onClose}
+              onMouseMove={() => i !== active && setActive(i)}
+            >
+              {r.method ? (
+                <span className={"method " + r.method}>{r.method}</span>
+              ) : (
+                <Icon name="book" size={15} />
+              )}
+              <span className="result-text">
+                {r.title}
+                <small>{r.detail}</small>
+              </span>
+              <Icon size={14} />
+            </Link>
+          </React.Fragment>
         ))}
-        {routes.length > 0 && <span className="search-category">ENDPOINT</span>}
-        {routes.map((r) => (
-          <Link key={routeKey(r)} href={routeHref(r)} onClick={onClose}>
-            <span className={"method " + r.method}>{r.method}</span>
-            <span>
-              {r.path}
-              <small>
-                {r.group} · {r.auth}
-              </small>
-            </span>
-            <Icon size={14} />
-          </Link>
-        ))}
-        {!pages.length && !routes.length && (
-          <p className="search-hint">Tidak ditemukan hasil untuk “{query}”.</p>
+        {needle && !results.length && (
+          <div className="search-empty">
+            <pre aria-hidden="true">{"( . _ . )"}</pre>
+            <p>Tidak ada hasil untuk “{query}”.</p>
+          </div>
         )}
       </div>
-      <div className="search-dialog-footer">
-        <span>Tab untuk berpindah · Enter untuk membuka</span>
-        <span>JKT48Connect Docs</span>
+      <div className="search-footer">
+        <span>
+          <kbd>↑</kbd>
+          <kbd>↓</kbd> pilih <kbd>↵</kbd> buka
+        </span>
+        <span>JKT48CONNECT / SEARCH</span>
       </div>
     </dialog>
   );
 }
+
+function NotFound() {
+  return (
+    <div className="not-found">
+      <pre aria-hidden="true">
+        {"█  █  ▄▀▀▄  █  █\n█▄▄█  █  █  █▄▄█\n   █  ▀▄▄▀     █"}
+      </pre>
+      <PageHead
+        crumbs={["docs", "404"]}
+        title="Jalur ini belum ada."
+        lead="Temukan halaman lain melalui pencarian atau kembali ke dokumentasi."
+      />
+      <Link href="/docs" className="button button-solid">
+        Kembali ke docs <Icon size={14} />
+      </Link>
+    </div>
+  );
+}
+
 function App({ catalog, guides }) {
   const motionEnabled = useMotionEnabled();
   const current = useLocation(),
@@ -1598,19 +1877,21 @@ function App({ catalog, guides }) {
     selected = catalog.routes.find(
       (r) => routeKey(r) === url.searchParams.get("route"),
     );
+  useReveal(article, [url.pathname, url.search]);
   useEffect(() => {
-    if (!motionEnabled) return;
-    const target = document.querySelector("#main-content");
+    if (!motionEnabled || !docs) return;
+    const target = document.querySelector("#main-content .docs-article");
     const animation =
       target &&
       gsap.fromTo(
-        target,
-        { opacity: 0.45, y: 10 },
+        target.children,
+        { opacity: 0, y: 12 },
         {
           opacity: 1,
           y: 0,
-          duration: 0.42,
-          ease: "power2.out",
+          duration: 0.5,
+          stagger: 0.035,
+          ease: "power3.out",
           clearProps: "opacity,transform",
         },
       );
@@ -1632,6 +1913,12 @@ function App({ catalog, guides }) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setSearch((v) => !v);
+      } else if (
+        e.key === "/" &&
+        !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)
+      ) {
+        e.preventDefault();
+        setSearch(true);
       }
     }
     addEventListener("keydown", key);
@@ -1689,7 +1976,7 @@ function App({ catalog, guides }) {
         Lewati ke konten
       </a>
       <Header
-        docs={docs}
+        current={current}
         onSearch={() => setSearch(true)}
         onMenu={() => mobile.current.showModal()}
       />
@@ -1698,44 +1985,33 @@ function App({ catalog, guides }) {
           <aside className="docs-sidebar">
             <Sidebar catalog={catalog} guides={guides} current={url.pathname} />
           </aside>
-          <main
-            id="main-content"
-            className="docs-content"
-            ref={article}
-            key={url.pathname + url.search}
-          >
-            {notFound ? (
-              <>
-                <div className="page-kicker">404 / NOT FOUND</div>
-                <h1>
-                  Jalur ini
-                  <br />
-                  belum ada.
-                </h1>
-                <p>
-                  Temukan halaman lain melalui pencarian atau kembali ke
-                  dokumentasi.
-                </p>
-                <Link href="/docs" className="primary-button">
-                  Kembali ke docs <Icon size={15} />
-                </Link>
-              </>
-            ) : guide ? (
-              <Guide page={guide} guides={guides} key={guide.slug} />
-            ) : url.pathname === "/docs/reference" ? (
-              <Reference catalog={catalog} search={url.search} />
-            ) : (
-              <Overview catalog={catalog} guides={guides} />
-            )}
-            <Footer reader />
+          <main id="main-content" className="docs-main" ref={article}>
+            <article className="docs-article" key={url.pathname + url.search}>
+              {notFound ? (
+                <NotFound />
+              ) : guide ? (
+                <Guide page={guide} guides={guides} key={guide.slug} />
+              ) : url.pathname === "/docs/reference" ? (
+                <Reference catalog={catalog} search={url.search} />
+              ) : (
+                <Overview catalog={catalog} guides={guides} />
+              )}
+            </article>
+            <footer className="docs-colophon">
+              <AsciiFriend />
+              <span>JKT48Connect / catatan untuk ide berikutnya.</span>
+              <a href="/docs/guide.md" download>
+                Catatan .md <Icon name="down" size={12} />
+              </a>
+            </footer>
           </main>
           <aside className="docs-toc">
             <Toc article={article} page={current} />
           </aside>
         </div>
       ) : (
-        <main id="main-content">
-          <Landing catalog={catalog} />
+        <main id="main-content" className="landing-main">
+          <Landing catalog={catalog} guides={guides} />
         </main>
       )}
       <SearchDialog
@@ -1749,20 +2025,60 @@ function App({ catalog, guides }) {
         className="mobile-nav"
         ref={mobile}
         aria-label="Navigasi dokumentasi"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) mobile.current.close();
+        }}
       >
-        <button
-          className="mobile-close"
-          onClick={() => mobile.current.close()}
-          aria-label="Tutup navigasi"
-        >
-          <Icon name="close" />
-        </button>
-        <Sidebar
-          catalog={catalog}
-          guides={guides}
-          current={url.pathname}
-          onNavigate={() => mobile.current.close()}
-        />
+        <div className="mobile-sheet">
+          <div className="mobile-head">
+            <Link
+              href="/"
+              className="brand"
+              onClick={() => mobile.current.close()}
+            >
+              <Mark size={22} />
+              <span className="brand-name">
+                jkt48<b>connect</b>
+              </span>
+            </Link>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => mobile.current.close()}
+              aria-label="Tutup navigasi"
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+          <div className="mobile-actions">
+            <button
+              type="button"
+              className="search-trigger"
+              onClick={() => {
+                mobile.current.close();
+                setSearch(true);
+              }}
+            >
+              <Icon name="search" size={15} />
+              <span>Cari dokumentasi…</span>
+            </button>
+            <MotionToggle />
+          </div>
+          <Sidebar
+            catalog={catalog}
+            guides={guides}
+            current={url.pathname}
+            onNavigate={() => mobile.current.close()}
+          />
+          <a
+            className="mobile-github"
+            href={GitHub}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Source di GitHub <Icon name="external" size={13} />
+          </a>
+        </div>
       </dialog>
     </>
   );
@@ -1778,7 +2094,9 @@ class ErrorBoundary extends React.Component {
         <h1>Dokumentasi belum dapat ditampilkan.</h1>
         <p>Muat ulang halaman atau unduh panduan lengkap.</p>
         <a href="/docs/guide.md">Unduh Markdown ↓</a>
-        <button onClick={() => location.reload()}>Muat ulang</button>
+        <button type="button" onClick={() => location.reload()}>
+          Muat ulang
+        </button>
       </div>
     ) : (
       this.props.children
@@ -1810,7 +2128,9 @@ Promise.all([
         <h1>Koneksi dokumentasi terputus.</h1>
         <p>Coba muat ulang, atau baca panduan Markdown.</p>
         <a href="/docs/guide.md">Unduh panduan ↓</a>
-        <button onClick={() => location.reload()}>Coba lagi</button>
+        <button type="button" onClick={() => location.reload()}>
+          Coba lagi
+        </button>
       </div>,
     ),
   );
