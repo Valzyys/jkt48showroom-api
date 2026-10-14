@@ -48,7 +48,7 @@ Panel Pemantauan collector VPS di admin memperbarui status setiap 15 detik: hear
 ### Recent leaderboard cards
 
 Install `fonts-lato`, `fonts-liberation`, and `fonts-noto-color-emoji` for matching
-fonts. Copy `leaderboard-renderer.cjs`, `leaderboard-template.cjs`, `leaderboard-banner.cjs`, and
+fonts. Copy `leaderboard-renderer.cjs`, `leaderboard-template.cjs`, `leaderboard-banner.cjs`, `leaderboard-artwork.cjs`, `leaderboard-frames.cjs`, and
 `leaderboard-shell.html` alongside the collector. Install the provided
 `jkt48-leaderboard.service` and `.timer`, then enable the timer:
 

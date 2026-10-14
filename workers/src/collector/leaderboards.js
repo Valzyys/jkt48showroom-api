@@ -1,7 +1,7 @@
 import {rewriteMedia} from '../runtime/jkt48-media.js';
 import UserLog from '../database/userDB/UserLog.js';
 import {getRecentDetails} from '../library/recent/details.js';
-const design=2,ident=/^[a-zA-Z0-9_-]{1,160}$/;
+const design=3,ident=/^[a-zA-Z0-9_-]{1,160}$/;
 const scope="database_name='liveDB' AND collection_name='livelogs'";
 export async function leaderboardImages(db,ids,origin){
  if(!ids.length)return new Map();
@@ -12,7 +12,7 @@ export async function leaderboardImages(db,ids,origin){
 }
 export async function serveLeaderboard(request,bindings){
  const url=new URL(request.url);if(!url.pathname.startsWith('/media/leaderboards/'))return null;
- const match=/^\/media\/leaderboards\/(v[12])\/([a-zA-Z0-9_-]{1,160})\/(\d{1,16})(-banner)?\.png$/.exec(url.pathname);
+ const match=/^\/media\/leaderboards\/(v[123])\/([a-zA-Z0-9_-]{1,160})\/(\d{1,16})(-banner)?\.png$/.exec(url.pathname);
  if(!match||url.search)return new Response('Invalid leaderboard path',{status:400});if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405});
  const object=await bindings.IMAGES_BUCKET.get('leaderboards/'+match[1]+'/'+match[2]+'/'+match[3]+(match[4]||'')+'.png');if(!object)return new Response('Leaderboard not ready',{status:404,headers:{'Cache-Control':'no-store'}});
  const headers={'Content-Type':'image/png','Content-Length':String(object.size),'Cache-Control':'public, max-age=31536000, immutable','Access-Control-Allow-Origin':'*','X-Media-Storage':'r2','X-Content-Type-Options':'nosniff',ETag:object.httpEtag};if(request.headers.get('If-None-Match')===object.httpEtag)return new Response(null,{status:304,headers});return new Response(request.method==='HEAD'?null:object.body,{headers});

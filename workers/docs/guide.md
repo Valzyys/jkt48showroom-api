@@ -3129,7 +3129,7 @@ false dan `img` kosong; gambar jenis gift lain tidak dipakai sebagai pengganti.
 ```json
 {
   "status": "ready",
-  "url": "https://api.jkt48connect.app/media/leaderboards/v2/DATA_ID/123.png",
+  "url": "https://api.jkt48connect.app/media/leaderboards/v3/DATA_ID/123.png",
   "width": 1800,
   "height": 2400,
   "format": "png",
@@ -3144,7 +3144,7 @@ Dua format tersedia otomatis di `leaderboard_images`:
   "leaderboard_images": {
     "portrait": {
       "status": "ready",
-      "url": "https://api.jkt48connect.app/media/leaderboards/v2/DATA_ID/123.png",
+      "url": "https://api.jkt48connect.app/media/leaderboards/v3/DATA_ID/123.png",
       "width": 1800,
       "height": 2400,
       "format": "png",
@@ -3152,7 +3152,7 @@ Dua format tersedia otomatis di `leaderboard_images`:
     },
     "banner": {
       "status": "ready",
-      "url": "https://api.jkt48connect.app/media/leaderboards/v2/DATA_ID/123-banner.png",
+      "url": "https://api.jkt48connect.app/media/leaderboards/v3/DATA_ID/123-banner.png",
       "width": 2400,
       "height": 1350,
       "format": "png",
@@ -3164,8 +3164,8 @@ Dua format tersedia otomatis di `leaderboard_images`:
 
 `leaderboard_image` tetap menjadi alias portrait agar integrasi lama berjalan.
 Poster portrait memakai komposisi vertikal. Banner landscape 16:9 mempunyai desain
-tersendiri: panel identitas di kiri, statistik di atas, peringkat dan momen live
-berdampingan, serta deretan gift di bawah. Keduanya menampilkan data sesi yang sama,
+tersendiri: foto member besar di kiri, statistik di atas, podium peringkat pertama dan
+jejak gift berdampingan, serta cuplikan live berlapis di bawah. Keduanya menampilkan data sesi yang sama,
 tanpa URL atau nama situs. Setiap format memiliki status render tersendiri.
 
 ```html
@@ -3221,3 +3221,7 @@ memiliki batas sumber daya terpisah 1–16 halaman; jika kapasitas terpakai,
 `capture.chat_status` menunjukkan antrean. Polling default 15 detik. Live yang
 hilang dari listing diperiksa lagi; media yang masih bergerak tidak langsung
 dihentikan. Penutupan chat saat sesi selesai ditandai `closed`, bukan error aktif.
+
+Desain photobook v3 memakai podium supporter utama, aksen kelopak, dan foto live
+berlapis. Pinggiran hitam pada screenshot dipotong hanya untuk gambar leaderboard;
+arsip screenshot asli tetap utuh. URL v1/v2 yang sudah terbit tetap dapat dibuka.
