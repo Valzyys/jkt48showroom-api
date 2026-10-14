@@ -52,8 +52,11 @@ export function CopyButton({ text, label = "Salin", className = "" }) {
 function Diagram({ source }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, ""),
     [svg, setSvg] = useState(""),
-    [error, setError] = useState(false);
+    [error, setError] = useState(false),
+    diagram = useRef();
   useEffect(() => {
+    setError(false);
+    setSvg("");
     let cancelled = false;
     (async () => {
       try {
@@ -62,13 +65,15 @@ function Diagram({ source }) {
           import("mermaid"),
           import("dompurify"),
         ]);
+        await document.fonts.ready;
+        if (cancelled) return;
         mermaid.initialize({
           startOnLoad: false,
           securityLevel: "strict",
           theme: "neutral",
           htmlLabels: false,
           flowchart: { htmlLabels: false },
-          fontFamily: "Geist, Arial",
+          fontFamily: "'Geist Variable', Arial",
           maxTextSize: 20000,
         });
         const result = await mermaid.render("diagram-" + id, source);
@@ -86,6 +91,45 @@ function Diagram({ source }) {
       cancelled = true;
     };
   }, [source, id]);
+  useEffect(() => {
+    if (!svg || !diagram.current) return;
+    const container = diagram.current;
+    let raf = 0,
+      active = true;
+    const fit = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (!active) return;
+        const element = container.querySelector("svg");
+        if (!element) return;
+        try {
+          const box = element.getBBox();
+          if (box.width > 0 && box.height > 0) {
+            const view = [
+              box.x - 12,
+              box.y - 12,
+              box.width + 24,
+              box.height + 24,
+            ].join(" ");
+            if (element.getAttribute("viewBox") !== view)
+              element.setAttribute("viewBox", view);
+            container.dataset.fitted = "true";
+          }
+        } catch {}
+      });
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(container);
+    document.fonts.ready.then(() => {
+      if (active) fit();
+    });
+    fit();
+    return () => {
+      active = false;
+      cancelAnimationFrame(raf);
+      observer.disconnect();
+    };
+  }, [svg]);
   return (
     <figure className="diagram">
       <figcaption>
@@ -101,6 +145,7 @@ function Diagram({ source }) {
       ) : svg ? (
         <div
           className="diagram-svg"
+          ref={diagram}
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       ) : (
