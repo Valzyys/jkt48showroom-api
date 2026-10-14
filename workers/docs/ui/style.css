@@ -2830,12 +2830,12 @@ h3 {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  html {
+  html:not([data-motion="on"]) {
     scroll-behavior: auto;
   }
-  *,
-  *:before,
-  *:after {
+  html:not([data-motion="on"]) *,
+  html:not([data-motion="on"]) *:before,
+  html:not([data-motion="on"]) *:after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

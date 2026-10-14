@@ -1,3 +1,4 @@
+import { motion, useMotionEnabled } from "./motion.js";
 import { AsciiFriend, LittleBadge } from "./personality.jsx";
 import React, {
   Suspense,
@@ -164,7 +165,8 @@ function Copy({ text, label = "Salin", className = "" }) {
   );
 }
 function Header({ onSearch, docs = false, onMenu }) {
-  const headerLocation = useLocation();
+  const headerLocation = useLocation(),
+    motionEnabled = useMotionEnabled();
   return (
     <header className="site-header connection-header">
       <div className="header-frame">
@@ -190,6 +192,37 @@ function Header({ onSearch, docs = false, onMenu }) {
           </a>
         </nav>
         <div className="header-actions">
+          <button
+            className="motion-toggle"
+            type="button"
+            aria-pressed={motionEnabled}
+            aria-label={motionEnabled ? "Matikan animasi" : "Aktifkan animasi"}
+            title={
+              motionEnabled
+                ? "Animasi aktif. Klik untuk mematikan."
+                : motion.getPreference() === "auto"
+                  ? "Animasi mengikuti pengaturan perangkat. Klik untuk mengaktifkan."
+                  : "Animasi mati. Klik untuk mengaktifkan."
+            }
+            onClick={() => motion.setEnabled(!motionEnabled)}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+              {motionEnabled ? (
+                <>
+                  <path
+                    d="M5 4v8M11 4v8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </>
+              ) : (
+                <path d="m5 3 8 5-8 5Z" fill="currentColor" />
+              )}
+            </svg>
+            <span>Animasi {motionEnabled ? "aktif" : "mati"}</span>
+          </button>
           <button
             className="search-trigger"
             onClick={onSearch}
@@ -374,20 +407,22 @@ function EndpointMap({ catalog }) {
 }
 function Landing({ catalog }) {
   const scope = useRef(),
-    [wave, setWave] = useState(0);
+    [wave, setWave] = useState(0),
+    motionEnabled = useMotionEnabled();
   useEffect(() => {
-    const media = gsap.matchMedia();
-    media.add(
-      "(prefers-reduced-motion: no-preference)",
-      () => {
-        gsap.from(".hero-enter", {
-          y: 20,
-          opacity: 0,
-          duration: 0.75,
-          stagger: 0.1,
-          ease: "power2.out",
-        });
-        document.querySelectorAll("[data-signal]").forEach((dot, i) =>
+    if (!motionEnabled) return;
+    const context = gsap.context(() => {
+      gsap.from(".hero-enter", {
+        y: 22,
+        opacity: 0,
+        duration: 0.8,
+        stagger: 0.09,
+        ease: "power2.out",
+        clearProps: "opacity,transform",
+      });
+      scope.current
+        .querySelectorAll("[data-signal]")
+        .forEach((dot, i) =>
           gsap.to(dot, {
             motionPath: {
               path: "#wire-" + i,
@@ -400,18 +435,36 @@ function Landing({ catalog }) {
             ease: "none",
           }),
         );
-        gsap.utils.toArray(".reveal").forEach((el) =>
+      gsap.to(".scene-sticker", {
+        y: -5,
+        rotation: 3.5,
+        duration: 2.8,
+        ease: "sine.inOut",
+        yoyo: true,
+        repeat: -1,
+      });
+      gsap.utils
+        .toArray(".reveal")
+        .forEach((el) =>
           gsap.from(el, {
-            y: 18,
-            duration: 0.65,
+            y: 28,
+            autoAlpha: 0.35,
+            duration: 0.7,
+            ease: "power2.out",
             scrollTrigger: { trigger: el, start: "top 94%", once: true },
+            clearProps: "opacity,visibility,transform",
           }),
         );
-      },
-      scope,
-    );
-    return () => media.revert();
-  }, []);
+    }, scope);
+    let active = true;
+    document.fonts.ready.then(() => {
+      if (active) ScrollTrigger.refresh();
+    });
+    return () => {
+      active = false;
+      context.revert();
+    };
+  }, [motionEnabled]);
   return (
     <div className="landing" ref={scope}>
       <section className="hero workbench-hero">
@@ -808,9 +861,7 @@ function Footer({ reader = false } = {}) {
           onClick={() =>
             window.scrollTo({
               top: 0,
-              behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-                ? "instant"
-                : "smooth",
+              behavior: motion.getSnapshot() ? "smooth" : "instant",
             })
           }
         >
@@ -1536,6 +1587,7 @@ function SearchDialog({ open, onClose, catalog, guides }) {
   );
 }
 function App({ catalog, guides }) {
+  const motionEnabled = useMotionEnabled();
   const current = useLocation(),
     url = new URL(current, location.origin),
     docs = url.pathname.startsWith("/docs"),
@@ -1547,8 +1599,7 @@ function App({ catalog, guides }) {
       (r) => routeKey(r) === url.searchParams.get("route"),
     );
   useEffect(() => {
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-    if (reduced.matches) return;
+    if (!motionEnabled) return;
     const target = document.querySelector("#main-content");
     const animation =
       target &&
@@ -1564,7 +1615,7 @@ function App({ catalog, guides }) {
         },
       );
     return () => animation?.revert();
-  }, [url.pathname, url.search]);
+  }, [url.pathname, url.search, motionEnabled]);
   useEffect(() => {
     const line = document.querySelector(".reading-progress");
     const update = () => {

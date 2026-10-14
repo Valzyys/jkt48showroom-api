@@ -1,3 +1,4 @@
+import { motion, useMotionEnabled } from "./motion.js";
 import React, { useEffect, useRef, useState } from "react";
 
 // The mascot is built from geometry: no remote model, texture, or tracking service.
@@ -5,7 +6,8 @@ export default function Character({ wave, onWave }) {
   const host = useRef(),
     gesture = useRef(null),
     [ready, setReady] = useState(false),
-    [fallback, setFallback] = useState(false);
+    [fallback, setFallback] = useState(false),
+    motionEnabled = useMotionEnabled();
   useEffect(() => {
     gesture.current?.();
   }, [wave]);
@@ -149,7 +151,7 @@ export default function Character({ wave, onWave }) {
         floor.position.y = 0.005;
         floor.receiveShadow = true;
         scene.add(floor);
-        const reduce = matchMedia("(prefers-reduced-motion: reduce)"),
+        const desktop = matchMedia("(min-width: 900px)"),
           target = { x: 0, y: 0 };
         let activeUntil = performance.now() + 900,
           blinkUntil = 0;
@@ -164,8 +166,10 @@ export default function Character({ wave, onWave }) {
         let raf = 0,
           last = 0,
           visible = true,
+          contextAvailable = true,
           waving = 0,
-          started = performance.now();
+          started = performance.now(),
+          lastPose = started;
         const draw = () => renderer.render(scene, camera);
         const resize = () => {
           const { width, height } = el.getBoundingClientRect();
@@ -179,10 +183,16 @@ export default function Character({ wave, onWave }) {
         ro.observe(el);
         resize();
         const move = (e) => {
-          if (reduce.matches) return;
+          if (!motion.getSnapshot()) return;
           const rect = el.getBoundingClientRect();
-          target.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-          target.y = ((e.clientY - rect.top) / rect.height) * 2 - 1;
+          target.x = Math.max(
+            -1,
+            Math.min(1, ((e.clientX - rect.left) / rect.width) * 2 - 1),
+          );
+          target.y = Math.max(
+            -1,
+            Math.min(1, ((e.clientY - rect.top) / rect.height) * 2 - 1),
+          );
           activeUntil = performance.now() + 650;
           schedule();
         };
@@ -191,11 +201,11 @@ export default function Character({ wave, onWave }) {
           activeUntil = performance.now() + 700;
           schedule();
         };
-        const interaction = el.parentElement;
+        const interaction = el.closest(".workbench-scene") || el.parentElement;
         interaction.addEventListener("pointermove", move);
         interaction.addEventListener("pointerleave", leave);
         gesture.current = () => {
-          if (reduce.matches) {
+          if (!motion.getSnapshot()) {
             draw();
             return;
           }
@@ -205,16 +215,28 @@ export default function Character({ wave, onWave }) {
         };
         function tick(now) {
           raf = 0;
-          if (!visible || document.hidden || reduce.matches) return;
+          if (
+            !contextAvailable ||
+            !visible ||
+            document.hidden ||
+            !motion.getSnapshot()
+          )
+            return;
           if (now - last < interval) {
             schedule();
             return;
           }
           last = now;
           const t = (now - started) / 1000;
-          head.rotation.y += (target.x * 0.3 - head.rotation.y) * 0.07;
-          head.rotation.x += (target.y * 0.12 - head.rotation.x) * 0.07;
-          model.position.y = now - waving < 1700 ? Math.sin(t * 4) * 0.035 : 0;
+          const easing = 1 - Math.exp(-(now - lastPose) / 150);
+          lastPose = now;
+          head.rotation.y += (target.x * 0.46 - head.rotation.y) * easing;
+          head.rotation.x += (target.y * 0.18 - head.rotation.x) * easing;
+          model.position.y = desktop.matches
+            ? Math.sin(t * 1.7) * 0.045
+            : now - waving < 1700
+              ? Math.sin(t * 4) * 0.035
+              : 0;
           const blink = now < blinkUntil ? 0.12 : 1;
           eyes.forEach((eye) => (eye.scale.y = blink));
           const elapsed = (now - waving) / 1000;
@@ -227,10 +249,16 @@ export default function Character({ wave, onWave }) {
               ? Math.sin(elapsed * 7) * 0.035
               : Math.sin(t * 1.5) * 0.015;
           draw();
-          if (now < activeUntil) schedule();
+          if (desktop.matches || now < activeUntil) schedule();
         }
         function schedule() {
-          if (!raf && !reduce.matches && visible && !document.hidden)
+          if (
+            contextAvailable &&
+            !raf &&
+            motion.getSnapshot() &&
+            visible &&
+            !document.hidden
+          )
             raf = requestAnimationFrame(tick);
         }
         const io = new IntersectionObserver(
@@ -248,24 +276,30 @@ export default function Character({ wave, onWave }) {
         const changed = () => {
           cancelAnimationFrame(raf);
           raf = 0;
-          if (reduce.matches) {
+          if (!motion.getSnapshot()) {
             head.rotation.set(0, 0, 0);
             model.position.y = 0;
             model.rotation.z = 0;
             draw();
-          } else schedule();
+          } else {
+            activeUntil = performance.now() + 900;
+            lastPose = performance.now();
+            schedule();
+          }
         };
-        reduce.addEventListener("change", changed);
+        const unsubscribeMotion = motion.subscribe(changed);
+        desktop.addEventListener("change", changed);
         document.addEventListener("visibilitychange", changed);
         const contextLost = (e) => {
           e.preventDefault();
           cancelAnimationFrame(raf);
           raf = 0;
+          contextAvailable = false;
           setFallback(true);
         };
         renderer.domElement.addEventListener("webglcontextlost", contextLost);
         const blinkTimer = setInterval(() => {
-          if (visible && !document.hidden && !reduce.matches) {
+          if (visible && !document.hidden && !!motion.getSnapshot()) {
             blinkUntil = performance.now() + 150;
             activeUntil = blinkUntil + 200;
             schedule();
@@ -282,7 +316,8 @@ export default function Character({ wave, onWave }) {
           gesture.current = null;
           interaction.removeEventListener("pointermove", move);
           interaction.removeEventListener("pointerleave", leave);
-          reduce.removeEventListener("change", changed);
+          unsubscribeMotion();
+          desktop.removeEventListener("change", changed);
           document.removeEventListener("visibilitychange", changed);
           renderer.domElement.removeEventListener(
             "webglcontextlost",
@@ -314,11 +349,16 @@ export default function Character({ wave, onWave }) {
   }, []);
   return (
     <div
-      className={"character-stage " + (ready && !fallback ? "is-ready" : "")}
+      className={
+        "character-stage " +
+        (ready && !fallback ? "is-ready " : "") +
+        (motionEnabled ? "motion-enabled " : "") +
+        (wave ? "has-waved " : "")
+      }
     >
       <div className="character-canvas" ref={host} aria-hidden="true" />
       {(!ready || fallback) && (
-        <div className="character-fallback" aria-hidden="true">
+        <div className="character-fallback" key={wave} aria-hidden="true">
           <i />
           <div>
             <span />

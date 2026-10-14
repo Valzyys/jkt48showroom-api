@@ -1,3 +1,4 @@
+import { useMotionEnabled } from "./motion.js";
 import React, { useEffect, useRef, useState } from "react";
 const faces = [
   String.raw` /\_/\
@@ -15,19 +16,23 @@ const faces = [
 ];
 export function AsciiFriend({ compact = false }) {
   const el = useRef(),
-    [frame, setFrame] = useState(0);
+    [frame, setFrame] = useState(0),
+    motionEnabled = useMotionEnabled();
   useEffect(() => {
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    if (!motionEnabled) {
+      setFrame(0);
+      return;
+    }
     let timer,
       step = 0,
       visible = false;
     const update = () => {
       clearInterval(timer);
-      if (!reduced.matches && visible && !document.hidden)
+      if (visible && !document.hidden)
         timer = setInterval(() => setFrame(++step % faces.length), 1800);
     };
     const scroll = () => {
-      if (!reduced.matches) setFrame(Math.floor(scrollY / 360) % faces.length);
+      if (visible) setFrame(Math.floor(scrollY / 360) % faces.length);
     };
     const io = new IntersectionObserver((entries) => {
       visible = entries[0].isIntersecting;
@@ -36,16 +41,15 @@ export function AsciiFriend({ compact = false }) {
     io.observe(el.current);
     addEventListener("scroll", scroll, { passive: true });
     document.addEventListener("visibilitychange", update);
-    reduced.addEventListener("change", update);
+
     update();
     return () => {
       clearInterval(timer);
       io.disconnect();
       removeEventListener("scroll", scroll);
       document.removeEventListener("visibilitychange", update);
-      reduced.removeEventListener("change", update);
     };
-  }, []);
+  }, [motionEnabled]);
   return (
     <span ref={el} className={"ascii-friend " + (compact ? "compact" : "")}>
       <pre aria-hidden="true">{faces[frame]}</pre>

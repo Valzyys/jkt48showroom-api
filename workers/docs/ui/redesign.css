@@ -3347,12 +3347,12 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .footer-index svg,
-  .guide-tile {
+  html:not([data-motion="on"]) .footer-index svg,
+  html:not([data-motion="on"]) .guide-tile {
     transition: none;
   }
-  .footer-index > a:hover > svg,
-  .guide-tile:hover {
+  html:not([data-motion="on"]) .footer-index > a:hover > svg,
+  html:not([data-motion="on"]) .guide-tile:hover {
     transform: none;
   }
 }
@@ -3427,5 +3427,110 @@ body {
   }
   .map-column strong {
     font-size: 12px;
+  }
+}
+
+/* Motion is explicit and consistent, including devices that cannot render WebGL. */
+.motion-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  min-height: 32px;
+  border: 1px solid #d6decd;
+  border-radius: 6px;
+  font: 8px var(--mono);
+  color: #637653;
+  white-space: nowrap;
+  background: #f1f5eb;
+}
+.motion-toggle[aria-pressed="false"] {
+  background: transparent;
+  color: #7d8177;
+}
+.motion-toggle:hover {
+  border-color: #a5b698;
+  background: #e9f0df;
+}
+.motion-toggle:focus-visible {
+  outline-offset: 3px;
+}
+html[data-motion="on"] {
+  scroll-behavior: smooth;
+}
+html[data-motion="off"] {
+  scroll-behavior: auto;
+}
+html[data-motion="off"] *,
+html[data-motion="off"] *:before,
+html[data-motion="off"] *:after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+.motion-enabled .character-fallback {
+  animation: pip-idle 2.8s ease-in-out infinite;
+}
+.motion-enabled .character-fallback > div > span {
+  transform-origin: center;
+  animation: pip-blink 4.5s linear infinite;
+}
+.motion-enabled.has-waved .character-fallback {
+  animation:
+    pip-greet 0.55s ease-in-out 3,
+    pip-idle 2.8s ease-in-out 1.65s infinite;
+}
+@keyframes pip-idle {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(-3deg);
+  }
+}
+@keyframes pip-blink {
+  0%,
+  44%,
+  49%,
+  100% {
+    transform: scaleY(1);
+  }
+  46%,
+  47% {
+    transform: scaleY(0.12);
+  }
+}
+@keyframes pip-greet {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(6deg);
+  }
+}
+@media (max-width: 1220px) {
+  .motion-toggle {
+    font-size: 7px;
+    padding: 7px 6px;
+  }
+  .header-actions {
+    gap: 8px;
+  }
+}
+@media (max-width: 900px) {
+  .motion-toggle {
+    height: 32px;
+    width: 32px;
+    justify-content: center;
+    padding: 0;
+  }
+  .motion-toggle > span {
+    display: none;
+  }
+  .motion-toggle svg {
+    width: 13px;
+    height: 13px;
   }
 }
