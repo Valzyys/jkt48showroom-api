@@ -1,3 +1,4 @@
+import {idnGoldSummary} from '../../idn/ranking.js';
 import {recordingSession} from '../../collector/recording-session';
 import {leaderboardImages} from '../../collector/leaderboards';
 import {ensureIdnGifts} from '../../idn/catalog';
@@ -205,6 +206,7 @@ export async function parseShowroom(data) {
     };
 }
 export async function parseIDN(data) {
+    const gold=idnGoldSummary(data.gift_data?.gift_log||[],data.gift_data?.provider_ranking,data.users||[]);
     await ensureIdnGifts(env);
     const giftPagination = getGiftPagination(data);
     const giftList = await IDNGift.find({
@@ -275,7 +277,8 @@ export async function parseIDN(data) {
     return {
         ...await parseBase(data),
         idn: data.idn,
-        fans: [...(data.gift_data?.gift_log||[])].sort((a,b)=>(b.total||0)-(a.total||0)).slice(0,50).map((entry,index)=>{const person=data.users?.find(u=>String(u.user_id)===String(entry.user_id));return {rank:index+1,id:String(entry.user_id),name:person?.name||'Viewer',avatar_url:person?.avatar_url||'',gold:entry.total||0,source:'observed_chat'};}),
+        gold_summary:{...gold,fans:undefined},
+        fans:gold.fans.slice(0,50),
         live_info: {
             duration: data.live_info.duration,
             gift: {

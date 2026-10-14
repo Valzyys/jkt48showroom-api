@@ -1,3 +1,4 @@
+import {idnGoldSummary} from '../idn/ranking.js';
 import {rewriteMedia} from '../runtime/jkt48-media.js';
 import UserLog from '../database/userDB/UserLog.js';
 import {getRecentDetails} from '../library/recent/details.js';
@@ -28,7 +29,7 @@ export async function leaderboardOperation(request,bindings){
   try{
    const detail=await getRecentDetails({req:{param:()=>id}}),users=(await UserLog.findOne({data_id:id}).lean())?.users||[];
    const supporters=[...(log.gift_data?.gift_log||[])].filter(g=>g.gifts?.length).sort((a,b)=>(b.total||0)-(a.total||0)).map((g,i)=>{const user=users.find(u=>String(u.user_id)===String(g.user_id));return {rank:i+1,name:user?.name||'Penggemar',total:g.total||0,avatar_url:log.type==='showroom'?'https://static.showroom-live.com/image/avatar/'+(user?.avatar_id||1)+'.png':user?.avatar_url||''}});
-   detail.leaderboard_data={supporters:supporters.slice(0,5),supporter_count:supporters.length};return Response.json({job:{data_id:id,layout,theme,source_version:candidate.version,render_token:token,detail:rewriteMedia(detail,url.origin)}});
+   const ranked=log.type==='idn'?idnGoldSummary(log.gift_data?.gift_log||[],log.gift_data?.provider_ranking,users).fans.map(r=>({...r,total:r.gold})):supporters;detail.leaderboard_data={supporters:ranked.slice(0,5),supporter_count:ranked.length};return Response.json({job:{data_id:id,layout,theme,source_version:candidate.version,render_token:token,detail:rewriteMedia(detail,url.origin)}});
   }catch{
    await bindings.DB.prepare("UPDATE collector_leaderboards SET state='error',last_error='source_unavailable',lease_until=? WHERE data_id=? AND render_token=?").bind(now+300000,id,token).run();return Response.json({message:'Leaderboard data unavailable'},{status:503});
   }

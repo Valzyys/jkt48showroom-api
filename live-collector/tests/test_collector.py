@@ -83,4 +83,52 @@ class ResilienceTests(unittest.IsolatedAsyncioTestCase):
    with patch('collector.asyncio.create_subprocess_exec',new=AsyncMock(side_effect=launch)) as spawn:
     await asyncio.gather(*(c.bridge_send({'action':'add','id':str(i)}) for i in range(20)));await c.bridge_task;self.assertEqual(spawn.await_count,1);self.assertEqual(process.stdin.write.call_count,21)
 
+
+class IdnAccuracyTests(unittest.IsolatedAsyncioTestCase):
+ def collector(self,root):
+  return Collector()
+ def live(self):
+  import time
+  return {'data_id':'idn-test','live_id':'test-slug','room_id':1,'name':'Member','img':'','url_key':'jkt48_test','type':'idn','started_at':time.time()-10,'stream':None,'viewers':1}
+ async def test_journal_replays_once_after_a_crash_and_checkpoints_atomically(self):
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();row=c.new(self.live());event={'kind':'gift','event_id':'stable','user':{'uuid':'u','name':'Viewer'},'gift':{'slug':'rose','gold':20,'quantity':3}}
+   c.store.record_event(row['data_id'],event) # process dies after journaling, before applying/checkpointing
+   restarted=Collector();r=restarted.rows['idn-test'];self.assertEqual(sum(g['num'] for g in r['gifts'].values()),3);self.assertEqual(sum(g['point']*g['num'] for g in r['gifts'].values()),60);self.assertEqual(restarted.store.events('idn-test'),[])
+   restarted.handle_idn_event(r,event);self.assertEqual(sum(g['num'] for g in r['gifts'].values()),3);self.assertEqual(r['observed_events'],1)
+   restarted.store.save(r);again=Collector();self.assertEqual(sum(g['num'] for g in again.rows['idn-test']['gifts'].values()),3)
+ async def test_chat_burst_journals_events_without_serializing_the_full_session_each_time(self):
+  import asyncio
+  from unittest.mock import Mock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();r=c.new(self.live());stream=asyncio.StreamReader()
+   for i in range(100):stream.feed_data((json.dumps({'id':'idn-test','kind':'comment','event_id':str(i),'user':{'uuid':'u','name':'Viewer'}})+'\n').encode())
+   stream.feed_eof();bridge=Mock(stdout=stream)
+   with patch.object(c.store,'save',wraps=c.store.save) as save:await c.bridge_read(bridge);self.assertEqual(save.call_count,0)
+   self.assertEqual(r['users']['u']['comments'],100);self.assertEqual(len(c.store.events('idn-test')),100);c.store.save(r);self.assertEqual(c.store.events('idn-test'),[])
+ async def test_slow_showroom_discovery_does_not_delay_idn_start(self):
+  import asyncio
+  from unittest.mock import AsyncMock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();blocked=asyncio.Event();c.showroom=AsyncMock(side_effect=blocked.wait);c.idn=AsyncMock(return_value={'idn-test':self.live()});c.attach=AsyncMock();slow=asyncio.create_task(c.discover_once('showroom'))
+   await asyncio.wait_for(c.discover_once('idn'),1);await asyncio.sleep(0);self.assertIn('idn-test',c.rows);c.attach.assert_awaited_once();self.assertFalse(slow.done());slow.cancel();await asyncio.gather(slow,return_exceptions=True)
+ async def test_ranking_failure_preserves_last_snapshot_and_close_fetches_final_totals(self):
+  from unittest.mock import AsyncMock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();r=c.new(self.live());snapshot={'source':'idn_top_gifter','updated_at':'2026-10-14T12:00:00.000Z','users':[{'user_id':'u','name':'Viewer','avatar_url':'','gold':40}]};c.api=AsyncMock(side_effect=[snapshot,RuntimeError('unavailable')]);self.assertTrue(await c.update_idn_ranking(r));self.assertFalse(await c.update_idn_ranking(r));self.assertEqual(r['provider_ranking'],snapshot);self.assertEqual(r['ranking_error'],'ranking_unavailable')
+   c.update_idn_ranking=AsyncMock(return_value=True);c.bridge_send=AsyncMock();c.pause=AsyncMock();await c.close(r);self.assertEqual(c.update_idn_ranking.await_count,2);self.assertEqual(r['chat_status'],'closed');self.assertEqual(c.payload(r)['provider_ranking'],snapshot)
+
+
+
+ async def test_archive_does_not_delete_a_session_that_changes_while_upload_is_in_flight(self):
+  from unittest.mock import AsyncMock,Mock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();r=c.new(self.live())
+   async def finishes_during_live_upload(*args):r['completed']=True;return {'ok':True}
+   c.api=AsyncMock(side_effect=finishes_during_live_upload);await c.archive_once();self.assertIn('idn-test',c.rows)
+   r['pending_uploads']={'run':{'active':False}};c.recover_tasks['idn-test']=Mock(done=lambda:False)
+   async def recovers_during_completed_upload(*args):r['pending_uploads'].clear();r['recordings'].append({'run':'1','bytes':100,'url':'https://api.test/media.mp4','partial':True});return {'ok':True}
+   c.api=AsyncMock(side_effect=recovers_during_completed_upload);await c.archive_once();self.assertIn('idn-test',c.rows)
+   c.api=AsyncMock(return_value={'ok':True});await c.archive_once();self.assertNotIn('idn-test',c.rows);self.assertIn('idn-test',c.finished)
+
 if __name__=='__main__':unittest.main()

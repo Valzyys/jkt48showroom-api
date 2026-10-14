@@ -3253,3 +3253,41 @@ Contoh URL banner publik R2:
 Poster berukuran 1800×2400; banner 2400×1350. Status/lease render setiap tema dan
 format terpisah. PNG lama tidak ditimpa. Renderer memproses maksimal 12 gambar
 per putaran dengan urutan bergantian agar kedua desain mendapat giliran.
+
+## Akurasi gold IDN dan event gift
+
+`fans[].gold` serta `total_gifts` memakai snapshot top-gifter IDN untuk pengguna
+yang tersedia di sumber tersebut. Pengguna yang hanya tertangkap lewat chat
+masih memakai nilai event yang tercatat. UUID dan username dari sumber dipetakan
+agar satu pengguna tidak dihitung dua kali. Snapshot kumulatif tidak ditambahkan
+ke snapshot sebelumnya. Nilai per pengguna dari IDN menjadi acuan, termasuk bila
+lebih rendah dari hasil event yang mungkin berulang.
+
+`gold_summary` menjelaskan angka tersebut:
+
+- `observed_gold`: total dari event gift yang tertangkap.
+- `reported_gold`: jumlah gold pengguna dalam snapshot top-gifter IDN; null jika belum tersedia.
+- `total_gold`: total per pengguna setelah pencocokan.
+- `unattributed_gold`: jumlah selisih positif per pengguna terhadap event yang tertangkap.
+- `observed_excess_gold`: kelebihan event terhadap nilai pengguna yang dilaporkan IDN.
+- `source` dan `updated_at`: asal dan waktu snapshot.
+
+Setiap fan juga mempunyai `observed_gold`, `reported_gold`, dan `source`.
+`live_info.gift.list` dan `log` tetap hanya memuat gift yang benar-benar tertangkap.
+Snapshot gold tidak dapat mengembalikan jenis gift, jumlah, atau waktu kirim yang
+terlewat. Karena itu status rincian gift tetap `partial`; daftar top-gifter sumber
+juga tidak dijanjikan berisi seluruh pengguna di luar batas yang dikembalikan IDN.
+
+Collector memeriksa ranking sekitar setiap 20 detik dan dua kali menjelang
+publikasi recent setelah live berakhir. Sinkronisasi arsip setiap sekitar 5 detik;
+discovery Showroom dan IDN berjalan terpisah dengan jeda 5–15 detik. Waktu respons
+sumber dan retry jaringan dapat menambah waktu tersebut. Heartbeat setiap 15 detik
+memuat status chat, event, snapshot gold, jumlah pengirim, dan kegagalan ranking.
+Admin `/control/admin` menampilkan gold IDN dan gold dari event secara terpisah.
+
+Event chat disimpan ke jurnal SQLite kecil sebelum dihitung; state sesi lengkap
+disimpan berkala (sekitar 750 ms). Jurnal yang belum masuk checkpoint diputar ulang
+saat proses restart dan dibersihkan secara atomik bersama checkpoint. Pengamatan
+membaca WebSocket masuk tanpa mengirim gift atau komentar. Animasi gift dan render
+halaman tidak diperlukan untuk mengambil event. Rekaman video tetap melalui RAM
+langsung ke R2.

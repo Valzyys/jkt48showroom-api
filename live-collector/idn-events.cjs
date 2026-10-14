@@ -1,19 +1,27 @@
-// IDN currently uses both IRC and Amazon IVS chat. Read only incoming public events.
-function parseFrame(raw){
- if(typeof raw!=='string'||raw.length>200000)return null;
- let envelope,body;
- try{envelope=JSON.parse(raw);body=envelope}catch{
-  const start=raw.indexOf('{');if(start<0)return /(?: 001 | JOIN #)/.test(raw)?{kind:'connected'}:null;
-  try{envelope=JSON.parse(raw.slice(start));body=envelope}catch{return null}
+// Passive decoding only. One WebSocket frame can contain multiple IRC lines/events.
+function parseFrames(raw){
+ if(typeof raw!=='string'||raw.length>1000000)return [];
+ const events=[];
+ function parse(line,tags={}){
+  let envelope,body;
+  try{envelope=JSON.parse(line);body=envelope}catch{
+   if(line.startsWith('@')){const end=line.indexOf(' ');for(const tag of line.slice(1,end).split(';')){const [key,...v]=tag.split('=');tags[key]=v.join('=')}line=line.slice(end+1)}
+   const start=line.indexOf('{');if(start<0){if(/(?: 001 | JOIN #)/.test(line))events.push({kind:'connected'});return}
+   try{envelope=JSON.parse(line.slice(start));body=envelope}catch{return}
+  }
+  if(Array.isArray(envelope)){for(const value of envelope.slice(0,1000))parse(JSON.stringify(value));return}
+  if(!body||typeof body!=='object')return;
+  const nested=envelope.Attributes?.message??envelope.Attributes?.Message??envelope.attributes?.message;
+  if(typeof nested==='string'){try{body=JSON.parse(nested)}catch{return}}
+  const event_id=envelope.Id??envelope.MessageId??tags.id??tags.msgid,event_time=envelope.SendTime??envelope.sendTime??tags['tmi-sent-ts'];
+  const user=body.user;if(!user||!(user.uuid||user.username)){if(envelope.Type==='MESSAGE'||envelope.Type==='EVENT')events.push({kind:'connected'});return}
+  const identity={uuid:user.uuid,username:user.username,name:user.name,avatar_url:user.avatar_url};
+  if(body.gift){const g=body.gift,quantity=Number(g.quantity??g.num??1),gold=g.gold===undefined||g.gold===null?null:Number(g.gold);if(!g.slug||!Number.isSafeInteger(quantity)||quantity<1||quantity>100000||gold!==null&&(!Number.isFinite(gold)||gold<0))return;events.push({kind:'gift',event_id,event_time,gift:{slug:g.slug,name:g.name,gold,quantity,image_url:g.image_url},user:identity});return}
+  if(body.chat)events.push({kind:'comment',event_id,event_time,user:identity});
+  else if(body.system)events.push({kind:'user',event_id,event_time,user:identity});
  }
- const nested=envelope.Attributes?.message??envelope.Attributes?.Message??envelope.attributes?.message;
- if(typeof nested==='string'){try{body=JSON.parse(nested)}catch{return null}}
- const user=body.user;
- const eventId=envelope.Id??envelope.MessageId;
- if(body.gift&&user){const gift=body.gift;if(!gift.slug||!(user.uuid||user.username))return null;return {kind:'gift',event_id:eventId,gift:{slug:gift.slug,name:gift.name,gold:gift.gold,num:gift.num,quantity:gift.quantity,image_url:gift.image_url},user:{uuid:user.uuid,username:user.username,name:user.name,avatar_url:user.avatar_url}}}
- if(body.chat&&user)return {kind:'comment',event_id:eventId,user:{uuid:user.uuid,username:user.username,name:user.name,avatar_url:user.avatar_url}};
- if(body.system&&user)return {kind:'user',event_id:eventId,user:{uuid:user.uuid,username:user.username,name:user.name,avatar_url:user.avatar_url}};
- if(envelope.Type==='MESSAGE'||envelope.Type==='EVENT')return {kind:'connected'};
- return null;
+ // JSON attributes may contain escaped newlines. Split IRC, never a valid JSON envelope.
+ try{JSON.parse(raw);parse(raw)}catch{for(const line of raw.split(/\r?\n/))if(line.trim())parse(line.trim())}
+ return events;
 }
-module.exports={parseFrame};
+module.exports={parseFrames,parseFrame:raw=>parseFrames(raw)[0]||null};

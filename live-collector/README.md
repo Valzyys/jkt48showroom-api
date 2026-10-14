@@ -82,3 +82,20 @@ active chat failures.
 Both portrait posters (1800 × 2400 PNG) and independently composed landscape banners (2400 × 1350 PNG, 16:9) are rendered automatically. Read `leaderboard_images.portrait` and `leaderboard_images.banner` on recent list/detail. The legacy `leaderboard_image` remains the portrait. Jobs alternate between layouts, each with its own lease and R2 object; one layout failing does not invalidate the other.
 
 Additional Fan Signal theme: `leaderboard_designs.jkt48connect.{portrait,banner}`. Photobook remains in `leaderboard_images` and `leaderboard_designs.photobook`. Renderer alternates all four jobs, up to 12 per run. Apply migration 0007 before activating the new Worker/renderer.
+
+### IDN collection accuracy
+
+IDN top-gifter snapshots are fetched through the authenticated private Worker
+endpoint every ~20 seconds and twice at completion. The Worker holds the web
+client key and refresh-token flow; credentials are never included in public data.
+Observed gift events remain separate from cumulative gold snapshots. No missing
+gift type/count is invented from a total difference. Public `gold_summary` and
+per-fan source fields expose the difference. Unavailable rankings preserve the
+last successful snapshot and remain visible as warnings in admin monitoring.
+
+Discovery runs independently per provider (5–15 second delay); archive uploads
+run concurrently, bounded at two, every ~5 seconds. Neither blocks chat ingestion.
+Full session snapshots no longer serialize on each IDN event: a compact SQLite
+journal is committed first and checkpointed about every 750 ms. Restart replays
+uncheckpointed events with provider IDs for deduplication. Video upload retries
+and multipart recovery retain their existing behavior.
