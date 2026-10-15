@@ -283,6 +283,7 @@ const GUIDE_ICONS = {
   "tentang-panduan": "info",
   "mulai-menggunakan": "play",
   "autentikasi-dan-integrasi": "key",
+  "contoh-integrasi": "code",
   "news-dan-member": "news",
   "jadwal-dan-theater": "calendar",
   "live-dan-recent": "live",

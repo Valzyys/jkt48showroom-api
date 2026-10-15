@@ -5,8 +5,10 @@ Live menampilkan sesi yang sedang berlangsung. Recent menampilkan rekap sesi yan
 ## Sesi aktif
 
 ```sh
-curl 'https://api.jkt48connect.app/api/now_live?group=jkt48'
-curl 'https://api.jkt48connect.app/api/idn_lives'
+curl 'https://api.jkt48connect.app/api/now_live?group=jkt48' \
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
+curl 'https://api.jkt48connect.app/api/idn_lives' \
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
 ```
 
 Daftar kosong merupakan keadaan valid ketika tidak ada sesi yang tersedia. Gunakan ID dan URL dari respons; IDN dan Showroom mempunyai identitas sesi berbeda.
@@ -15,7 +17,7 @@ Daftar kosong merupakan keadaan valid ketika tidak ada sesi yang tersedia. Gunak
 
 ```sh
 curl 'https://api.jkt48connect.app/api/recent?page=1&perpage=10' \
-  -H "x-api-key: ${JKT48_API_KEY}"
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
 ```
 
 ```json
@@ -31,7 +33,7 @@ Struktur ringkas di atas merupakan ilustrasi. Gunakan `data_id` dari daftar untu
 
 ```sh
 curl 'https://api.jkt48connect.app/api/recent/DATA_ID' \
-  -H "x-api-key: ${JKT48_API_KEY}"
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
 ```
 
 ## Membaca rekap

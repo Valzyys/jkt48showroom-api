@@ -9,6 +9,14 @@ curl 'https://api.jkt48connect.app/api/news?page=1&perpage=10' \
   -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
 ```
 
+Key berbentuk `jkc_` + 40 karakter heksadesimal, misalnya `jkc_8f3a1c0b7e2d4a9f6c5b1e0d3a7f9c2b4e6d9d2e`. Bila klienmu tidak bisa menambah header, kirim lewat query:
+
+```sh
+curl "https://api.jkt48connect.app/api/news?page=1&perpage=10&apikey=${JKT48CONNECT_API_KEY}"
+```
+
+Detail format, cara kirim, dan error ada di [Akses & integrasi](/docs/guide/autentikasi-dan-integrasi). Client lengkap dengan retry dan cache ada di [Contoh integrasi](/docs/guide/contoh-integrasi).
+
 ## Gunakan di JavaScript
 
 ```js
