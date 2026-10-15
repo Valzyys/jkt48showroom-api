@@ -12,6 +12,7 @@ import {
   useLiquid,
 } from "./shared.jsx";
 import { Mark, PixelIcon, GitHubIcon, guideIcon } from "./icons.jsx";
+import { useAccount } from "./session.js";
 
 const NAV = [
   ["/", "Beranda", "home", "nav-home"],
@@ -37,7 +38,8 @@ export function Header({ current, onSearch, catalog, guides }) {
     wrap = useRef(),
     island = useRef(),
     motionEnabled = useMotionEnabled(),
-    liquid = useLiquid(island, "a.hot", [hot, path]);
+    liquid = useLiquid(island, "a.hot", [hot, path]),
+    account = useAccount();
   useEffect(() => setHot(active), [active]);
   useEffect(() => {
     const header = wrap.current;
@@ -201,14 +203,21 @@ export function Header({ current, onSearch, catalog, guides }) {
               <GitHubIcon size={16} />
             </a>
             <MotionToggle pip="motion-toggle" />
+            {!account && (
+              <Link href="/login" className="nav-login" {...roll}>
+                <RollText text="Masuk" />
+              </Link>
+            )}
             <Link
-              href="/docs/guide/mulai-menggunakan"
+              href={account ? "/dashboard" : "/register"}
               className="nav-cta"
               data-pip="nav-cta"
-              aria-label="Mulai membangun"
+              aria-label={
+                account ? "Buka dashboard" : "Daftar dan buat API key"
+              }
               {...roll}
             >
-              <RollText text="Mulai" />
+              <RollText text={account ? "Dashboard" : "API key"} />
               <span className="cta-arrow">
                 <Icon size={13} />
               </span>
@@ -295,6 +304,7 @@ function MenuOverlay({ open, onClose, onSearch, path, catalog, guides }) {
     ["/docs", "Dokumentasi", "book"],
     ["/docs/reference", "API Reference", "code"],
     ["/docs/guide/markdown", "Markdown lab", "markdown"],
+    ["/dashboard", "Dashboard", "grid"],
   ];
   return (
     <dialog

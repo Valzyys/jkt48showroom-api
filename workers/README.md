@@ -190,6 +190,41 @@ scrambled labels. The 3D figures are drawn by a small ASCII engine
 reflections, rendered to canvas only while visible. One motion toggle controls CSS,
 GSAP and the ASCII scenes, and follows `prefers-reduced-motion` until changed.
 
+#### Developer accounts, API keys and billing
+
+Every `/api` data route is metered per developer key. People sign up at `/register`,
+create keys at `/dashboard/keys` (`jkc_…`, shown once, stored as a SHA-256 hash) and send
+them in the `X-API-Key` header (or `api_key` query). One D1 upsert counts and enforces the
+monthly quota (WIB months) and returns `X-RateLimit-*` headers; over quota answers `429`
+with `Retry-After`. The app's own session routes (`/api/stream`, `/api/auth`, `/api/user`,
+`/api/showroom`, `/api/admin`, `/api/beta`, `/api/profile`), the server `API_KEY`, valid app
+JWTs, signed first-party requests and `API_KEY_EXEMPT_ORIGINS` are not metered. A developer
+key also unlocks routes that used to need the server key.
+
+The dashboard (`/dashboard`) has an overview, keys, analytics (daily volume, errors,
+latency, status codes, busiest hours, endpoints), a 7-day request log, billing and account
+settings (profile, password, sessions, delete). Plans: Free 1.000/month, Fanbase 50.000
+(free after review), Starter 25.000 and Pro 150.000 per 30 days. Top-ups add requests to the
+current month. Payments run through MYPG (yobasepay.net): the dashboard creates a bill and
+the checkout page `/pay/<id>` polls `checkstatus` through the Worker until it is paid, then
+applies the purchase exactly once and only for the full amount.
+
+Fan communities apply for the Fanbase plan at `/dashboard/fanbase` with a detailed form,
+a required follow of the project's X account (`FANBASE_X_HANDLE`, default `JKT48Connect`)
+and their choice about being listed. Admins review applications, mint top-up vouchers,
+change plans and credit keys under **Developer API** in `/control/admin`. Approved fanbases
+that agreed to it appear on the landing page.
+
+```bash
+npx wrangler d1 migrations apply DB --remote   # adds the account tables (0008)
+npx wrangler secret put MYPG_API_KEY           # MYPG project key, never committed
+```
+
+Vars (also editable in the control panel): `API_KEY_REQUIRED` (`true` in `wrangler.jsonc`),
+`API_FREE_MONTHLY_LIMIT`, `API_FANBASE_MONTHLY_LIMIT`, `API_MAX_KEYS`,
+`API_KEY_EXEMPT_ORIGINS` (your own frontends; an `Origin` header is easy to forge, so prefer
+signed requests), `API_PRICES` (JSON, rupiah) and `FANBASE_X_HANDLE`.
+
 #### Pip, the docs assistant
 
 `POST /docs/assistant` streams answers from Mistral for the floating **Pip** chat on

@@ -59,7 +59,11 @@
     "DISABLE_SCREENSHOTS": "false",
     "HALF_SCREENSHOTS": "false",
     "ASSISTANT_ENABLED": "true",
-    "MISTRAL_MODEL": "mistral-medium-latest"
+    "MISTRAL_MODEL": "mistral-medium-latest",
+    "API_KEY_REQUIRED": "true",
+    "API_FREE_MONTHLY_LIMIT": "1000",
+    "API_MAX_KEYS": "3",
+    "API_KEY_EXEMPT_ORIGINS": ""
   },
   "d1_databases": [
     {

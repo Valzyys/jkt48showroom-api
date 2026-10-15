@@ -225,9 +225,15 @@ export function Landing({ catalog, guides }) {
           </div>
           <div className="terminal-line hero-fade" data-pip="hero-terminal">
             <span className="prompt">$</span>
-            <code>curl {BASE.replace("https://", "")}/api/news</code>
+            <code>curl -H "X-API-Key: $KEY" …/api/news</code>
             <i className="caret" aria-hidden="true" />
-            <Copy text={"curl '" + BASE + "/api/news'"} />
+            <Copy
+              text={
+                "curl '" +
+                BASE +
+                '/api/news\' -H "X-API-Key: $JKT48CONNECT_API_KEY"'
+              }
+            />
           </div>
         </div>
         <div className="hero-screen">
@@ -371,7 +377,7 @@ export function Landing({ catalog, guides }) {
               ["Pilih endpoint", "Cari di reference atau tekan ⌘K.", "search"],
               [
                 "Kirim request",
-                "News dan member terbuka tanpa API key.",
+                "Buat API key gratis, kirim lewat header X-API-Key.",
                 "play",
               ],
               ["Bangun idemu", "Tampilkan, simpan, atau olah datanya.", "home"],
@@ -516,6 +522,8 @@ export function Landing({ catalog, guides }) {
         </div>
       </section>
 
+      <FanbaseRoll />
+
       <section className="cta-card rv-clip" data-ascii-stage>
         <div className="cta-copy">
           <span className="eyebrow light">
@@ -554,6 +562,59 @@ export function Landing({ catalog, guides }) {
       </section>
       <Footer guides={guides} />
     </div>
+  );
+}
+
+// Fanbases approved in the program that agreed to be listed. Loaded from the
+// public roll; with none yet, the block stays an invitation.
+function FanbaseRoll() {
+  const [list, setList] = useState(null);
+  useEffect(() => {
+    fetch("/dashboard/api/fanbases")
+      .then((r) => (r.ok ? r.json() : { fanbases: [] }))
+      .then((d) => setList(d.fanbases || []))
+      .catch(() => setList([]));
+  }, []);
+  const names = list || [];
+  return (
+    <section className="block fanbase-roll" aria-labelledby="fanbase-roll">
+      <SectionHead
+        index="05"
+        label="DIBANGUN BERSAMA FANBASE"
+        title="Dibangun bersama"
+        muted="fanbase JKT48."
+      />
+      {names.length > 0 && (
+        <div className="fanbase-track" aria-label="Fanbase terdaftar">
+          <div className={"fanbase-row " + (names.length > 6 ? "moving" : "")}>
+            {(names.length > 6 ? [...names, ...names] : names).map((f, i) => (
+              <a
+                key={f.name + i}
+                href={"https://x.com/" + f.x}
+                target="_blank"
+                rel="noreferrer"
+                className="fanbase-chip"
+                aria-hidden={i >= names.length ? "true" : undefined}
+                tabIndex={i >= names.length ? -1 : undefined}
+              >
+                <PixelIcon name="user" size={11} />
+                <b>{f.name}</b>
+                <small>{f.focus}</small>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="fanbase-cta rv">
+        <p>
+          Kelola fanbase JKT48? Ajukan <b>program fanbase</b>: paket gratis
+          tanpa batas waktu untuk bot, website, dan proyek komunitasmu.
+        </p>
+        <Link className="btn btn-ink" href="/dashboard/fanbase" data-magnetic>
+          Ajukan fanbase <Icon size={14} />
+        </Link>
+      </div>
+    </section>
   );
 }
 

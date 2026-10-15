@@ -4,6 +4,10 @@ import { controlResponse } from './control/index.js';
 import { effectiveBindings } from './control/settings.js';
 import { serveMedia, rewriteMediaResponse } from './runtime/jkt48-media.js';
 import { documentation } from './docs/index.js';
+import { accountResponse } from './accounts/index.js';
+import { meter } from './accounts/metering.js';
+import { isJWTValid } from './utils/security/jwt.js';
+import { verifySignature } from './utils/security/signature.js';
 import { runWithEnv, env } from './runtime/env.js';
 import { streamProxy } from './runtime/proxy-core.js';
 import { ensureJKT48 } from './library/jkt48/scraper/sync.js';
@@ -61,15 +65,23 @@ export default {
     const control = await controlResponse(request,bindings,execution);
     if (control) return rewriteMediaResponse(control,request);
     bindings = await effectiveBindings(bindings);
+    const account = await accountResponse(request,bindings);
+    if (account) return account;
     const giftMedia=await serveGiftImage(request,bindings);if(giftMedia)return giftMedia;
     const media = await serveMedia(request,bindings);
     if (media) return media;
-    return runWithEnv({...bindings,REQUEST_ORIGIN:new URL(request.url).origin},execution,async()=>{
+    const scope={...bindings,REQUEST_ORIGIN:new URL(request.url).origin};
+    return runWithEnv(scope,execution,async()=>{
       const url=new URL(request.url);
       if(url.pathname==='/health') {
         try { if(!bindings.DB) throw new Error('Missing DB'); await bindings.DB.prepare('SELECT 1 FROM documents LIMIT 1').first(); return Response.json({ok:true,runtime:'cloudflare-workers'}); }
         catch { return Response.json({ok:false,runtime:'cloudflare-workers',message:'Database is not initialized'},{status:503}); }
       }
+      // Developer API keys: count the request against its monthly quota.
+      const metered=await meter(request,bindings,execution,{jwt:isJWTValid,signature:verifySignature});
+      if(metered.response) return cors(metered.response,request,bindings);
+      scope.API_CLIENT=metered.client;
+      return metered.finish(await (async()=>{
       try {
         if(url.pathname==='/api/stream') {
           if(request.method==='OPTIONS') return cors(new Response(null,{status:204}),request,bindings);
@@ -94,6 +106,7 @@ export default {
         const response=Response.json({status,message:status<500||status===502||status===504?error.message:'An error occurred!',path:url.pathname},{status});
         return url.pathname==='/api/stream'?cors(response,request,bindings):response;
       }
+      })());
     });
   },
   async scheduled(event,bindings,execution) {

@@ -3,7 +3,19 @@ import { routeHref } from "./request.js";
 // Pip writes action tags on its last line; the page only ever executes
 // navigation to known docs pages and highlights of data-pip targets.
 const TAG = /\[\[\s*(ENDPOINT|GUIDE|GO|POINT)\s*\|([^\]]*)\]\]/gi;
-const PAGES = new Set(["/", "/docs", "/docs/reference"]);
+const PAGES = new Set([
+  "/",
+  "/docs",
+  "/docs/reference",
+  "/register",
+  "/login",
+  "/dashboard",
+  "/dashboard/keys",
+  "/dashboard/usage",
+  "/dashboard/logs",
+  "/dashboard/billing",
+  "/dashboard/fanbase",
+]);
 
 export function splitReply(raw = "") {
   const actions = [...String(raw).matchAll(TAG)].map((m) => ({
@@ -52,6 +64,14 @@ export function resolveAction(action, catalog, guides) {
               "/": "Beranda",
               "/docs": "Dokumentasi",
               "/docs/reference": "API Reference",
+              "/register": "Daftar akun",
+              "/login": "Masuk",
+              "/dashboard": "Dashboard",
+              "/dashboard/keys": "API Keys",
+              "/dashboard/usage": "Analytics",
+              "/dashboard/logs": "Log request",
+              "/dashboard/billing": "Paket & tagihan",
+              "/dashboard/fanbase": "Program fanbase",
             }[first],
         }
       : null;

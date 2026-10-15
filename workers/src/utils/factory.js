@@ -18,12 +18,13 @@ export function handler(fetcher, options={}) {
     c.set('useSingleProcess',config.useSingleProcess&&!privateRequest);
     if(config.checkApiKey) {
       const token=c.req.header('x-api-key')||c.req.query('api_key');
-      if(!token || !(token===env.API_KEY || isJWTValid(token,env.JWT_SECRET))) throw unauthorized();
+      // A developer key that passed metering unlocks key-only routes too.
+      if(env.API_CLIENT?.kind!=='key' && (!token || !(token===env.API_KEY || isJWTValid(token,env.JWT_SECRET)))) throw unauthorized();
     }
     const origins=String(env.SECONDARY_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
     const origin=c.req.header('Origin');
     const apiKey=c.req.header('x-api-key')||c.req.query('api_key');
-    if(config.checkSignature && !origins.includes(origin) && !(env.API_KEY && apiKey===env.API_KEY)) {
+    if(config.checkSignature && !origins.includes(origin) && !(env.API_KEY && apiKey===env.API_KEY) && env.API_CLIENT?.kind!=='key') {
       const signature=c.req.header('x-signature'),nonce=c.req.header('x-nonce'),timestamp=c.req.header('x-timestamp'),source=c.req.header('x-source');
       if(!signature||!nonce||nonce.length>256||!timestamp) throw unauthorized();
       const seconds=Number(timestamp);
