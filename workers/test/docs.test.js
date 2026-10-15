@@ -187,9 +187,8 @@ test("only generated frontend assets reach the static binding and retain securit
 });
 
 test("request examples preserve authentication, parameters, body types, and safe Try boundaries", async () => {
-  const { requestCode, requestUrl, canTry, initialParams } = await import(
-    "../docs/ui/request.js"
-  );
+  const { requestCode, requestUrl, canTry, initialParams } =
+    await import("../docs/ui/request.js");
   const route = {
     method: "POST",
     path: "/api/item/:id",
@@ -208,7 +207,7 @@ test("request examples preserve authentication, parameters, body types, and safe
   assert.match(python, /"title": "true false null"/);
   assert.match(python, /"active": True/);
   assert.match(python, /"empty": None/);
-  assert.match(python, /SERVER_API_KEY/);
+  assert.match(python, /JKT48CONNECT_API_KEY/);
   assert.equal(canTry({ ...route, tryEnabled: true }), false);
   assert.equal(
     canTry({

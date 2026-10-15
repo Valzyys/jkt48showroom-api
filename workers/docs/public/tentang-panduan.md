@@ -22,6 +22,6 @@ Gunakan **API Reference** untuk melihat method, path, parameter, label akses, da
 
 ## Mulai dari data yang sederhana
 
-News dan member dapat diakses tanpa API key. Endpoint lain menampilkan kebutuhan aksesnya di referensi. Gunakan contoh yang sesuai dengan endpoint tujuan.
+Semua endpoint data memakai API key gratis dari [dashboard developer](/dashboard/keys). Mulai dari news dan member, lalu lanjut ke endpoint lain sesuai kebutuhan proyekmu.
 
 [Ikuti quick start →](/docs/guide/mulai-menggunakan)

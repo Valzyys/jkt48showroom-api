@@ -26,7 +26,13 @@ export async function documentation(request, bindings = {}) {
     path === "/" &&
     url.searchParams.get("format") !== "json" &&
     /\btext\/html\b/.test(request.headers.get("Accept") || "");
-  if (!landing && path !== "/docs" && !path.startsWith("/docs/")) return null;
+  // The developer dashboard and its sign-in pages are views of the same app.
+  const appPage =
+    /^\/(login|register|dashboard(\/(keys|usage|logs|billing|fanbase|account))?|pay\/JKC[A-F0-9]{16})\/?$/.test(
+      path,
+    );
+  if (!landing && !appPage && path !== "/docs" && !path.startsWith("/docs/"))
+    return null;
   if (path === "/docs/assistant") return assistant(request, bindings);
   const headers = {
     "Cache-Control": "public, max-age=0, must-revalidate",
@@ -82,7 +88,10 @@ export async function documentation(request, bindings = {}) {
     });
   const guide = assets.pages.find((g) => path === "/docs/guide/" + g.slug),
     page =
-      landing || ["/docs", "/docs/", "/docs/reference"].includes(path) || guide;
+      landing ||
+      appPage ||
+      ["/docs", "/docs/", "/docs/reference"].includes(path) ||
+      guide;
   if (page)
     return new Response(request.method === "HEAD" ? null : assets.html, {
       headers: { ...headers, "Content-Type": "text/html; charset=utf-8" },

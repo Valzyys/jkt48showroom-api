@@ -1,5 +1,5 @@
 import { useMotionEnabled } from "./motion.js";
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { gsap, useLocation, useReveal, navigate } from "./shared.jsx";
 import { Header } from "./header.jsx";
@@ -22,11 +22,25 @@ import "@fontsource-variable/geist-mono";
 import "@fontsource-variable/doto";
 import "./theme.css";
 
+// The developer area loads on demand: docs readers never download it.
+const AuthPage = lazy(() =>
+  import("./auth.jsx").then((m) => ({ default: m.AuthPage })),
+);
+const Dashboard = lazy(() =>
+  import("./dashboard.jsx").then((m) => ({ default: m.Dashboard })),
+);
+const PayPage = lazy(() =>
+  import("./dashboard.jsx").then((m) => ({ default: m.PayPage })),
+);
+
 function App({ catalog, guides }) {
   const motionEnabled = useMotionEnabled();
   const current = useLocation(),
     url = new URL(current, location.origin),
     docs = url.pathname.startsWith("/docs"),
+    auth = /^\/(login|register)\/?$/.test(url.pathname),
+    pay = url.pathname.match(/^\/pay\/(JKC[A-F0-9]{16})\/?$/),
+    dashboard = url.pathname.startsWith("/dashboard") || Boolean(pay),
     [searchOpen, setSearch] = useState(false),
     article = useRef();
   const guide = guides.find((g) => url.pathname === "/docs/guide/" + g.slug),
@@ -93,6 +107,10 @@ function App({ catalog, guides }) {
     return () => observer.disconnect();
   }, [current]);
   useEffect(() => {
+    if (auth || dashboard) {
+      document.documentElement.dataset.view = auth ? "auth" : "dashboard";
+      return;
+    }
     document.title =
       (docs
         ? (guide?.title ||
@@ -128,7 +146,36 @@ function App({ catalog, guides }) {
         catalog={catalog}
         guides={guides}
       />
-      {docs ? (
+      {auth || dashboard ? (
+        <Suspense
+          fallback={
+            <main id="main-content" className="dash-boot">
+              <div className="dash-skeleton">
+                <i />
+                <i />
+                <i />
+              </div>
+            </main>
+          }
+        >
+          {auth ? (
+            <main id="main-content" className="auth-main">
+              <AuthPage
+                mode={
+                  url.pathname.startsWith("/register") ? "register" : "login"
+                }
+              />
+            </main>
+          ) : pay ? (
+            <PayPage id={pay[1]} />
+          ) : (
+            <Dashboard
+              path={url.pathname.replace(/\/$/, "")}
+              search={url.search}
+            />
+          )}
+        </Suspense>
+      ) : docs ? (
         <div className="docs-layout">
           <aside className="docs-sidebar">
             <Sidebar catalog={catalog} guides={guides} current={url.pathname} />

@@ -6,6 +6,7 @@ import { runWithEnv } from '../runtime/env.js';
 import { ensureJKT48 } from '../library/jkt48/scraper/sync.js';
 import { serveMedia,storagePath } from '../runtime/jkt48-media.js';
 import { collectorMonitor } from './monitor.js';
+import { developerAdmin } from '../accounts/admin.js';
 const securityHeaders={
  'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
  'Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
@@ -36,6 +37,7 @@ export async function controlResponse(request,bindings,execution){
    return json({ok:true,email:bindings.CONTROL_ADMIN_EMAIL},200,{'Set-Cookie':await sessionCookie(bindings)});
   }
   if(!await authenticated(request,bindings))return json({message:'Login diperlukan'},401);
+  if(url.pathname==='/control/api/developers'||url.pathname.startsWith('/control/api/developers/'))return json(await developerAdmin(url,request,bindings,body));
   if(url.pathname==='/control/api/session'&&request.method==='GET')return json({email:bindings.CONTROL_ADMIN_EMAIL});
   if(url.pathname==='/control/api/logout'&&request.method==='POST')return json({ok:true},200,{'Set-Cookie':logoutCookie()});
   if(url.pathname==='/control/api/settings'&&request.method==='GET')return json({settings:await settingsView(bindings)});

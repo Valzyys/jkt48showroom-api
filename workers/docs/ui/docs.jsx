@@ -176,8 +176,8 @@ export function Overview({ catalog, guides }) {
           </span>
           <h2 id="request-pertama">Request pertama dalam satu baris.</h2>
           <p>
-            News dan member terbuka tanpa API key. Untuk recent dan integrasi
-            server, baca kebutuhan autentikasinya.
+            Buat API key gratis di dashboard, lalu kirim lewat header{" "}
+            <code>X-API-Key</code>. Key Free berisi 1.000 request per bulan.
           </p>
           <Link href="/docs/guide/mulai-menggunakan" className="btn btn-ink">
             Ikuti quick start <Icon size={14} />
@@ -288,6 +288,14 @@ function Endpoint({ route }) {
     [language, setLanguage] = useState("curl"),
     [output, setOutput] = useState(null),
     [busy, setBusy] = useState(false),
+    // The visitor's own key, kept only in this browser for the Try button.
+    [apiKey, setApiKey] = useState(() => {
+      try {
+        return localStorage.getItem("jkt48connect.tryKey") || "";
+      } catch {
+        return "";
+      }
+    }),
     abort = useRef(),
     response = useRef(),
     motionEnabled = useMotionEnabled();
@@ -325,7 +333,10 @@ function Endpoint({ route }) {
         method: "GET",
         credentials: "omit",
         redirect: "error",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          ...(apiKey.trim() ? { "X-API-Key": apiKey.trim() } : {}),
+        },
         signal: controller.signal,
       });
       const reader = result.body.getReader(),
@@ -482,6 +493,30 @@ function Endpoint({ route }) {
           Contoh memakai placeholder. Endpoint ini tidak dijalankan dari halaman
           docs.
         </p>
+      )}
+      {tryable && (
+        <label className="try-key" data-pip="try-key">
+          <span>
+            <PixelIcon name="key" size={11} /> API key untuk mencoba
+          </span>
+          <input
+            type="password"
+            value={apiKey}
+            placeholder="jkc_…"
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(e) => {
+              setApiKey(e.target.value);
+              try {
+                localStorage.setItem("jkt48connect.tryKey", e.target.value);
+              } catch {}
+            }}
+          />
+          <small>
+            Disimpan hanya di browser ini. Belum punya?{" "}
+            <Link href="/dashboard/keys">Buat API key gratis</Link>
+          </small>
+        </label>
       )}
       <div className="response-head">
         <h2 id="response">Respons</h2>

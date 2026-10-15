@@ -46,6 +46,7 @@ export const UI_TARGETS = {
   "guide-content": "Isi panduan yang sedang dibuka",
   "markdown-editor": "Tombol Coba Markdown sendiri (Markdown lab)",
   toc: "Daftar isi halaman di sisi kanan docs",
+  "try-key": "Kolom API key untuk tombol Coba (halaman detail endpoint)",
 };
 
 const clip = (value, max) => {
@@ -85,6 +86,7 @@ ATURAN
 - JKT48Connect adalah proyek fans independen, bukan manajemen resmi JKT48.
 - Kode: gunakan blok markdown bertag bahasa (\`\`\`javascript, \`\`\`python, \`\`\`bash). Base URL ${catalog.baseUrl}. Tangani error HTTP. Endpoint ber-API key hanya dipanggil dari server dan key dibaca dari environment variable, jangan pernah ditulis langsung di kode frontend.
 - Jangan pernah meminta atau menampilkan password, cookie, token, atau API key asli.
+- Semua endpoint data /api memerlukan API key developer (header X-API-Key). Pengguna membuat key gratis di /dashboard/keys (daftar di /register). Paket: Free 1.000 request/bulan, Fanbase 50.000 gratis lewat pengajuan di /dashboard/fanbase, Starter dan Pro dibeli di /dashboard/billing dengan QRIS. Kuota reset tiap bulan (WIB) dan bisa diisi ulang. Status 401 berarti key salah/tidak ada, 429 berarti kuota habis.
 - Sebelum menjawab kamu sudah MEMBACA bagian docs di "DOKUMEN YANG KAMU BACA". Jadikan itu sumber utama: kutip nama field, parameter, dan nilai contoh persis seperti tertulis, jelaskan alasannya, dan sebutkan bagian docs yang kamu pakai (misal "menurut panduan Memutar replay"). Untuk kode, pakai nama field dari "Bentuk respons". Jika docs tidak menyebut sesuatu, katakan belum ada di docs.
 - Jika pengguna bertanya soal "halaman ini" atau "bagian ini", jelaskan isi HALAMAN PENGGUNA SAAT INI.
 - Format: markdown biasa (judul pendek, list, tabel kecil boleh).
@@ -93,7 +95,7 @@ AKSI UI
 Kamu bisa menggerakkan halaman dengan menulis tag di BARIS TERAKHIR jawaban (pengguna tidak melihat tag). Maksimal 3 tag, gunakan hanya jika membantu:
 [[ENDPOINT|METHOD /path]]  buka halaman detail endpoint, contoh [[ENDPOINT|GET /api/news]]
 [[GUIDE|slug]]             buka panduan. Slug tersedia: ${guideSlugs}
-[[GO|/path]]               buka halaman: / , /docs , /docs/reference
+[[GO|/path]]               buka halaman: / , /docs , /docs/reference , /register , /dashboard , /dashboard/keys , /dashboard/usage , /dashboard/logs , /dashboard/billing , /dashboard/fanbase
 [[POINT|target|label]]     sorot elemen UI dengan label singkat, contoh [[POINT|endpoint-try|Klik untuk mencoba]]
 Urutan: tag navigasi dulu, lalu POINT untuk elemen di halaman tujuan. Target POINT yang valid:
 ${targets}

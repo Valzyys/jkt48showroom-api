@@ -74,4 +74,32 @@ $('#sync-all').onclick=()=>operation($('#sync-all'),'sync',{dataset:'all'});
 $('#clear-cache').onclick=()=>{if(confirm('Hapus cache respons API? Data dan gambar R2 tetap tersimpan.'))operation($('#clear-cache'),'cache/clear');};
 $('#warm-media').onclick=()=>operation($('#warm-media'),'media/warm');
 $('#settings-form').onsubmit=e=>e.preventDefault();
+// Fanbase applications: review details, then approve or reject with a note.
+let fanbaseStatus='PENDING';
+async function fanbases(){
+ document.querySelectorAll('[data-fb-status]').forEach(b=>b.classList.toggle('primary',b.dataset.fbStatus===fanbaseStatus));
+ const data=await api('developers/fanbase?status='+fanbaseStatus);
+ const link=url=>`<a href="${escape(url)}" target="_blank" rel="noreferrer noopener">${escape(url)}</a>`;
+ $('#fanbase-list').innerHTML=data.applications.length?data.applications.map(a=>{const d=a.details;return `<article class="field"><div class="field-head"><label>${escape(a.name)} · <a href="https://x.com/${escape(a.x)}" target="_blank" rel="noreferrer noopener">@${escape(a.x)}</a></label><span class="badge">${escape(a.status)}${a.listing?' · BOLEH DICANTUMKAN':' · TIDAK DICANTUMKAN'}</span></div><p>${escape(d.kindLabel)} · fokus ${escape(d.focus)} · berdiri ${escape(d.founded)} · ±${Number(d.followers).toLocaleString('id-ID')} pengikut${d.instagram?' · IG @'+escape(d.instagram):''}${d.tiktok?' · TikTok @'+escape(d.tiktok):''}</p><p><strong>Follow X:</strong> <a href="https://x.com/${escape(d.follower)}" target="_blank" rel="noreferrer noopener">@${escape(d.follower)}</a> · <strong>Pengelola:</strong> ${escape(d.admin)} (${escape(d.contact)}) · <strong>Akun:</strong> ${escape(a.account.name)} &lt;${escape(a.account.email)}&gt; · <strong>Key:</strong> ${escape(a.key.name)} <code>${escape(a.key.preview)}</code></p><p><strong>Bukti:</strong> ${d.links.map(link).join(' · ')}</p><p><strong>Rencana:</strong> ${escape(d.usage)}</p>${a.note?`<p><strong>Catatan:</strong> ${escape(a.note)}</p>`:''}<div class="field-footer"><span>Diajukan ${new Date(a.createdAt).toLocaleString('id-ID')}</span><span>${a.status!=='APPROVED'?`<button type="button" class="primary" data-fb-review="${a.id}" data-decision="APPROVED">Setujui</button> `:''}${a.status!=='REJECTED'?`<button type="button" data-fb-review="${a.id}" data-decision="REJECTED">${a.status==='APPROVED'?'Cabut persetujuan':'Tolak'}</button>`:''}</span></div></article>`;}).join(''):'<p>Tidak ada pengajuan dengan status ini.</p>';
+ document.querySelectorAll('[data-fb-review]').forEach(button=>button.onclick=async()=>{const decision=button.dataset.decision;const note=prompt(decision==='APPROVED'?'Catatan untuk fanbase (opsional)':'Alasan penolakan (dibaca pemohon)','');if(note===null)return;try{await api('developers/fanbase/'+button.dataset.fbReview,{method:'PUT',body:JSON.stringify({status:decision,note})});toast(decision==='APPROVED'?'Fanbase disetujui.':'Pengajuan ditolak.');await fanbases();}catch(e){toast(e.message);}});
+}
+$('#fanbase-card').addEventListener('toggle',()=>{if($('#fanbase-card').open)fanbases().catch(e=>toast(e.message));});
+document.querySelectorAll('[data-fb-status]').forEach(b=>b.onclick=()=>{fanbaseStatus=b.dataset.fbStatus;fanbases().catch(e=>toast(e.message));});
+// Developer accounts: plans per key, admin top-ups, and voucher codes.
+let developerTimer=null;
+async function developers(){
+ const q=$('#developer-search').value.trim();
+ const data=await api('developers'+(q?'?q='+encodeURIComponent(q):''));
+ $('#developer-totals').innerHTML=[['Akun',data.totals.accounts],['Key aktif',data.totals.keys],['Request '+data.period,data.totals.requests],['Voucher belum dipakai',data.totals.vouchers]].map(([k,v])=>`<div class="metric"><span>${escape(k)}</span><strong>${escape(Number(v).toLocaleString('id-ID'))}</strong></div>`).join('');
+ const options=key=>data.plans.map(p=>`<option value="${escape(p.id)}" ${p.id===key.plan?'selected':''}>${escape(p.label)} · ${Number(p.monthly).toLocaleString('id-ID')}/bln</option>`).join('');
+ $('#developer-list').innerHTML=data.accounts.length?`<table><thead><tr><th>Akun</th><th>Key</th><th>Pemakaian</th><th>Paket</th><th>Isi ulang</th></tr></thead><tbody>${data.accounts.flatMap(a=>(a.keys.length?a.keys:[null]).map((k,i)=>`<tr>${i===0?`<td rowspan="${Math.max(1,a.keys.length)}"><strong>${escape(a.name)}</strong><br><small>${escape(a.email)}</small></td>`:''}${k?`<td>${escape(k.name)}<br><code>${escape(k.preview)}</code>${k.revokedAt?' <small>(dicabut)</small>':''}</td><td>${Number(k.used).toLocaleString('id-ID')} / ${Number(k.limit).toLocaleString('id-ID')}</td><td><select data-plan="${k.id}" ${k.revokedAt?'disabled':''}>${options(k)}</select></td><td><button type="button" data-topup="${k.id}" ${k.revokedAt?'disabled':''}>+ request</button></td>`:'<td colspan="4"><small>Belum membuat key</small></td>'}</tr>`)).join('')}</tbody></table>`:'<p>Belum ada akun developer.</p>';
+ document.querySelectorAll('[data-plan]').forEach(select=>select.onchange=async()=>{try{await api('developers/keys/'+select.dataset.plan,{method:'PUT',body:JSON.stringify({plan:select.value})});toast('Paket diperbarui.');await developers();}catch(e){toast(e.message);}});
+ document.querySelectorAll('[data-topup]').forEach(button=>button.onclick=async()=>{const value=prompt('Tambah berapa request untuk bulan ini?','5000');if(!value)return;try{await api('developers/keys/'+button.dataset.topup+'/topup',{method:'POST',body:JSON.stringify({requests:Number(value)})});toast('Kuota ditambahkan.');await developers();}catch(e){toast(e.message);}});
+}
+$('#developers-card').addEventListener('toggle',()=>{if($('#developers-card').open)developers().catch(e=>toast(e.message));});
+$('#developer-search').oninput=()=>{clearTimeout(developerTimer);developerTimer=setTimeout(()=>developers().catch(e=>toast(e.message)),300);};
+$('#voucher-form').onsubmit=async e=>{
+ e.preventDefault();const form=new FormData(e.target);
+ try{const data=await api('developers/vouchers',{method:'POST',body:JSON.stringify({requests:Number(form.get('requests')),count:Number(form.get('count')),note:form.get('note')})});$('#voucher-codes').hidden=false;$('#voucher-codes').textContent=data.codes.join('\n')+'\n\n'+data.requests+' request per kode. Simpan sekarang: kode tidak bisa ditampilkan lagi.';await developers();}catch(error){toast(error.message);}
+};
 load().catch(()=>showLogin());

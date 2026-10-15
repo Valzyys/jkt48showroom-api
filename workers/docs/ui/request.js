@@ -35,7 +35,16 @@ export function requestUrl(
 }
 export function exampleHeaders(route) {
   const headers = { ...route.headers };
-  if (/API key/.test(route.auth)) headers["x-api-key"] = "SERVER_API_KEY";
+  // Every data route spends the caller's quota: examples carry a developer
+  // key placeholder (create one at /dashboard/keys).
+  if (
+    /API key/.test(route.auth) ||
+    (route.path.startsWith("/api/") &&
+      !/^\/api\/(stream|beta|auth|user|showroom|admin|profile)(\/|$)/.test(
+        route.path,
+      ))
+  )
+    headers["X-API-Key"] = "JKT48CONNECT_API_KEY";
   if (route.contentType && route.contentType !== "multipart/form-data")
     headers["Content-Type"] = route.contentType;
   return headers;
