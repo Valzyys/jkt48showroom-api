@@ -107,10 +107,31 @@ export function Empty({ icon = "pulse", title, children }) {
 
 export function Loading({ rows = 3 }) {
   return (
-    <div className="dash-skeleton" aria-label="Memuat">
-      {Array.from({ length: rows }, (_, i) => (
-        <i key={i} />
-      ))}
+    <div className="dash-loading" role="status" aria-label="Memuat">
+      <div className="dash-loading-head" aria-hidden="true">
+        <span className="dash-loading-mark">
+          {Array.from({ length: 9 }, (_, i) => (
+            <i key={i} />
+          ))}
+        </span>
+        <span className="dash-loading-text">
+          <b>Memuat data</b>
+          <small className="dash-loading-ticker">
+            <span>menghubungkan ke D1…</span>
+            <span>menghitung kuota…</span>
+            <span>merapikan grafik…</span>
+            <span>hampir selesai…</span>
+          </small>
+        </span>
+        <span className="dash-loading-bar">
+          <i />
+        </span>
+      </div>
+      <div className="dash-skeleton" aria-hidden="true">
+        {Array.from({ length: rows }, (_, i) => (
+          <i key={i} style={{ animationDelay: i * 0.12 + "s" }} />
+        ))}
+      </div>
     </div>
   );
 }

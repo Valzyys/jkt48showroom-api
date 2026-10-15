@@ -632,8 +632,15 @@ function Settings({ settings, reload }) {
       <aside className="dash-panel ctl-groups">
         <label className="fb-field">
           <span>Cari pengaturan</span>
+          {/* Not a login form: keep password managers from filling the
+              saved email into the search box. */}
           <input
             type="search"
+            name="ctl-settings-filter"
+            autoComplete="off"
+            data-lpignore="true"
+            data-1p-ignore=""
+            data-form-type="other"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="apikey, scraper, origin…"
@@ -705,7 +712,10 @@ function Settings({ settings, reload }) {
                 <p>{s.description}</p>
                 <input
                   type={s.secret ? "password" : "text"}
-                  autoComplete="off"
+                  name={"setting-" + s.name}
+                  autoComplete={s.secret ? "new-password" : "off"}
+                  data-lpignore="true"
+                  data-1p-ignore=""
                   spellCheck={false}
                   value={changed ? (pending[s.name] ?? "") : s.value}
                   placeholder={
