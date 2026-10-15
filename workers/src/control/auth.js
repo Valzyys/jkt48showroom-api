@@ -27,3 +27,8 @@ export async function authenticated(request,bindings){
     return json.sub===bindings.CONTROL_ADMIN_EMAIL&&Number.isSafeInteger(json.exp)&&json.exp>Math.floor(Date.now()/1000);
   }catch{return false;}
 }
+// CSRF token bound to the control session cookie, handed out by /session.
+export async function controlCsrf(request,bindings){
+  const token=request.headers.get('Cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
+  return token&&bindings.CONTROL_SESSION_SECRET?(await signature(token+':csrf',bindings.CONTROL_SESSION_SECRET)).slice(0,48):null;
+}

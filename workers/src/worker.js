@@ -6,6 +6,7 @@ import { serveMedia, rewriteMediaResponse } from './runtime/jkt48-media.js';
 import { documentation } from './docs/index.js';
 import { accountResponse } from './accounts/index.js';
 import { meter } from './accounts/metering.js';
+import { withoutKeyParams } from './accounts/capture.js';
 import { isJWTValid } from './utils/security/jwt.js';
 import { verifySignature } from './utils/security/signature.js';
 import { runWithEnv, env } from './runtime/env.js';
@@ -81,6 +82,8 @@ export default {
       const metered=await meter(request,bindings,execution,{jwt:isJWTValid,signature:verifySignature});
       if(metered.response) return cors(metered.response,request,bindings);
       scope.API_CLIENT=metered.client;
+      // A developer key in the query is spent here; routes and caches never see it.
+      if(metered.client?.kind==='key')request=withoutKeyParams(request);
       return metered.finish(await (async()=>{
       try {
         if(url.pathname==='/api/stream') {

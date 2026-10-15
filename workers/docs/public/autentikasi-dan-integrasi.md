@@ -25,6 +25,23 @@ if (!response.ok) throw new Error(`HTTP ${response.status}`);
 const data = await response.json();
 ```
 
+### Key lewat query
+
+Bila klien tidak bisa menambah header (webhook, bot sederhana, spreadsheet), kirim key sebagai parameter `apikey` atau `api_key`:
+
+```sh
+curl "https://api.jkt48connect.app/api/news?page=1&apikey=${JKT48CONNECT_API_KEY}"
+```
+
+Header `X-API-Key` tetap didahulukan bila keduanya dikirim. Parameter key dihapus sebelum request diproses, jadi tidak ikut tersimpan di cache maupun diteruskan ke sumber data.
+
+> [!WARNING]
+> URL mudah bocor lewat riwayat browser, log proxy, dan header `Referer`. Pakai query hanya untuk klien server-ke-server, dan [buat key baru](/dashboard/keys) bila URL ber-key pernah dibagikan.
+
+## Detail setiap request
+
+[Log request](/dashboard/logs) di dashboard menyimpan detail tiap panggilan selama 7 hari: IP, negara, kota, jaringan/ISP, user agent, origin, cara key dikirim (header atau query), query, header, dan nama cookie. Nilai rahasia seperti key, `Authorization`, dan isi cookie disamarkan sebelum disimpan.
+
 > [!IMPORTANT]
 > `JKT48CONNECT_API_KEY` pada contoh referensi adalah placeholder. Tombol **Coba GET** di referensi memakai key yang kamu isi sendiri dan menyimpannya hanya di browser-mu.
 
@@ -68,7 +85,7 @@ flowchart LR
 
 | Status | Arti | Yang perlu dilakukan |
 | --- | --- | --- |
-| `401` | Key tidak ada, salah, atau sudah dicabut | Kirim header `X-API-Key` dengan key aktif dari dashboard |
+| `401` | Key tidak ada, salah, atau sudah dicabut | Kirim header `X-API-Key` (atau `?apikey=`) dengan key aktif dari dashboard |
 | `429` | Kuota bulanan key habis | Isi ulang atau upgrade paket, atau tunggu reset; lihat `Retry-After` |
 
 Pantau pemakaian, error, dan log setiap request di [dashboard](/dashboard).

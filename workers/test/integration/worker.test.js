@@ -208,9 +208,14 @@ test('Workers runtime integrates routes, D1, proxy, authentication, beta and Web
     assert.equal((await call('/control/api/settings')).status,401);
     const loginBody=JSON.stringify({email:'admin@example.test',password:'synthetic-admin-password'});
     assert.equal((await call('/control/api/login',{method:'POST',headers:{Origin:'https://evil.test'},body:loginBody})).status,403);
-    const login=await call('/control/api/login',{method:'POST',headers:{Origin:'https://worker.test'},body:loginBody});
+    assert.equal((await call('/control/api/login',{method:'POST',headers:{Origin:'https://worker.test'},body:loginBody})).status,403,'writes need X-Requested-With');
+    const login=await call('/control/api/login',{method:'POST',headers:{Origin:'https://worker.test','X-Requested-With':'jkt48connect'},body:loginBody});
     assert.equal(login.status,200,await login.clone().text());const cookie=login.headers.get('Set-Cookie');assert.match(cookie,/HttpOnly; Secure; SameSite=Strict/);
-    const authHeaders={Cookie:cookie,Origin:'https://worker.test'};
+    const session=await (await call('/control/api/session',{headers:{Cookie:cookie}})).json();
+    assert.match(session.csrf,/^[a-f0-9]{48}$/);
+    const authHeaders={Cookie:cookie,Origin:'https://worker.test','X-Requested-With':'jkt48connect','X-CSRF-Token':session.csrf};
+    assert.equal((await call('/control/api/cache/clear',{method:'POST',headers:{...authHeaders,'X-CSRF-Token':'0'.repeat(48)},body:'{}'})).status,403);
+    assert.equal((await call('/control/api/settings',{headers:{Cookie:cookie,'Sec-Fetch-Site':'cross-site'}})).status,403);
     const settings=await (await call('/control/api/settings',{headers:authHeaders})).json();
     assert.equal(settings.settings.find(s=>s.name==='API_KEY').value,'');
     const newKey='synthetic-control-api-key-'.padEnd(64,'x');

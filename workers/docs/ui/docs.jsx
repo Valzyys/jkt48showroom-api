@@ -6,7 +6,7 @@ import { PixelIcon, LangLogo, guideIcon } from "./icons.jsx";
 import {
   gsap,
   BASE,
-  GitHub,
+  SITE,
   Icon,
   Link,
   Copy,
@@ -419,16 +419,6 @@ function Endpoint({ route }) {
           <span className="meta">
             {route.contentType || "Respons mengikuti endpoint"}
           </span>
-          {route.source && (
-            <a
-              className="meta link"
-              href={route.source}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Implementasi <Icon name="external" size={12} />
-            </a>
-          )}
         </div>
       </header>
       <Suspense fallback={<p className="loading-note">Memuat deskripsi…</p>}>
@@ -557,14 +547,14 @@ function Endpoint({ route }) {
                     (output.size
                       ? " · " + (output.size / 1024).toFixed(1) + " KiB"
                       : "")
-                  : route.responseLabel || "Contoh berdasarkan source"}
+                  : route.responseLabel || "Contoh respons"}
               </span>
             </span>
           }
           code={
             output?.body ??
             (sample === undefined
-              ? "Contoh output belum tersedia untuk route ini. Lihat implementasi dan panduan autentikasi."
+              ? "Contoh output belum tersedia untuk route ini. Coba langsung dengan API key-mu."
               : JSON.stringify(shortResponse(sample), null, 2))
           }
         />
@@ -578,7 +568,7 @@ function Endpoint({ route }) {
       {route.successExample && route.response && (
         <details className="extra-example">
           <summary>
-            <LangLogo language="json" size={15} /> Contoh sukses dari source
+            <LangLogo language="json" size={15} /> Contoh respons sukses
           </summary>
           <CodeBlock
             code={JSON.stringify(route.successExample, null, 2)}
@@ -789,8 +779,8 @@ export function Toc({ article, page }) {
           className="toc-ascii"
         />
         <strong>Ada yang kurang?</strong>
-        <a href={GitHub + "/issues"} target="_blank" rel="noreferrer">
-          Buka issue <Icon name="external" size={12} />
+        <a href={SITE} target="_blank" rel="noreferrer">
+          Hubungi JKT48Connect <Icon name="external" size={12} />
         </a>
         <a href="/docs/guide.md" download>
           Unduh Markdown <Icon name="down" size={12} />

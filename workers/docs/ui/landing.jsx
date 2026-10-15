@@ -2,13 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { useMotionEnabled } from "./motion.js";
 import { AsciiScene } from "./ascii-scene.jsx";
 import { AsciiFriend } from "./personality.jsx";
-import { Mark, PixelIcon, GitHubIcon } from "./icons.jsx";
+import { Mark, PixelIcon } from "./icons.jsx";
 import {
   gsap,
   ScrollTrigger,
   SplitText,
   BASE,
-  GitHub,
+  SITE,
   Icon,
   Link,
   Copy,
@@ -539,12 +539,12 @@ export function Landing({ catalog, guides }) {
             </Link>
             <a
               className="btn btn-ghost btn-lg"
-              href={GitHub}
+              href={SITE}
               target="_blank"
               rel="noreferrer"
               data-magnetic
             >
-              <GitHubIcon size={15} /> Source
+              <Icon name="globe" size={15} /> jkt48connect.com
             </a>
           </div>
         </div>
@@ -657,12 +657,10 @@ export function Footer({ guides = [] }) {
         </nav>
         <nav aria-label="Sumber">
           <span className="footer-label">SUMBER</span>
-          <a href={GitHub} target="_blank" rel="noreferrer">
-            GitHub ↗
+          <a href={SITE} target="_blank" rel="noreferrer">
+            jkt48connect.com ↗
           </a>
-          <a href={GitHub + "/issues"} target="_blank" rel="noreferrer">
-            Laporkan masalah ↗
-          </a>
+          <Link href="/dashboard">Dashboard developer</Link>
           <a href="/docs/guide.md" download>
             Panduan .md ↓
           </a>

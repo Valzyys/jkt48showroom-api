@@ -66,14 +66,21 @@ afterEach(() => {
 });
 
 function client(bindings) {
-  let cookie = "";
+  let cookie = "",
+    csrf = "";
   const call = async (method, path, body, headers = {}) => {
     const response = await accountResponse(
       new Request(ORIGIN + "/dashboard/api" + path, {
         method,
         headers: {
           ...(body ? { "Content-Type": "application/json" } : {}),
-          ...(method !== "GET" ? { Origin: ORIGIN } : {}),
+          ...(method !== "GET"
+            ? {
+                Origin: ORIGIN,
+                "X-Requested-With": "jkt48connect",
+                ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+              }
+            : {}),
           ...(cookie ? { Cookie: cookie } : {}),
           "User-Agent": "test-agent",
           ...headers,
@@ -84,9 +91,11 @@ function client(bindings) {
     );
     const set = response.headers.get("Set-Cookie");
     if (set) cookie = set.split(";")[0].endsWith("=") ? "" : set.split(";")[0];
-    return { status: response.status, data: await response.json(), set };
+    const data = await response.json();
+    if (typeof data.csrf === "string") csrf = data.csrf;
+    return { status: response.status, data, set };
   };
-  return { call, cookie: () => cookie };
+  return { call, cookie: () => cookie, csrf: () => csrf };
 }
 
 async function signedUp(bindings, email = "dev@example.test") {
@@ -205,7 +214,11 @@ test("state changes need this origin and JSON", async () => {
   const plain = await accountResponse(
     new Request(ORIGIN + "/dashboard/api/login", {
       method: "POST",
-      headers: { Origin: ORIGIN, "Content-Type": "text/plain" },
+      headers: {
+        Origin: ORIGIN,
+        "X-Requested-With": "jkt48connect",
+        "Content-Type": "text/plain",
+      },
       body: "{}",
     }),
     bindings,
@@ -473,6 +486,10 @@ test("MYPG payments buy plans and top-ups once, only for the full amount", async
   const calls = [];
   let state = { status: "PENDING", amount: 15037 };
   globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith("https://yobasepay.net/qr_render"))
+      return new Response(new Uint8Array([137, 80, 78, 71]), {
+        headers: { "Content-Type": "image/png" },
+      });
     const body = new URLSearchParams(init.body);
     calls.push({ url: String(url), body: Object.fromEntries(body) });
     const action = new URL(url).searchParams.get("action");
@@ -511,7 +528,8 @@ test("MYPG payments buy plans and top-ups once, only for the full amount", async
   assert.equal(made.status, 201);
   const pay = made.data.payment;
   assert.equal(pay.amount, 15037);
-  assert.equal(pay.qrImage, "https://yobasepay.net/qr_render?payload=x");
+  // The QR is always served from our own origin.
+  assert.equal(pay.qrImage, "/dashboard/api/payments/" + pay.id + "/qr");
   assert.equal(pay.paymentUrl, null, "foreign pay links are dropped");
   // The project key travels in the body only.
   assert.equal(calls[0].body.api_key, "mypg-secret");
@@ -522,6 +540,16 @@ test("MYPG payments buy plans and top-ups once, only for the full amount", async
   assert.equal(
     (await c.call("GET", "/payments/" + pay.id)).data.payment.status,
     "PENDING",
+  );
+  const qr = await accountResponse(
+    new Request(ORIGIN + pay.qrImage, { headers: { Cookie: c.cookie() } }),
+    bindings,
+  );
+  assert.equal(qr.status, 200);
+  assert.equal(qr.headers.get("Content-Type"), "image/png");
+  assert.equal(
+    (await accountResponse(new Request(ORIGIN + pay.qrImage), bindings)).status,
+    401,
   );
   DB.sqlite.prepare("UPDATE api_payments SET checked_at=0").run();
   state = { status: "SUCCESS", amount: 14000 };
@@ -731,5 +759,117 @@ test("fanbase applications need the full form, a follow, and admin review", asyn
   assert.equal(
     (await c.call("POST", "/fanbase", { ...form, listing: false })).status,
     201,
+  );
+});
+
+test("QR sources accept every shape the gateway sends", async () => {
+  const { qrSource } = await import("../src/accounts/payments.js");
+  assert.equal(
+    qrSource({ qr_image: "http://yobasepay.net/qr_render?payload=1" }),
+    "http://yobasepay.net/qr_render?payload=1",
+  );
+  assert.equal(
+    qrSource({ qr_image: "/qr_render?payload=2" }),
+    "https://yobasepay.net/qr_render?payload=2",
+  );
+  assert.equal(
+    qrSource({ qr_image: "data:image/png;base64,iVBORw0KGgo=" }),
+    "data:image/png;base64,iVBORw0KGgo=",
+  );
+  assert.equal(
+    qrSource({
+      qr_string:
+        "00020101021226610016ID.CO.SHOPEE.WWW01189360091800000000000202",
+    }),
+    "https://yobasepay.net/qr_render?payload=00020101021226610016ID.CO.SHOPEE.WWW01189360091800000000000202",
+  );
+  assert.equal(qrSource({ qr_image: "javascript:alert(1)" }), null);
+  assert.equal(qrSource({}), null);
+});
+
+test("dashboard writes need the session CSRF token and same-site fetch metadata", async () => {
+  const bindings = { DB: d1(), DASHBOARD_ADMIN_EMAILS: "Admin@Example.test" };
+  const c = await signedUp(bindings);
+  const raw = (headers) =>
+    accountResponse(
+      new Request(ORIGIN + "/dashboard/api/keys", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: ORIGIN,
+          Cookie: c.cookie(),
+          ...headers,
+        },
+        body: JSON.stringify({ name: "x" }),
+      }),
+      bindings,
+    );
+  assert.equal(
+    (await raw({ "X-Requested-With": "jkt48connect" })).status,
+    403,
+    "no token",
+  );
+  assert.equal(
+    (
+      await raw({
+        "X-Requested-With": "jkt48connect",
+        "X-CSRF-Token": "f".repeat(48),
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (await raw({ "X-CSRF-Token": c.csrf() })).status,
+    403,
+    "no custom header",
+  );
+  assert.equal(
+    (
+      await raw({
+        "X-Requested-With": "jkt48connect",
+        "X-CSRF-Token": c.csrf(),
+      })
+    ).status,
+    201,
+  );
+  const cross = await accountResponse(
+    new Request(ORIGIN + "/dashboard/api/keys", {
+      headers: { Cookie: c.cookie(), "Sec-Fetch-Site": "cross-site" },
+    }),
+    bindings,
+  );
+  assert.equal(cross.status, 403);
+  const ok = await accountResponse(
+    new Request(ORIGIN + "/dashboard/api/keys", {
+      headers: { Cookie: c.cookie() },
+    }),
+    bindings,
+  );
+  assert.equal(ok.headers.get("X-Frame-Options"), "DENY");
+  assert.equal(ok.headers.get("Cross-Origin-Resource-Policy"), "same-origin");
+  assert.match(
+    ok.headers.get("Content-Security-Policy"),
+    /frame-ancestors 'none'/,
+  );
+  // A new session gets a new token; the old one stops working.
+  const old = c.csrf();
+  await c.call("POST", "/login", {
+    email: "dev@example.test",
+    password: "rahasia123",
+  });
+  assert.notEqual(c.csrf(), old);
+
+  // Admin rights follow the configured email, case-insensitively.
+  assert.equal((await c.call("GET", "/session")).data.account.admin, false);
+  assert.equal((await c.call("GET", "/admin")).status, 403);
+  const admin = await signedUp(bindings, "admin@example.test");
+  assert.equal((await admin.call("GET", "/session")).data.account.admin, true);
+  const overview = await admin.call("GET", "/admin");
+  assert.equal(overview.status, 200);
+  assert.equal(overview.data.totals.accounts, 2);
+  assert.equal((await admin.call("GET", "/admin/payments")).status, 200);
+  assert.equal(
+    (await admin.call("DELETE", "/account", { password: "rahasia123" })).status,
+    403,
   );
 });

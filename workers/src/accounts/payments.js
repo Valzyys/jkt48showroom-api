@@ -61,6 +61,96 @@ const safeUrl = (value) => {
   }
 };
 
+// The gateway's QR comes in several shapes: an absolute URL (http or https,
+// any of its hosts), a path on yobasepay.net, a data: image, or only the raw
+// QRIS payload. Keep whatever arrives; the browser always loads it through
+// our own /payments/<id>/qr so the page never depends on the gateway's host.
+const QR_FIELDS = ["qr_image", "qr_url", "qris_image", "qr_link", "qr"];
+const PAYLOAD_FIELDS = [
+  "qr_string",
+  "qris",
+  "qr_content",
+  "qris_string",
+  "payload",
+];
+export function qrSource(data = {}) {
+  for (const field of QR_FIELDS) {
+    const value = typeof data[field] === "string" ? data[field].trim() : "";
+    if (!value) continue;
+    if (
+      /^data:image\/(png|jpeg|gif|webp|svg\+xml);base64,[a-z0-9+/=\s]+$/i.test(
+        value,
+      )
+    )
+      return value.length <= 400000 ? value : null;
+    try {
+      const url = new URL(value, "https://yobasepay.net/");
+      if (
+        ["http:", "https:"].includes(url.protocol) &&
+        !url.username &&
+        !url.password
+      )
+        return url.href.slice(0, 4000);
+    } catch {}
+  }
+  for (const field of PAYLOAD_FIELDS) {
+    const value = typeof data[field] === "string" ? data[field].trim() : "";
+    if (/^000201[\x20-\x7e]{20,600}$/.test(value))
+      return (
+        "https://yobasepay.net/qr_render?payload=" + encodeURIComponent(value)
+      );
+  }
+  return null;
+}
+
+// Private and loopback hosts are never fetched on a user's behalf.
+const privateHost = (host) =>
+  /^(localhost|0\.|10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|\[|::|fc|fd)/i.test(
+    host,
+  ) ||
+  host.endsWith(".internal") ||
+  host.endsWith(".local");
+
+export async function qrImage(row) {
+  const source = row.qr_image;
+  if (!source || row.status !== "PENDING") fail(404, "QR tidak tersedia");
+  const headers = {
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "private, max-age=120",
+    "Cross-Origin-Resource-Policy": "same-origin",
+  };
+  const inline = source.match(/^data:(image\/[a-z+]+);base64,(.+)$/is);
+  if (inline) {
+    const bytes = Uint8Array.from(atob(inline[2].replace(/\s/g, "")), (c) =>
+      c.charCodeAt(0),
+    );
+    return new Response(bytes, {
+      headers: { ...headers, "Content-Type": inline[1] },
+    });
+  }
+  const url = new URL(source);
+  if (privateHost(url.hostname)) fail(404, "QR tidak tersedia");
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: { Accept: "image/*" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch {
+    fail(502, "Gambar QR tidak dapat diambil");
+  }
+  const type = response.headers.get("Content-Type") || "";
+  if (!response.ok || !/^image\//i.test(type))
+    fail(502, "Gambar QR tidak valid");
+  const body = await response.arrayBuffer();
+  if (body.byteLength > 1048576) fail(502, "Gambar QR terlalu besar");
+  return new Response(body, {
+    headers: { ...headers, "Content-Type": type.split(";")[0] },
+  });
+}
+
 export function publicPayment(row, catalog) {
   const product = catalog[row.product];
   return {
@@ -73,7 +163,10 @@ export function publicPayment(row, catalog) {
     status: row.status,
     trxId: row.trx_id,
     paymentUrl: row.status === "PENDING" ? row.payment_url : null,
-    qrImage: row.status === "PENDING" ? row.qr_image : null,
+    qrImage:
+      row.status === "PENDING" && row.qr_image
+        ? `/dashboard/api/payments/${row.id}/qr`
+        : null,
     expiredAt: row.expired_at,
     createdAt: row.created_at,
     fulfilledAt: row.fulfilled_at,
@@ -115,7 +208,7 @@ export async function createPayment(bindings, account, key, productId) {
       amount,
       String(data.trx_id).slice(0, 60),
       safeUrl(data.payment_url),
-      safeUrl(data.qr_image),
+      qrSource(data),
       String(data.expired_at || "").slice(0, 32),
       now,
       now,
@@ -130,7 +223,7 @@ export async function createPayment(bindings, account, key, productId) {
       status: "PENDING",
       trx_id: data.trx_id,
       payment_url: safeUrl(data.payment_url),
-      qr_image: safeUrl(data.qr_image),
+      qr_image: qrSource(data),
       expired_at: data.expired_at,
       created_at: now,
       key_name: key.name,
@@ -210,12 +303,15 @@ export async function refreshPayment(bindings, row, { force = false } = {}) {
     await fulfil(bindings, row, product, paid, now);
     return { ...row, status: "SUCCESS", paid_amount: paid, fulfilled_at: now };
   }
+  // checkstatus also carries the QR and pay link; fill in what creation lacked.
+  const qr = qrSource(data) || row.qr_image,
+    link = safeUrl(data.payment_url) || row.payment_url;
   await DB.prepare(
-    "UPDATE api_payments SET status=?,checked_at=? WHERE id=? AND status='PENDING'",
+    "UPDATE api_payments SET status=?,checked_at=?,qr_image=?,payment_url=? WHERE id=? AND status='PENDING'",
   )
-    .bind(status, now, row.id)
+    .bind(status, now, qr, link, row.id)
     .run();
-  return { ...row, status, checked_at: now };
+  return { ...row, status, checked_at: now, qr_image: qr, payment_url: link };
 }
 
 export async function cancelPayment(bindings, row) {

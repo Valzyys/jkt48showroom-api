@@ -4,6 +4,11 @@ import { adminApplications, reviewApplication } from "./fanbase.js";
 
 // Admin side of developer accounts, mounted inside the authenticated control
 // panel: list accounts, mint top-up vouchers, change plans, credit a key.
+// Start of the current WIB month in epoch milliseconds.
+const monthStart = (now = Date.now()) => {
+  const local = new Date(now + 7 * 3600000);
+  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1) - 7 * 3600000;
+};
 const bad = (message, status = 400) => {
   throw Object.assign(new Error(message), { status });
 };
@@ -42,9 +47,12 @@ export async function developerAdmin(url, request, bindings, body) {
       `SELECT (SELECT count(*) FROM api_accounts) AS accounts,
               (SELECT count(*) FROM api_keys WHERE revoked_at IS NULL) AS keys,
               (SELECT coalesce(sum(used),0) FROM api_key_usage WHERE period=?) AS requests,
-              (SELECT count(*) FROM api_vouchers WHERE redeemed_at IS NULL) AS vouchers`,
+              (SELECT count(*) FROM api_vouchers WHERE redeemed_at IS NULL) AS vouchers,
+              (SELECT count(*) FROM api_fanbase_applications WHERE status='PENDING') AS fanbasePending,
+              (SELECT coalesce(sum(paid_amount),0) FROM api_payments WHERE status='SUCCESS' AND fulfilled_at>=?2) AS revenue,
+              (SELECT count(*) FROM api_payments WHERE status='SUCCESS' AND fulfilled_at>=?2) AS paidOrders`,
     )
-      .bind(month)
+      .bind(month, monthStart())
       .first();
     return {
       period: month,
@@ -82,6 +90,26 @@ export async function developerAdmin(url, request, bindings, body) {
   if (review && request.method === "PUT") {
     const data = await body(request);
     return reviewApplication(bindings, review[1], data.status, data.note);
+  }
+  if (route === "/payments" && request.method === "GET") {
+    const { results } = await DB.prepare(
+      `SELECT p.id,p.product,p.amount,p.paid_amount,p.status,p.trx_id,p.created_at,p.fulfilled_at,a.email,k.name AS key_name
+       FROM api_payments p JOIN api_accounts a ON a.id=p.account_id JOIN api_keys k ON k.id=p.key_id
+       ORDER BY p.created_at DESC LIMIT 50`,
+    ).all();
+    return {
+      payments: results.map((r) => ({
+        id: r.id,
+        product: r.product,
+        amount: r.paid_amount || r.amount,
+        status: r.status,
+        trxId: r.trx_id,
+        createdAt: r.created_at,
+        fulfilledAt: r.fulfilled_at,
+        email: r.email,
+        key: r.key_name,
+      })),
+    };
   }
   if (route === "/vouchers" && request.method === "POST") {
     const data = await body(request);

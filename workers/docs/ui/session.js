@@ -3,16 +3,24 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 // Who is signed in to the developer dashboard. One shared store so the header,
 // the auth pages and the dashboard agree without refetching.
 let account,
+  csrf = null,
   loaded = false,
   pending;
 const listeners = new Set();
 const emit = () => listeners.forEach((fn) => fn());
 
 export async function api(path, { method = "GET", body } = {}) {
+  const write = method !== "GET";
   const response = await fetch("/dashboard/api" + path, {
     method,
     credentials: "same-origin",
-    headers: body ? { "Content-Type": "application/json" } : {},
+    // Writes carry the session's CSRF token and a header other sites can't
+    // send without a CORS preflight we never grant.
+    headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(write ? { "X-Requested-With": "jkt48connect" } : {}),
+      ...(write && csrf ? { "X-CSRF-Token": csrf } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   let data = {};
@@ -28,15 +36,17 @@ export async function api(path, { method = "GET", body } = {}) {
   return data;
 }
 
-export function setAccount(next) {
+export function setAccount(next, token) {
   account = next;
+  if (token !== undefined) csrf = token;
+  if (!next) csrf = null;
   loaded = true;
   emit();
 }
 export function loadAccount(force = false) {
   if ((loaded || pending) && !force) return pending;
   pending = api("/session")
-    .then((data) => setAccount(data.account))
+    .then((data) => setAccount(data.account, data.csrf))
     .catch(() => setAccount(null))
     .finally(() => (pending = null));
   return pending;

@@ -100,6 +100,17 @@ export const maxKeys = (bindings = {}) => {
   const value = Number(bindings.API_MAX_KEYS);
   return Number.isSafeInteger(value) && value > 0 ? value : 3;
 };
+// Developer accounts with these emails are administrators: they open the
+// Admin view of the dashboard and the control panel with their own session.
+export const adminEmails = (bindings = {}) =>
+  String(bindings.DASHBOARD_ADMIN_EMAILS || "")
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+export const isAdmin = (account, bindings) =>
+  Boolean(account?.email) &&
+  adminEmails(bindings).includes(String(account.email).toLowerCase());
+
 export const keysRequired = (bindings = {}) =>
   String(bindings.API_KEY_REQUIRED || "false") === "true";
 

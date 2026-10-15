@@ -1,0 +1,12 @@
+ALTER TABLE api_request_log ADD COLUMN ip TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN country TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN city TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN region TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN colo TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN as_org TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN user_agent TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN referer TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN origin TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN key_source TEXT NOT NULL DEFAULT '';
+ALTER TABLE api_request_log ADD COLUMN details TEXT NOT NULL DEFAULT '{}';
+CREATE INDEX IF NOT EXISTS api_request_log_key ON api_request_log(key_id, at);

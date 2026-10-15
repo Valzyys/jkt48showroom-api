@@ -3,7 +3,7 @@ import { useMotionEnabled } from "./motion.js";
 import {
   gsap,
   ScrollTrigger,
-  GitHub,
+  SITE,
   Icon,
   Link,
   MotionToggle,
@@ -11,7 +11,7 @@ import {
   rollHandlers,
   useLiquid,
 } from "./shared.jsx";
-import { Mark, PixelIcon, GitHubIcon, guideIcon } from "./icons.jsx";
+import { Mark, PixelIcon, guideIcon } from "./icons.jsx";
 import { useAccount } from "./session.js";
 
 const NAV = [
@@ -195,12 +195,12 @@ export function Header({ current, onSearch, catalog, guides }) {
           <div className="nav-actions island">
             <a
               className="nav-icon"
-              href={GitHub}
+              href={SITE}
               target="_blank"
               rel="noreferrer"
-              aria-label="Source di GitHub"
+              aria-label="Website JKT48Connect"
             >
-              <GitHubIcon size={16} />
+              <Icon name="globe" size={17} />
             </a>
             <MotionToggle pip="motion-toggle" />
             {!account && (
@@ -382,8 +382,8 @@ function MenuOverlay({ open, onClose, onSearch, path, catalog, guides }) {
         </nav>
         <div className="menu-foot">
           <MotionToggle withLabel />
-          <a href={GitHub} target="_blank" rel="noreferrer">
-            <GitHubIcon size={15} /> GitHub
+          <a href={SITE} target="_blank" rel="noreferrer">
+            <Icon name="globe" size={15} /> jkt48connect.com
           </a>
         </div>
       </div>

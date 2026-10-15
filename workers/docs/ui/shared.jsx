@@ -8,7 +8,7 @@ import { LangLogo, LANG_NAMES, langKind } from "./icons.jsx";
 gsap.registerPlugin(ScrollTrigger, ScrambleTextPlugin, SplitText);
 export { gsap, ScrollTrigger, SplitText, motion };
 
-export const GitHub = "https://github.com/Valzyys/jkt48showroom-api";
+export const SITE = "https://jkt48connect.com";
 export const BASE = "https://api.jkt48connect.app";
 export const SCRAMBLE_CHARS = "01<>/_#*+=.:";
 
@@ -26,6 +26,8 @@ export function Icon({ name = "arrow", size = 18, ...props }) {
     up: "M12 20V5m-6 6 6-6 6 6",
     expand: "M14 4h6v6m0-6-7 7M10 20H4v-6m0 6 7-7",
     collapse: "M20 10h-6V4m0 6 7-7M4 14h6v6m0-6-7 7",
+    globe:
+      "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm-9 9h18M12 3c2.4 2.5 3.7 5.5 3.7 9s-1.3 6.5-3.7 9c-2.4-2.5-3.7-5.5-3.7-9S9.6 5.5 12 3Z",
   };
   return (
     <svg

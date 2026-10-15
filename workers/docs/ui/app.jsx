@@ -32,6 +32,9 @@ const Dashboard = lazy(() =>
 const PayPage = lazy(() =>
   import("./dashboard.jsx").then((m) => ({ default: m.PayPage })),
 );
+const ControlPanel = lazy(() =>
+  import("./control.jsx").then((m) => ({ default: m.ControlPanel })),
+);
 
 function App({ catalog, guides }) {
   const motionEnabled = useMotionEnabled();
@@ -40,7 +43,9 @@ function App({ catalog, guides }) {
     docs = url.pathname.startsWith("/docs"),
     auth = /^\/(login|register)\/?$/.test(url.pathname),
     pay = url.pathname.match(/^\/pay\/(JKC[A-F0-9]{16})\/?$/),
-    dashboard = url.pathname.startsWith("/dashboard") || Boolean(pay),
+    control = /^\/control\/admin\/?$/.test(url.pathname),
+    dashboard =
+      url.pathname.startsWith("/dashboard") || Boolean(pay) || control,
     [searchOpen, setSearch] = useState(false),
     article = useRef();
   const guide = guides.find((g) => url.pathname === "/docs/guide/" + g.slug),
@@ -168,6 +173,8 @@ function App({ catalog, guides }) {
             </main>
           ) : pay ? (
             <PayPage id={pay[1]} />
+          ) : control ? (
+            <ControlPanel search={url.search} />
           ) : (
             <Dashboard
               path={url.pathname.replace(/\/$/, "")}

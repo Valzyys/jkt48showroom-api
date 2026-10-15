@@ -25,11 +25,12 @@ test('Workers runtime requires developer keys and meters the monthly quota',asyn
     for(const sql of migration.split(';').filter(sql=>sql.trim())) await DB.prepare(sql).run();
   }
   const origin='https://api.test';
-  let cookie='';
+  let cookie='',csrf='';
   const account=async(path,method='GET',body)=>{
-    const response=await mf.dispatchFetch(origin+'/dashboard/api'+path,{method,headers:{...(body?{'Content-Type':'application/json'}:{}),...(method!=='GET'?{Origin:origin}:{}),...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});
+    const response=await mf.dispatchFetch(origin+'/dashboard/api'+path,{method,headers:{...(body?{'Content-Type':'application/json'}:{}),...(method!=='GET'?{Origin:origin,'X-Requested-With':'jkt48connect',...(csrf?{'X-CSRF-Token':csrf}:{})}:{}),...(cookie?{Cookie:cookie}:{})},body:body?JSON.stringify(body):undefined});
     const set=response.headers.get('Set-Cookie');if(set)cookie=set.split(';')[0];
-    return {status:response.status,data:await response.json()};
+    const data=await response.json();if(data.csrf)csrf=data.csrf;
+    return {status:response.status,data};
   };
   assert.equal((await account('/register','POST',{name:'Dev',email:'dev@example.test',password:'rahasia123'})).status,201);
   const {key}=(await account('/keys','POST',{name:'Bot'})).data;
@@ -43,12 +44,13 @@ test('Workers runtime requires developer keys and meters the monthly quota',asyn
   assert.equal((await mf.dispatchFetch(origin+'/api/my_ip',{headers:{'x-api-key':'integration-key'}})).status,200);
 
   for(let i=1;i<=2;i++){
-    const response=await mf.dispatchFetch(origin+'/api/my_ip',{headers:{'X-API-Key':key}});
+    // The second call sends the key in the query string, as ?api_key= works too.
+    const response=i===1?await mf.dispatchFetch(origin+'/api/my_ip',{headers:{'X-API-Key':key}}):await mf.dispatchFetch(origin+'/api/my_ip?lang=id&api_key='+key,{headers:{Cookie:'theme=dark; sid=abcdef123456'}});
     assert.equal(response.status,200,await response.clone().text());
     assert.equal(response.headers.get('X-RateLimit-Limit'),'2');
     assert.equal(response.headers.get('X-RateLimit-Remaining'),String(2-i));
   }
-  const over=await mf.dispatchFetch(origin+'/api/my_ip?api_key='+key);
+  const over=await mf.dispatchFetch(origin+'/api/my_ip?apikey='+key);
   assert.equal(over.status,429);
   assert.ok(Number(over.headers.get('Retry-After'))>0);
   // A user key also unlocks routes that used to need the server key.
@@ -62,6 +64,19 @@ test('Workers runtime requires developer keys and meters the monthly quota',asyn
   for(let i=0;i<20;i++){usage=(await account('/usage?days=7')).data;if(usage.totals.requests===2)break;await new Promise(r=>setTimeout(r,50));}
   assert.equal(usage.totals.requests,2);
   assert.ok(usage.routes.some(r=>r.route==='GET /api/my_ip'));
+  assert.ok(usage.sources.keySources.some(s=>s.value==='query'));
+  const logs=(await account('/logs')).data.logs;
+  const viaQuery=logs.find(l=>l.keySource==='query'&&l.status===200);
+  assert.ok(viaQuery,'query-key request is logged');
+  const detail=(await account('/logs/'+viaQuery.id)).data.log;
+  assert.ok(detail.userAgent);
+  assert.equal(typeof detail.isp,'string');
+  assert.equal(typeof detail.network,'object');
+  assert.deepEqual(detail.cookies.map(c=>c.name).sort(),['sid','theme']);
+  assert.ok(detail.query.some(q=>q.name==='lang'&&q.value==='id'));
+  // Secrets never reach the analytics store in clear text.
+  assert.ok(!JSON.stringify(detail).includes(key),'key is masked in the log');
+  assert.ok(!JSON.stringify(detail).includes('abcdef123456'),'cookie values are not stored');
   const page=await mf.dispatchFetch(origin+'/dashboard/keys',{headers:{Accept:'text/html'}});
   assert.equal(page.status,200);
   assert.match(page.headers.get('Content-Type'),/text\/html/);

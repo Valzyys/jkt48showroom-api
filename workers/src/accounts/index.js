@@ -3,6 +3,7 @@ import {
   day,
   effectiveLimit,
   hashPassword,
+  isAdmin,
   maxKeys,
   newKey,
   normalizeVoucher,
@@ -15,10 +16,12 @@ import {
   keysRequired,
 } from "./core.js";
 import { forgetKey } from "./metering.js";
+import { developerAdmin } from "./admin.js";
 import {
   cancelPayment,
   createPayment,
   publicPayment,
+  qrImage,
   refreshPayment,
 } from "./payments.js";
 import {
@@ -39,11 +42,49 @@ const MAX_BODY = 8 * 1024;
 const DECOY =
   "pbkdf2-sha256$100000$00000000000000000000000000000000$" + "0".repeat(64);
 
+// Dashboard data is private: never cached, framed, sniffed, embedded by
+// other origins, or indexed.
 const headers = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "same-origin",
+  "Referrer-Policy": "no-referrer",
+  "X-Frame-Options": "DENY",
+  "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "X-Robots-Tag": "noindex, nofollow",
 };
+
+// CSRF: every state change carries a token bound to the session. It derives
+// from the stored session hash, which never leaves the server, and is handed
+// to the page only through same-origin responses.
+export const csrfFor = async (tokenHash) =>
+  (await sha256("csrf:" + tokenHash)).slice(0, 48);
+function same(a, b) {
+  if (typeof a !== "string" || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+export async function validCsrf(request, tokenHash) {
+  return same(
+    request.headers.get("X-CSRF-Token") || "",
+    await csrfFor(tokenHash),
+  );
+}
+// Requests the browser marks as coming from another site are refused, and
+// state changes must carry our custom header, which forces a CORS preflight
+// that other origins cannot pass.
+export function guardRequest(request, url) {
+  const site = request.headers.get("Sec-Fetch-Site");
+  if (site && site !== "same-origin" && site !== "none")
+    fail(403, "Permintaan lintas situs ditolak");
+  if (request.method === "GET" || request.method === "HEAD") return;
+  if (request.headers.get("Origin") !== url.origin)
+    fail(403, "Origin tidak diizinkan");
+  if (request.headers.get("X-Requested-With") !== "jkt48connect")
+    fail(403, "Permintaan tidak valid. Muat ulang halaman.");
+}
 const json = (value, status = 200, extra = {}) =>
   Response.json(value, { status, headers: { ...headers, ...extra } });
 const fail = (status, message) => {
@@ -98,12 +139,13 @@ function sessionToken(request) {
 }
 async function startSession(DB, accountId, request) {
   const token = randomHex(32),
-    now = Date.now();
+    now = Date.now(),
+    tokenHash = await sha256(token);
   await DB.batch([
     DB.prepare(
       "INSERT INTO api_sessions(token_hash,account_id,created_at,expires_at,user_agent) VALUES(?,?,?,?,?)",
     ).bind(
-      await sha256(token),
+      tokenHash,
       accountId,
       now,
       now + SESSION_DAYS * 86400000,
@@ -113,9 +155,12 @@ async function startSession(DB, accountId, request) {
       "DELETE FROM api_sessions WHERE account_id=? AND expires_at<?",
     ).bind(accountId, now),
   ]);
-  return cookie(token, SESSION_DAYS * 86400);
+  return {
+    cookie: cookie(token, SESSION_DAYS * 86400),
+    csrf: await csrfFor(tokenHash),
+  };
 }
-async function currentAccount(request, DB) {
+export async function currentAccount(request, DB) {
   const token = sessionToken(request);
   if (!token) return null;
   return DB.prepare(
@@ -206,7 +251,23 @@ async function usage(DB, accountId, url) {
   if (keys) await ownedKey(DB, accountId, keys[0]);
   const logFrom = Date.now() - Math.min(days, 7) * 86400000;
   const logScope = keys ? "l.key_id=?" : "l.account_id=?";
-  const [daily, routes, recent, statuses, hours] = await DB.batch([
+  const top = (column, extra = "") =>
+    DB.prepare(
+      `SELECT ${column} AS value,count(*) AS requests${extra} FROM api_request_log l
+       WHERE ${logScope} AND l.at>=? AND ${column}<>'' GROUP BY value ORDER BY requests DESC LIMIT 8`,
+    ).bind(bind, logFrom);
+  const [
+    daily,
+    routes,
+    recent,
+    statuses,
+    hours,
+    countries,
+    ips,
+    agents,
+    sources,
+    origins,
+  ] = await DB.batch([
     DB.prepare(
       `SELECT d.day,sum(d.requests) AS requests,sum(d.errors) AS errors,sum(d.duration_ms) AS duration
        FROM api_usage_daily d WHERE ${scope} AND d.day>=? GROUP BY d.day ORDER BY d.day`,
@@ -216,7 +277,7 @@ async function usage(DB, accountId, url) {
        FROM api_usage_daily d WHERE ${scope} AND d.day>=? GROUP BY d.route ORDER BY requests DESC LIMIT 12`,
     ).bind(bind, from),
     DB.prepare(
-      `SELECT l.at,l.method,l.path,l.status,l.duration_ms,k.name AS key_name FROM api_request_log l
+      `SELECT l.id,l.at,l.method,l.path,l.status,l.duration_ms,l.ip,l.country,k.name AS key_name FROM api_request_log l
        JOIN api_keys k ON k.id=l.key_id WHERE l.account_id=? ${keys ? "AND l.key_id=?" : ""}
        ORDER BY l.at DESC LIMIT 25`,
     ).bind(...(keys ? [accountId, keys[0]] : [accountId])),
@@ -227,6 +288,14 @@ async function usage(DB, accountId, url) {
     DB.prepare(
       `SELECT ((l.at/3600000)+7)%24 AS hour,count(*) AS requests FROM api_request_log l WHERE ${logScope} AND l.at>=? GROUP BY hour`,
     ).bind(bind, logFrom),
+    top("l.country"),
+    top(
+      "l.ip",
+      ",max(l.country) AS country,max(l.city) AS city,max(l.as_org) AS network,max(l.at) AS last",
+    ),
+    top("l.user_agent"),
+    top("l.key_source"),
+    top("coalesce(nullif(l.origin,''),l.referer)"),
   ]);
   // Fill missing days with zeros so charts keep a steady time axis.
   const byDay = new Map(daily.results.map((r) => [r.day, r]));
@@ -267,7 +336,18 @@ async function usage(DB, accountId, url) {
       requests:
         hours.results.find((r) => Number(r.hour) === hour)?.requests || 0,
     })),
+    // Where requests come from, from the seven-day detailed log.
+    sources: {
+      countries: countries.results,
+      ips: ips.results,
+      agents: agents.results,
+      keySources: sources.results,
+      origins: origins.results,
+    },
     recent: recent.results.map((r) => ({
+      id: r.id,
+      ip: r.ip,
+      country: r.country,
       at: r.at,
       method: r.method,
       path: r.path,
@@ -276,6 +356,23 @@ async function usage(DB, accountId, url) {
       key: r.key_name,
     })),
   };
+}
+
+// The signed-in developer account when it is on the admin list, else null.
+export async function adminSession(request, bindings) {
+  if (!bindings.DB) return null;
+  try {
+    const account = await currentAccount(request, bindings.DB);
+    return isAdmin(account, bindings) ? account : null;
+  } catch {
+    return null;
+  }
+}
+export async function endSession(DB, account) {
+  await DB.prepare("DELETE FROM api_sessions WHERE token_hash=?")
+    .bind(account.token_hash)
+    .run();
+  return cookie("", 0);
 }
 
 export async function accountResponse(request, bindings) {
@@ -287,11 +384,7 @@ export async function accountResponse(request, bindings) {
     if (!DB) fail(503, "Database belum siap");
     if (!["GET", "POST", "PUT", "DELETE"].includes(request.method))
       fail(405, "Method tidak diizinkan");
-    // State changes only from this site: blocks cross-site form posts.
-    if (request.method !== "GET") {
-      const origin = request.headers.get("Origin");
-      if (origin !== url.origin) fail(403, "Origin tidak diizinkan");
-    }
+    guardRequest(request, url);
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
     const monthPlans = plans(bindings),
       month = period();
@@ -322,9 +415,21 @@ export async function accountResponse(request, bindings) {
         .bind(id, email, name, await hashPassword(password), now, now)
         .first();
       if (!created) fail(409, "Email sudah terdaftar. Silakan masuk.");
-      return json({ account: { id, email, name, createdAt: now } }, 201, {
-        "Set-Cookie": await startSession(DB, id, request),
-      });
+      const session = await startSession(DB, id, request);
+      return json(
+        {
+          account: {
+            id,
+            email,
+            name,
+            createdAt: now,
+            admin: isAdmin({ email }, bindings),
+          },
+          csrf: session.csrf,
+        },
+        201,
+        { "Set-Cookie": session.cookie },
+      );
     }
 
     if (route === "/login" && request.method === "POST") {
@@ -343,6 +448,7 @@ export async function accountResponse(request, bindings) {
       await DB.prepare("UPDATE api_accounts SET last_login_at=? WHERE id=?")
         .bind(Date.now(), account.id)
         .run();
+      const session = await startSession(DB, account.id, request);
       return json(
         {
           account: {
@@ -350,10 +456,12 @@ export async function accountResponse(request, bindings) {
             email: account.email,
             name: account.name,
             createdAt: account.created_at,
+            admin: isAdmin(account, bindings),
           },
+          csrf: session.csrf,
         },
         200,
-        { "Set-Cookie": await startSession(DB, account.id, request) },
+        { "Set-Cookie": session.cookie },
       );
     }
 
@@ -371,10 +479,29 @@ export async function accountResponse(request, bindings) {
               email: account.email,
               name: account.name,
               createdAt: account.created_at,
+              admin: isAdmin(account, bindings),
             }
           : null,
+        csrf: account ? await csrfFor(account.token_hash) : null,
       });
     if (!account) fail(401, "Silakan masuk terlebih dahulu");
+    if (
+      request.method !== "GET" &&
+      !(await validCsrf(request, account.token_hash))
+    )
+      fail(403, "Token keamanan tidak valid. Muat ulang halaman.");
+
+    // Admin tools reuse the control panel's handlers behind the admin email.
+    if (route === "/admin" || route.startsWith("/admin/")) {
+      if (!isAdmin(account, bindings)) fail(403, "Khusus admin");
+      const target = new URL(
+        "/control/api/developers" + route.slice("/admin".length) + url.search,
+        url,
+      );
+      return json(
+        await developerAdmin(target, request, bindings, (req) => readBody(req)),
+      );
+    }
 
     if (route === "/logout" && request.method === "POST") {
       await DB.prepare("DELETE FROM api_sessions WHERE token_hash=?")
@@ -619,6 +746,9 @@ export async function accountResponse(request, bindings) {
     }
 
     if (route === "/account" && request.method === "DELETE") {
+      // The admin account holds the keys to everything; it is not self-deletable.
+      if (isAdmin(account, bindings))
+        fail(403, "Akun admin tidak bisa dihapus dari dashboard");
       await limited(bindings, "delete:" + account.id, 900000, 5);
       const data = await readBody(request);
       const row = await DB.prepare(
@@ -677,9 +807,13 @@ export async function accountResponse(request, bindings) {
       if (keyId) add("l.key_id=?", keyId);
       if (range) add("l.status BETWEEN ? AND ?", ...range);
       if (before) add("l.id<?", before);
+      const ip = (url.searchParams.get("ip") || "").slice(0, 64),
+        country = (url.searchParams.get("country") || "").slice(0, 8);
+      if (ip) add("l.ip=?", ip);
+      if (country) add("l.country=?", country);
       const { results } = await DB.prepare(
-        `SELECT l.id,l.at,l.method,l.path,l.status,l.duration_ms,k.name AS key_name FROM api_request_log l
-         JOIN api_keys k ON k.id=l.key_id WHERE ${where.join(" AND ")} ORDER BY l.id DESC LIMIT 50`,
+        `SELECT l.id,l.at,l.method,l.path,l.status,l.duration_ms,l.ip,l.country,l.city,l.user_agent,l.key_source,k.name AS key_name
+         FROM api_request_log l JOIN api_keys k ON k.id=l.key_id WHERE ${where.join(" AND ")} ORDER BY l.id DESC LIMIT 50`,
       )
         .bind(...params)
         .all();
@@ -692,8 +826,49 @@ export async function accountResponse(request, bindings) {
           status: r.status,
           ms: r.duration_ms,
           key: r.key_name,
+          ip: r.ip,
+          country: r.country,
+          city: r.city,
+          userAgent: r.user_agent,
+          keySource: r.key_source,
         })),
         next: results.length === 50 ? results.at(-1).id : null,
+      });
+    }
+    const logRoute = route.match(/^\/logs\/(\d{1,15})$/);
+    if (logRoute && request.method === "GET") {
+      const r = await DB.prepare(
+        `SELECT l.*,k.name AS key_name,k.prefix,k.last4 FROM api_request_log l JOIN api_keys k ON k.id=l.key_id
+         WHERE l.id=? AND l.account_id=?`,
+      )
+        .bind(Number(logRoute[1]), account.id)
+        .first();
+      if (!r) fail(404, "Log tidak ditemukan atau sudah lewat 7 hari");
+      let details = {};
+      try {
+        details = JSON.parse(r.details || "{}");
+      } catch {}
+      return json({
+        log: {
+          id: r.id,
+          at: r.at,
+          method: r.method,
+          path: r.path,
+          status: r.status,
+          ms: r.duration_ms,
+          key: { name: r.key_name, preview: `${r.prefix}…${r.last4}` },
+          keySource: r.key_source,
+          ip: r.ip,
+          country: r.country,
+          city: r.city,
+          region: r.region,
+          colo: r.colo,
+          isp: r.as_org,
+          userAgent: r.user_agent,
+          referer: r.referer,
+          origin: r.origin,
+          ...details,
+        },
       });
     }
 
@@ -733,7 +908,7 @@ export async function accountResponse(request, bindings) {
       );
     }
     const paymentRoute = route.match(
-      /^\/payments\/(JKC[A-F0-9]{16})(\/cancel)?$/,
+      /^\/payments\/(JKC[A-F0-9]{16})(\/cancel|\/qr)?$/,
     );
     if (paymentRoute) {
       const row = await DB.prepare(
@@ -743,11 +918,13 @@ export async function accountResponse(request, bindings) {
         .bind(paymentRoute[1], account.id)
         .first();
       if (!row) fail(404, "Tagihan tidak ditemukan");
+      if (paymentRoute[2] === "/qr" && request.method === "GET")
+        return qrImage(row);
       if (!paymentRoute[2] && request.method === "GET")
         return json({
           payment: publicPayment(await refreshPayment(bindings, row), catalog),
         });
-      if (paymentRoute[2] && request.method === "POST")
+      if (paymentRoute[2] === "/cancel" && request.method === "POST")
         return json({
           payment: publicPayment(await cancelPayment(bindings, row), catalog),
         });
