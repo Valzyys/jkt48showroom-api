@@ -28,7 +28,7 @@ export async function documentation(request, bindings = {}) {
     /\btext\/html\b/.test(request.headers.get("Accept") || "");
   // The developer dashboard and its sign-in pages are views of the same app.
   const appPage =
-    /^\/(login|register|dashboard(\/(keys|usage|logs|billing|fanbase|account))?|pay\/JKC[A-F0-9]{16})\/?$/.test(
+    /^\/(login|register|dashboard(\/(keys|usage|logs|billing|fanbase|account|admin))?|pay\/JKC[A-F0-9]{16})\/?$/.test(
       path,
     );
   if (!landing && !appPage && path !== "/docs" && !path.startsWith("/docs/"))
@@ -42,6 +42,12 @@ export async function documentation(request, bindings = {}) {
     "Content-Security-Policy":
       "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; img-src 'self' https: data: blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "X-Frame-Options": "DENY",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    // Signed-in areas are never cached or indexed.
+    ...(appPage
+      ? { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" }
+      : {}),
   };
   if (!["GET", "HEAD"].includes(request.method))
     return new Response("Method not allowed", {

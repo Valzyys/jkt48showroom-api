@@ -10,7 +10,14 @@ export function isPublicRoute(route) {
 }
 export async function loadPublicDocumentation() {
   const full = JSON.parse(await readFile(new URL("routes.json", root), "utf8"));
-  const catalog = { ...full, routes: full.routes.filter(isPublicRoute) };
+  // Public docs point to jkt48connect.com, not to repository source files.
+  const catalog = {
+    ...full,
+    routes: full.routes.filter(isPublicRoute).map(({ source, ...route }) => ({
+      ...route,
+      responseLabel: route.responseLabel?.replace(/;?\s*lihat source\.?/i, "."),
+    })),
+  };
   const captured = JSON.parse(
     await readFile(new URL("response-samples.json", root), "utf8"),
   );

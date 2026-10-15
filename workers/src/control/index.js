@@ -1,14 +1,15 @@
 import { idnAuthStatus } from '../idn/auth.js';
 import { assets } from '../docs/assets.js';
-import { authenticated,verifyPassword,sessionCookie,logoutCookie } from './auth.js';
+import { authenticated,verifyPassword,sessionCookie,logoutCookie,controlCsrf } from './auth.js';
 import { effectiveBindings,settingsView,saveSettings } from './settings.js';
 import { runWithEnv } from '../runtime/env.js';
 import { ensureJKT48 } from '../library/jkt48/scraper/sync.js';
 import { serveMedia,storagePath } from '../runtime/jkt48-media.js';
 import { collectorMonitor } from './monitor.js';
 import { developerAdmin } from '../accounts/admin.js';
+import { adminSession,endSession,guardRequest,csrfFor } from '../accounts/index.js';
 const securityHeaders={
- 'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
+ 'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Cross-Origin-Resource-Policy':'same-origin','Cross-Origin-Opener-Policy':'same-origin','X-Robots-Tag':'noindex, nofollow',
  'Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 };
 const json=(value,status=200,headers={})=>Response.json(value,{status,headers:{...securityHeaders,...headers}});
@@ -16,16 +17,19 @@ async function body(request){if(Number(request.headers.get('Content-Length'))>20
 export async function controlResponse(request,bindings,execution){
  const url=new URL(request.url);
  if(url.pathname!=='/control/admin'&&!url.pathname.startsWith('/control/'))return null;
- const publicAssets={'/control/admin':[assets.controlHtml,'text/html; charset=utf-8'],'/control/admin/':[assets.controlHtml,'text/html; charset=utf-8'],'/control/app.js':[assets.controlScript,'text/javascript; charset=utf-8'],'/control/style.css':[assets.controlCss,'text/css; charset=utf-8']};
- if(publicAssets[url.pathname]){
+ // The panel is a view of the developer app; its page is the same SPA shell.
+ if(url.pathname==='/control/admin'||url.pathname==='/control/admin/'){
   if(!['GET','HEAD'].includes(request.method))return json({message:'Method tidak diizinkan'},405,{Allow:'GET, HEAD'});
-  const [value,type]=publicAssets[url.pathname];return new Response(request.method==='HEAD'?null:value,{headers:{...securityHeaders,'Content-Type':type}});
+  return new Response(request.method==='HEAD'?null:assets.html,{headers:{...securityHeaders,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; img-src 'self' https: data: blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'"}});
  }
  if(!url.pathname.startsWith('/control/api/'))return json({message:'Endpoint tidak ditemukan'},404);
  try{
-  if(!bindings.CONTROL_SESSION_SECRET||!bindings.CONTROL_ADMIN_PASSWORD_HASH||!bindings.CONTROL_ADMIN_EMAIL)return json({message:'Login control belum dikonfigurasi'},503);
+  // A developer account on DASHBOARD_ADMIN_EMAILS opens the panel with its own session.
+  const devAdmin=await adminSession(request,bindings);
+  if(!devAdmin&&(!bindings.CONTROL_SESSION_SECRET||!bindings.CONTROL_ADMIN_PASSWORD_HASH||!bindings.CONTROL_ADMIN_EMAIL))return json({message:'Masuk dengan akun developer admin di /login, atau konfigurasikan login control.'},url.pathname==='/control/api/login'?503:401);
   if(!['GET','POST','PUT','DELETE'].includes(request.method))return json({message:'Method tidak diizinkan'},405);
-  if(request.method!=='GET'&&request.headers.get('Origin')!==url.origin)return json({message:'Origin tidak diizinkan'},403);
+  // Same rules as the dashboard: no cross-site requests, writes need our header.
+  guardRequest(request,url);
   if(url.pathname==='/control/api/login'&&request.method==='POST'){
    const data=await body(request);
    const namespace=bindings.COORDINATOR;
@@ -36,10 +40,13 @@ export async function controlResponse(request,bindings,execution){
    if(!valid||data.email!==bindings.CONTROL_ADMIN_EMAIL)return json({message:'Email atau password salah'},401);
    return json({ok:true,email:bindings.CONTROL_ADMIN_EMAIL},200,{'Set-Cookie':await sessionCookie(bindings)});
   }
-  if(!await authenticated(request,bindings))return json({message:'Login diperlukan'},401);
+  if(!devAdmin&&!await authenticated(request,bindings))return json({message:'Login diperlukan'},401);
+  // Every authenticated write carries the session's CSRF token.
+  const csrf=devAdmin?await csrfFor(devAdmin.token_hash):await controlCsrf(request,bindings);
+  if(request.method!=='GET'){const sent=request.headers.get('X-CSRF-Token')||'';if(!csrf||sent.length!==csrf.length||[...sent].reduce((d,c,i)=>d|(c.charCodeAt(0)^csrf.charCodeAt(i)),0))return json({message:'Token keamanan tidak valid. Muat ulang halaman.'},403);}
   if(url.pathname==='/control/api/developers'||url.pathname.startsWith('/control/api/developers/'))return json(await developerAdmin(url,request,bindings,body));
-  if(url.pathname==='/control/api/session'&&request.method==='GET')return json({email:bindings.CONTROL_ADMIN_EMAIL});
-  if(url.pathname==='/control/api/logout'&&request.method==='POST')return json({ok:true},200,{'Set-Cookie':logoutCookie()});
+  if(url.pathname==='/control/api/session'&&request.method==='GET')return json({email:devAdmin?.email||bindings.CONTROL_ADMIN_EMAIL,developer:Boolean(devAdmin),csrf});
+  if(url.pathname==='/control/api/logout'&&request.method==='POST')return json({ok:true},200,{'Set-Cookie':devAdmin?await endSession(bindings.DB,devAdmin):logoutCookie()});
   if(url.pathname==='/control/api/settings'&&request.method==='GET')return json({settings:await settingsView(bindings)});
   if(url.pathname==='/control/api/settings'&&request.method==='PUT'){
    const data=await body(request);const changed=await saveSettings(bindings,data.changes);return json({ok:true,changed,message:'Pengaturan disimpan. Instance lain memperbarui konfigurasi dalam 10 detik.'});

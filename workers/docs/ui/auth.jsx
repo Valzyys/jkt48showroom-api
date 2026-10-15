@@ -49,8 +49,14 @@ export function AuthPage({ mode }) {
     [show, setShow] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  // ?next=/control/admin returns an admin to the control panel after sign-in.
+  const next =
+    new URLSearchParams(location.search).get("next") === "/control/admin"
+      ? "/control/admin"
+      : null;
+  const done = (path) => (next ? location.assign(next) : navigate(path));
   useEffect(() => {
-    if (account) navigate("/dashboard");
+    if (account) done("/dashboard");
   }, [account]);
   useEffect(() => setError(""), [mode]);
   useEffect(() => {
@@ -146,8 +152,8 @@ export function AuthPage({ mode }) {
           ? values
           : { email: values.email, password: values.password },
       });
-      setAccount(data.account);
-      navigate(register ? "/dashboard/keys?welcome=1" : "/dashboard");
+      setAccount(data.account, data.csrf);
+      done(register ? "/dashboard/keys?welcome=1" : "/dashboard");
     } catch (err) {
       setError(err.message);
       if (motionEnabled)

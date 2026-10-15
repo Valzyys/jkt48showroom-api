@@ -40,7 +40,7 @@ const SECTIONS = [
 
 // ---------- small building blocks ----------
 
-function Panel({ title, icon, action, children, className = "", id }) {
+export function Panel({ title, icon, action, children, className = "", id }) {
   return (
     <section className={"dash-panel " + className} aria-labelledby={id}>
       {(title || action) && (
@@ -58,7 +58,7 @@ function Panel({ title, icon, action, children, className = "", id }) {
   );
 }
 
-function Stat({ label, value, sub, icon }) {
+export function Stat({ label, value, sub, icon }) {
   return (
     <div className="dash-stat">
       <span className="dash-stat-label">
@@ -71,7 +71,7 @@ function Stat({ label, value, sub, icon }) {
 }
 
 // ████████░░░░ 64%: the quota as a line of type.
-function Meter({ used, limit, cells = 28, label = true }) {
+export function Meter({ used, limit, cells = 28, label = true }) {
   const ratio = limit ? Math.min(1, used / limit) : 0,
     filled = Math.round(ratio * cells),
     level = ratio >= 0.9 ? "hot" : ratio >= 0.7 ? "warm" : "";
@@ -95,7 +95,7 @@ function Meter({ used, limit, cells = 28, label = true }) {
   );
 }
 
-function Empty({ icon = "pulse", title, children }) {
+export function Empty({ icon = "pulse", title, children }) {
   return (
     <div className="dash-empty">
       <PixelIcon name={icon} size={22} />
@@ -105,7 +105,7 @@ function Empty({ icon = "pulse", title, children }) {
   );
 }
 
-function Loading({ rows = 3 }) {
+export function Loading({ rows = 3 }) {
   return (
     <div className="dash-skeleton" aria-label="Memuat">
       {Array.from({ length: rows }, (_, i) => (
@@ -115,7 +115,7 @@ function Loading({ rows = 3 }) {
   );
 }
 
-function Failure({ error, onRetry }) {
+export function Failure({ error, onRetry }) {
   return (
     <div className="dash-failure" role="alert">
       <span>{error?.message || "Gagal memuat data"}</span>
@@ -302,7 +302,7 @@ const statusTone = (s) =>
         : s >= 300
           ? "muted"
           : "good";
-function StatusPill({ status }) {
+export function StatusPill({ status }) {
   const tone = statusTone(status);
   return (
     <span className={"dash-status " + tone}>
@@ -386,7 +386,54 @@ function RouteTable({ routes }) {
   );
 }
 
-function LogTable({ rows, compactView = false }) {
+// Country code to flag emoji; empty for unknown or Tor ("T1").
+export const flag = (cc = "") =>
+  /^[A-Z]{2}$/.test(cc) && cc !== "T1" && cc !== "XX"
+    ? String.fromCodePoint(...[...cc].map((c) => 127397 + c.charCodeAt(0)))
+    : "";
+const countryName = (cc) => {
+  try {
+    return new Intl.DisplayNames(["id"], { type: "region" }).of(cc) || cc;
+  } catch {
+    return cc;
+  }
+};
+// A readable name for the client behind a user agent: tools first, then browsers.
+export function clientName(ua = "") {
+  const tools = [
+    [/curl\//i, "cURL"],
+    [/python-requests|aiohttp|httpx|python-urllib/i, "Python"],
+    [/node-fetch|undici|axios|node\b|got\b/i, "Node.js"],
+    [/Go-http-client/i, "Go"],
+    [/PostmanRuntime/i, "Postman"],
+    [/insomnia/i, "Insomnia"],
+    [/okhttp/i, "OkHttp (Android)"],
+    [/Dart\//i, "Dart / Flutter"],
+    [/Discordbot/i, "Discord bot"],
+    [/bot|crawler|spider/i, "Bot"],
+    [/Wget/i, "Wget"],
+  ];
+  for (const [re, name] of tools) if (re.test(ua)) return name;
+  if (!ua) return "Tanpa user agent";
+  return device(ua);
+}
+
+function Where({ r }) {
+  return (
+    <span
+      className="dash-where"
+      title={[r.city, r.country, r.ip].filter(Boolean).join(" · ")}
+    >
+      <b aria-hidden="true">{flag(r.country) || "🌐"}</b>
+      <span>
+        {r.city || (r.country ? countryName(r.country) : "Tidak diketahui")}
+        {r.ip && <small>{r.ip}</small>}
+      </span>
+    </span>
+  );
+}
+
+function LogTable({ rows, compactView = false, onOpen }) {
   if (!rows.length)
     return (
       <Empty title="Belum ada request tercatat" icon="list">
@@ -395,19 +442,32 @@ function LogTable({ rows, compactView = false }) {
     );
   return (
     <div className="dash-scroll">
-      <table className="dash-table logs">
+      <table className={"dash-table logs " + (onOpen ? "clickable" : "")}>
         <thead>
           <tr>
             <th>Waktu</th>
             <th>Request</th>
             <th>Status</th>
             <th>Durasi</th>
+            {!compactView && <th>Asal</th>}
+            {!compactView && <th>Client</th>}
             {!compactView && <th>Key</th>}
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={r.id || i}>
+            <tr
+              key={r.id || i}
+              tabIndex={onOpen ? 0 : undefined}
+              onClick={onOpen ? () => onOpen(r.id) : undefined}
+              onKeyDown={
+                onOpen
+                  ? (e) =>
+                      (e.key === "Enter" || e.key === " ") &&
+                      (e.preventDefault(), onOpen(r.id))
+                  : undefined
+              }
+            >
               <td title={time(r.at)}>{compactView ? ago(r.at) : time(r.at)}</td>
               <td>
                 <span className="dash-route">
@@ -415,12 +475,23 @@ function LogTable({ rows, compactView = false }) {
                     {r.method}
                   </em>
                   <code>{r.path}</code>
+                  {r.keySource === "query" && (
+                    <span className="dash-tag">?apikey</span>
+                  )}
                 </span>
               </td>
               <td>
                 <StatusPill status={r.status} />
               </td>
               <td>{fmt(r.ms)} ms</td>
+              {!compactView && (
+                <td>
+                  <Where r={r} />
+                </td>
+              )}
+              {!compactView && (
+                <td className="dash-client">{clientName(r.userAgent)}</td>
+              )}
               {!compactView && <td>{r.key}</td>}
             </tr>
           ))}
@@ -430,7 +501,284 @@ function LogTable({ rows, compactView = false }) {
   );
 }
 
-function Segmented({ value, onChange, options, label }) {
+export function KV({ rows }) {
+  return (
+    <dl className="dash-kv">
+      {rows
+        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+        .map(([k, v]) => (
+          <div key={k}>
+            <dt>{k}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+    </dl>
+  );
+}
+
+function PairTable({ rows, empty, valueLabel = "Nilai" }) {
+  if (!rows?.length) return <p className="dash-note">{empty}</p>;
+  return (
+    <div className="dash-scroll">
+      <table className="dash-table pairs">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>{valueLabel}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.name + i}>
+              <td>
+                <code>{r.name}</code>
+              </td>
+              <td>
+                {r.masked && (
+                  <span
+                    className="dash-lock"
+                    title="Disamarkan sebelum disimpan"
+                  >
+                    <PixelIcon name="shield" size={10} />
+                  </span>
+                )}
+                <code className={r.masked ? "masked" : ""}>{r.value}</code>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// One request in full: where it came from and what it carried.
+function LogDrawer({ id, onClose, onFilter }) {
+  const ref = useRef(),
+    motionEnabled = useMotionEnabled(),
+    { data, error } = useApi("/logs/" + id);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog || dialog.open) return;
+    dialog.showModal();
+    if (motionEnabled)
+      gsap.from(dialog, {
+        xPercent: 100,
+        duration: 0.6,
+        ease: "expo.out",
+        clearProps: "transform",
+      });
+  }, []);
+  const close = () => {
+    if (!motionEnabled) return ref.current.close();
+    gsap.to(ref.current, {
+      xPercent: 100,
+      duration: 0.35,
+      ease: "power3.in",
+      onComplete: () => ref.current?.close(),
+    });
+  };
+  const log = data?.log,
+    net = log?.network || {};
+  return (
+    <dialog
+      ref={ref}
+      className="dash-drawer"
+      onClose={onClose}
+      onCancel={(e) => (e.preventDefault(), close())}
+      aria-labelledby="drawer-title"
+    >
+      <header className="dash-drawer-head">
+        <div>
+          <span className="dash-eyebrow">DETAIL REQUEST · #{id}</span>
+          {log && (
+            <h2 id="drawer-title">
+              <em className={"method " + log.method.toLowerCase()}>
+                {log.method}
+              </em>{" "}
+              <code>{log.path}</code>
+            </h2>
+          )}
+        </div>
+        <button
+          type="button"
+          className="dash-dialog-x"
+          onClick={close}
+          aria-label="Tutup"
+        >
+          <Icon name="close" size={16} />
+        </button>
+      </header>
+      {error ? (
+        <Failure error={error} />
+      ) : !log ? (
+        <Loading rows={4} />
+      ) : (
+        <div className="dash-drawer-body">
+          <div className="dash-drawer-strip">
+            <StatusPill status={log.status} />
+            <span>{fmt(log.ms)} ms</span>
+            <span>{time(log.at)} WIB</span>
+            <span>
+              {log.key.name} <code>{log.key.preview}</code>
+            </span>
+          </div>
+          {log.keySource === "query" && (
+            <p className="dash-banner warn small">
+              <PixelIcon name="info" size={13} /> Key dikirim lewat query{" "}
+              <code>?apikey=</code>. Praktis, tapi bisa tercatat di log server
+              atau riwayat browser; header <code>X-API-Key</code> lebih aman.
+            </p>
+          )}
+          <section>
+            <h3>
+              <PixelIcon name="home" size={11} /> Asal request
+            </h3>
+            <KV
+              rows={[
+                [
+                  "IP",
+                  log.ip && (
+                    <span className="dash-row">
+                      <code>{log.ip}</code>
+                      <Copy text={log.ip} label="Salin" />
+                      <button
+                        type="button"
+                        className="dash-link"
+                        onClick={() => onFilter({ ip: log.ip })}
+                      >
+                        Semua request dari IP ini →
+                      </button>
+                    </span>
+                  ),
+                ],
+                [
+                  "Lokasi",
+                  [
+                    flag(log.country),
+                    log.city,
+                    log.region,
+                    log.country && countryName(log.country),
+                  ]
+                    .filter(Boolean)
+                    .join(" "),
+                ],
+                [
+                  "Jaringan / ISP",
+                  [log.isp, net.asn && "AS" + net.asn]
+                    .filter(Boolean)
+                    .join(" · "),
+                ],
+                ["Zona waktu", net.timezone],
+                ["Kode pos", net.postalCode],
+                [
+                  "Koordinat",
+                  net.latitude && `${net.latitude}, ${net.longitude}`,
+                ],
+                ["Edge Cloudflare", log.colo],
+                [
+                  "Protokol",
+                  [net.httpProtocol, net.tlsVersion, net.tlsCipher]
+                    .filter(Boolean)
+                    .join(" · "),
+                ],
+                [
+                  "RTT TCP",
+                  net.clientTcpRtt != null && net.clientTcpRtt + " ms",
+                ],
+              ]}
+            />
+          </section>
+          <section>
+            <h3>
+              <PixelIcon name="code" size={11} /> Client
+            </h3>
+            <KV
+              rows={[
+                ["Client", clientName(log.userAgent)],
+                [
+                  "User agent",
+                  log.userAgent && (
+                    <code className="wrap">{log.userAgent}</code>
+                  ),
+                ],
+                ["Origin", log.origin],
+                ["Referer", log.referer],
+                [
+                  "Key dikirim lewat",
+                  log.keySource === "query"
+                    ? "Query (?apikey= / ?api_key=)"
+                    : "Header X-API-Key",
+                ],
+              ]}
+            />
+          </section>
+          <section>
+            <h3>
+              <PixelIcon name="search" size={11} /> Query (
+              {log.query?.length || 0})
+            </h3>
+            <PairTable rows={log.query} empty="Tanpa query string." />
+          </section>
+          <section>
+            <h3>
+              <PixelIcon name="list" size={11} /> Header (
+              {log.headers?.length || 0})
+            </h3>
+            <PairTable rows={log.headers} empty="Header tidak tercatat." />
+          </section>
+          <section>
+            <h3>
+              <PixelIcon name="gift" size={11} /> Cookie (
+              {log.cookies?.length || 0})
+            </h3>
+            <PairTable
+              rows={(log.cookies || []).map((c) => ({
+                name: c.name,
+                value: `•••• (${c.size} karakter)`,
+                masked: true,
+              }))}
+              empty="Request ini tidak membawa cookie."
+            />
+          </section>
+          <p className="dash-note">
+            <PixelIcon name="shield" size={11} /> Nilai rahasia (cookie,
+            Authorization, API key, token) disamarkan sebelum disimpan. Detail
+            disimpan 7 hari.
+          </p>
+        </div>
+      )}
+    </dialog>
+  );
+}
+
+// Ranked list with share bars, used for countries, IPs, clients and origins.
+function SourceList({ rows, label, render, onPick, empty = "Belum ada data" }) {
+  const total = rows.reduce((a, r) => a + r.requests, 0) || 1;
+  if (!rows.length) return <Empty title={empty} icon="pulse" />;
+  return (
+    <ul className="dash-sources">
+      {rows.map((r) => (
+        <li key={r.value}>
+          <button
+            type="button"
+            disabled={!onPick}
+            onClick={() => onPick?.(r)}
+            title={onPick ? "Lihat log" : undefined}
+          >
+            <span className="dash-sources-name">{render(r)}</span>
+            <span className="dash-share">
+              <i style={{ width: (r.requests / total) * 100 + "%" }} />
+            </span>
+            <b>{fmt(r.requests)}</b>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function Segmented({ value, onChange, options, label }) {
   const box = useRef(),
     pill = useLiquid(box, "button.on", [value]);
   return (
@@ -468,7 +816,7 @@ function KeySelect({ keys, value, onChange, all = true, label = "API key" }) {
   );
 }
 
-function PageHead({ eyebrow, title, children, actions }) {
+export function PageHead({ eyebrow, title, children, actions }) {
   return (
     <header className="dash-head">
       <div>
@@ -492,7 +840,10 @@ function Overview({ account }) {
   const active = data.keys.filter((k) => !k.revokedAt);
   const { totals, series, routes, recent } = data.usage;
   const first = active[0];
-  const curl = `curl -H "X-API-Key: ${first ? first.preview.replace("…", "••••••••") : "jkc_KEY_KAMU"}" \\\n  ${BASE}/api/news?perpage=5`;
+  const sample = first
+    ? first.preview.replace("…", "••••••••")
+    : "jkc_KEY_KAMU";
+  const curl = `# Lewat header (disarankan)\ncurl -H "X-API-Key: ${sample}" \\\n  ${BASE}/api/news?perpage=5\n\n# Atau lewat query\ncurl "${BASE}/api/news?perpage=5&apikey=${sample}"`;
   return (
     <>
       <PageHead
@@ -596,7 +947,11 @@ function Overview({ account }) {
             </Link>
           }
         >
-          <LogTable rows={recent.slice(0, 6)} compactView />
+          <LogTable
+            rows={recent.slice(0, 6)}
+            compactView
+            onOpen={(id) => navigate("/dashboard/logs?open=" + id)}
+          />
         </Panel>
         <Panel
           title="Mulai dalam 30 detik"
@@ -611,8 +966,8 @@ function Overview({ account }) {
                 <Link href="/dashboard/keys">API Keys</Link>.
               </li>
               <li>
-                <b>Kirim header</b> <code>X-API-Key</code> di setiap request
-                dari server-mu.
+                <b>Kirim key</b> lewat header <code>X-API-Key</code> atau query{" "}
+                <code>?apikey=</code> di setiap request.
               </li>
               <li>
                 <b>Pantau kuota</b> lewat header{" "}
@@ -1043,6 +1398,78 @@ function Usage({ search }) {
               <HourMap hours={data.hours} />
             </Panel>
             <Panel
+              title="Negara asal"
+              icon="home"
+              id="us-countries"
+              action={<small className="dash-note">7 hari</small>}
+            >
+              <SourceList
+                rows={data.sources.countries}
+                render={(r) => (
+                  <>
+                    <b aria-hidden="true">{flag(r.value) || "🌐"}</b>{" "}
+                    {countryName(r.value)}
+                  </>
+                )}
+                onPick={(r) => navigate("/dashboard/logs?country=" + r.value)}
+              />
+            </Panel>
+            <Panel
+              title="IP teratas"
+              icon="list"
+              id="us-ips"
+              action={<small className="dash-note">klik untuk log</small>}
+            >
+              <SourceList
+                rows={data.sources.ips}
+                render={(r) => (
+                  <>
+                    <b aria-hidden="true">{flag(r.country) || "🌐"}</b>{" "}
+                    <code>{r.value}</code>
+                    <small>
+                      {[r.city, r.network].filter(Boolean).join(" · ")}
+                    </small>
+                  </>
+                )}
+                onPick={(r) =>
+                  navigate("/dashboard/logs?ip=" + encodeURIComponent(r.value))
+                }
+              />
+            </Panel>
+            <Panel title="Client" icon="code" id="us-agents">
+              <SourceList
+                rows={data.sources.agents}
+                render={(r) => (
+                  <>
+                    <b>{clientName(r.value)}</b>
+                    <small className="dash-ua">{r.value}</small>
+                  </>
+                )}
+              />
+            </Panel>
+            <Panel title="Origin & cara kirim key" icon="key" id="us-origins">
+              <SourceList
+                rows={data.sources.keySources}
+                render={(r) =>
+                  r.value === "query" ? (
+                    <>
+                      Query <code>?apikey=</code>
+                    </>
+                  ) : (
+                    <>
+                      Header <code>X-API-Key</code>
+                    </>
+                  )
+                }
+              />
+              <div className="dash-gap" />
+              <SourceList
+                rows={data.sources.origins}
+                render={(r) => <code className="dash-ua">{r.value}</code>}
+                empty="Belum ada origin atau referer"
+              />
+            </Panel>
+            <Panel
               title="Endpoint"
               icon="code"
               className="span-2"
@@ -1057,10 +1484,14 @@ function Usage({ search }) {
   );
 }
 
-function Logs() {
-  const keys = useApi("/keys");
+function Logs({ search }) {
+  const keys = useApi("/keys"),
+    params = new URLSearchParams(search);
   const [status, setStatus] = useState(""),
-    [key, setKey] = useState(""),
+    [key, setKey] = useState(params.get("key") || ""),
+    [ip, setIp] = useState(params.get("ip") || ""),
+    [country, setCountry] = useState(params.get("country") || ""),
+    [open, setOpen] = useState(params.get("open") || null),
     [rows, setRows] = useState([]),
     [next, setNext] = useState(null),
     [live, setLive] = useState(false),
@@ -1070,6 +1501,8 @@ function Logs() {
     new URLSearchParams({
       ...(status && { status }),
       ...(key && { key }),
+      ...(ip && { ip }),
+      ...(country && { country }),
       ...(before && { before }),
     });
   async function load(before) {
@@ -1085,12 +1518,12 @@ function Logs() {
   }
   useEffect(() => {
     load();
-  }, [status, key]);
+  }, [status, key, ip, country]);
   useEffect(() => {
     if (!live) return;
     const timer = setInterval(() => !document.hidden && load(), 5000);
     return () => clearInterval(timer);
-  }, [live, status, key]);
+  }, [live, status, key, ip, country]);
   return (
     <>
       <PageHead
@@ -1126,16 +1559,37 @@ function Logs() {
           </div>
         }
       >
-        Setiap request ber-API key tercatat 7 hari: method, path (tanpa query),
-        status dan durasi.
+        Setiap request ber-API key tercatat 7 hari lengkap dengan asal (IP,
+        lokasi, jaringan), client, header, cookie dan query. Klik baris untuk
+        detail.
       </PageHead>
+      {(ip || country) && (
+        <div className="dash-active-filters">
+          <span className="dash-eyebrow">FILTER</span>
+          {ip && (
+            <button type="button" className="fb-chip" onClick={() => setIp("")}>
+              IP {ip} <Icon name="close" size={11} />
+            </button>
+          )}
+          {country && (
+            <button
+              type="button"
+              className="fb-chip"
+              onClick={() => setCountry("")}
+            >
+              {flag(country)} {countryName(country)}{" "}
+              <Icon name="close" size={11} />
+            </button>
+          )}
+        </div>
+      )}
       <Panel id="logs">
         {state.error ? (
           <Failure error={state.error} onRetry={() => load()} />
         ) : state.loading && !rows.length ? (
           <Loading rows={6} />
         ) : (
-          <LogTable rows={rows} />
+          <LogTable rows={rows} onOpen={setOpen} />
         )}
         {next && (
           <button
@@ -1148,6 +1602,17 @@ function Logs() {
           </button>
         )}
       </Panel>
+      {open && (
+        <LogDrawer
+          id={open}
+          key={open}
+          onClose={() => setOpen(null)}
+          onFilter={(f) => {
+            setOpen(null);
+            if (f.ip) setIp(f.ip);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -2217,6 +2682,490 @@ function Fanbase() {
   );
 }
 
+const PLAN_OPTIONS = [
+  ["free", "Free"],
+  ["starter", "Starter"],
+  ["pro", "Pro"],
+  ["fanbase", "Fanbase"],
+];
+const PRODUCT_LABEL = {
+  "starter-30d": "Starter 30 hari",
+  "pro-30d": "Pro 30 hari",
+  "topup-5k": "+5.000 request",
+  "topup-25k": "+25.000 request",
+  "topup-100k": "+100.000 request",
+};
+
+// Admin tools talk to the dashboard API or the control API through `call`.
+const dashboardAdmin = (path, options) => api("/admin" + path, options);
+function useCall(call, path, deps = []) {
+  const [state, setState] = useState({
+      data: null,
+      error: null,
+      loading: true,
+    }),
+    [tick, setTick] = useState(0);
+  useEffect(() => {
+    let live = true;
+    setState((s) => ({ ...s, loading: true }));
+    call(path)
+      .then((data) => live && setState({ data, error: null, loading: false }))
+      .catch(
+        (error) => live && setState({ data: null, error, loading: false }),
+      );
+    return () => {
+      live = false;
+    };
+  }, [path, tick, ...deps]);
+  return { ...state, reload: () => setTick((t) => t + 1) };
+}
+
+export function FanbaseReview({ call = dashboardAdmin }) {
+  const [status, setStatus] = useState("PENDING"),
+    list = useCall(call, "/fanbase?status=" + status),
+    [notes, setNotes] = useState({}),
+    [msg, setMsg] = useState("");
+  async function decide(id, decision) {
+    setMsg("");
+    try {
+      await call("/fanbase/" + id, {
+        method: "PUT",
+        body: { status: decision, note: notes[id] || "" },
+      });
+      setMsg(
+        decision === "APPROVED"
+          ? "Fanbase disetujui, paket Fanbase aktif."
+          : "Keputusan disimpan.",
+      );
+      list.reload();
+    } catch (e) {
+      setMsg(e.message);
+    }
+  }
+  return (
+    <Panel
+      title="Pengajuan fanbase"
+      icon="gift"
+      className="span-2"
+      id="admin-fanbase"
+      action={
+        <Segmented
+          label="Status pengajuan"
+          value={status}
+          onChange={setStatus}
+          options={[
+            ["PENDING", "Menunggu"],
+            ["APPROVED", "Disetujui"],
+            ["REJECTED", "Ditolak"],
+          ]}
+        />
+      }
+    >
+      {msg && <p className="dash-ok">{msg}</p>}
+      {list.loading && !list.data ? (
+        <Loading rows={2} />
+      ) : !list.data?.applications.length ? (
+        <Empty icon="gift" title="Tidak ada pengajuan di status ini" />
+      ) : (
+        <div className="admin-apps">
+          {list.data.applications.map((a) => (
+            <article key={a.id} className="admin-app">
+              <header>
+                <div>
+                  <b>{a.name}</b>{" "}
+                  <a
+                    href={"https://x.com/" + a.x}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    @{a.x}
+                  </a>
+                  <small>
+                    {a.details.kindLabel} · {a.details.focus} · sejak{" "}
+                    {a.details.founded} · ±{fmt(a.details.followers)} pengikut
+                  </small>
+                </div>
+                <span className={"dash-badge " + (a.listing ? "success" : "")}>
+                  {a.listing ? "Boleh dicantumkan" : "Tidak dicantumkan"}
+                </span>
+              </header>
+              <KV
+                rows={[
+                  [
+                    "Follow X",
+                    <a
+                      href={"https://x.com/" + a.details.follower}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      @{a.details.follower}
+                    </a>,
+                  ],
+                  [
+                    "Instagram",
+                    a.details.instagram && "@" + a.details.instagram,
+                  ],
+                  ["TikTok", a.details.tiktok && "@" + a.details.tiktok],
+                  ["Pengelola", `${a.details.admin} · ${a.details.contact}`],
+                  ["Akun", `${a.account.name} · ${a.account.email}`],
+                  ["Key", <code>{a.key.preview}</code>],
+                  [
+                    "Bukti",
+                    <span className="admin-links">
+                      {a.details.links.map((l) => (
+                        <a
+                          key={l}
+                          href={l}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          {l.replace(/^https:\/\//, "").slice(0, 48)}
+                        </a>
+                      ))}
+                    </span>,
+                  ],
+                  ["Rencana", a.details.usage],
+                  ["Catatan", a.note],
+                ]}
+              />
+              <footer>
+                <input
+                  value={notes[a.id] || ""}
+                  onChange={(e) =>
+                    setNotes((n) => ({ ...n, [a.id]: e.target.value }))
+                  }
+                  placeholder="Catatan untuk pemohon (opsional)"
+                  maxLength={300}
+                  aria-label="Catatan keputusan"
+                />
+                {a.status !== "APPROVED" && (
+                  <button
+                    type="button"
+                    className="dash-btn accent"
+                    onClick={() => decide(a.id, "APPROVED")}
+                  >
+                    Setujui
+                  </button>
+                )}
+                {a.status !== "REJECTED" && (
+                  <button
+                    type="button"
+                    className="dash-btn ghost danger-text"
+                    onClick={() => decide(a.id, "REJECTED")}
+                  >
+                    {a.status === "APPROVED" ? "Cabut persetujuan" : "Tolak"}
+                  </button>
+                )}
+              </footer>
+            </article>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+export function AdminPanel({
+  account,
+  call = dashboardAdmin,
+  embedded = false,
+}) {
+  const [q, setQ] = useState(""),
+    [query, setQuery] = useState(""),
+    data = useCall(call, query ? "?q=" + encodeURIComponent(query) : ""),
+    payments = useCall(call, "/payments"),
+    [voucher, setVoucher] = useState({ requests: 5000, count: 1, note: "" }),
+    [codes, setCodes] = useState(null),
+    [msg, setMsg] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(q.trim()), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+  const t = data.data?.totals;
+  async function act(fn, ok) {
+    setMsg("");
+    try {
+      await fn();
+      setMsg(ok);
+      data.reload();
+    } catch (e) {
+      setMsg(e.message);
+    }
+  }
+  return (
+    <>
+      {!embedded && (
+        <PageHead
+          eyebrow={"ADMIN · " + account.email}
+          title="Admin"
+          actions={
+            <a className="dash-btn" href="/control/admin">
+              <PixelIcon name="shield" size={11} /> Control panel{" "}
+              <Icon name="external" size={12} />
+            </a>
+          }
+        >
+          Kelola akun developer, paket, voucher, pembayaran dan program fanbase.
+          Pengaturan server lengkap ada di control panel.
+        </PageHead>
+      )}
+      <div className="dash-stats six">
+        <Stat icon="user" label="Akun" value={t ? fmt(t.accounts) : "–"} />
+        <Stat icon="key" label="Key aktif" value={t ? fmt(t.keys) : "–"} />
+        <Stat
+          icon="pulse"
+          label={"Request " + (data.data?.period || "")}
+          value={t ? compact(t.requests) : "–"}
+        />
+        <Stat
+          icon="card"
+          label="Pendapatan bulan ini"
+          value={t ? rupiah(t.revenue) : "–"}
+          sub={t ? fmt(t.paidOrders) + " transaksi lunas" : ""}
+        />
+        <Stat
+          icon="gift"
+          label="Fanbase menunggu"
+          value={t ? fmt(t.fanbasePending) : "–"}
+        />
+        <Stat
+          icon="plus"
+          label="Voucher aktif"
+          value={t ? fmt(t.vouchers) : "–"}
+        />
+      </div>
+      {msg && <p className="dash-ok">{msg}</p>}
+      <div className="dash-grid-2">
+        <FanbaseReview call={call} />
+        <Panel
+          title="Akun developer"
+          icon="user"
+          className="span-2"
+          id="admin-accounts"
+          action={
+            <label className="dash-select">
+              <span>Cari</span>
+              <input
+                className="admin-search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="email atau nama"
+              />
+            </label>
+          }
+        >
+          {data.loading && !data.data ? (
+            <Loading rows={3} />
+          ) : data.error ? (
+            <Failure error={data.error} onRetry={data.reload} />
+          ) : !data.data.accounts.length ? (
+            <Empty icon="user" title="Belum ada akun" />
+          ) : (
+            <div className="dash-scroll">
+              <table className="dash-table">
+                <thead>
+                  <tr>
+                    <th>Akun</th>
+                    <th>Key</th>
+                    <th>Pemakaian</th>
+                    <th>Paket</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.data.accounts.flatMap((a) =>
+                    (a.keys.length ? a.keys : [null]).map((k, i) => (
+                      <tr key={a.id + (k?.id || "")}>
+                        {i === 0 && (
+                          <td rowSpan={Math.max(1, a.keys.length)}>
+                            <b>{a.name}</b>
+                            <br />
+                            <small className="dash-note">
+                              {a.email} · daftar {date(a.created_at)}
+                            </small>
+                          </td>
+                        )}
+                        {k ? (
+                          <>
+                            <td>
+                              {k.name}
+                              <br />
+                              <code className="dash-note">{k.preview}</code>
+                              {k.revokedAt && (
+                                <span className="dash-badge cancelled">
+                                  dicabut
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              {fmt(k.used)} / {fmt(k.limit)}
+                              <Meter
+                                used={k.used}
+                                limit={k.limit}
+                                cells={14}
+                                label={false}
+                              />
+                            </td>
+                            <td>
+                              <select
+                                className="admin-plan"
+                                value={k.plan}
+                                disabled={Boolean(k.revokedAt)}
+                                onChange={(e) =>
+                                  act(
+                                    () =>
+                                      call("/keys/" + k.id, {
+                                        method: "PUT",
+                                        body: { plan: e.target.value },
+                                      }),
+                                    "Paket " + k.name + " diperbarui.",
+                                  )
+                                }
+                              >
+                                {PLAN_OPTIONS.map(([id, label]) => (
+                                  <option key={id} value={id}>
+                                    {label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="dash-btn ghost"
+                                disabled={Boolean(k.revokedAt)}
+                                onClick={() => {
+                                  const value = prompt(
+                                    "Tambah berapa request untuk bulan ini?",
+                                    "5000",
+                                  );
+                                  if (value)
+                                    act(
+                                      () =>
+                                        call("/keys/" + k.id + "/topup", {
+                                          method: "POST",
+                                          body: { requests: Number(value) },
+                                        }),
+                                      "Kuota ditambahkan.",
+                                    );
+                                }}
+                              >
+                                + Kuota
+                              </button>
+                            </td>
+                          </>
+                        ) : (
+                          <td colSpan={4}>
+                            <small className="dash-note">
+                              Belum membuat key
+                            </small>
+                          </td>
+                        )}
+                      </tr>
+                    )),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+        <Panel title="Buat voucher isi ulang" icon="plus" id="admin-voucher">
+          <form
+            className="dash-form"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                const d = await call("/vouchers", {
+                  method: "POST",
+                  body: {
+                    ...voucher,
+                    requests: Number(voucher.requests),
+                    count: Number(voucher.count),
+                  },
+                });
+                setCodes(d);
+                data.reload();
+              } catch (err) {
+                setMsg(err.message);
+              }
+            }}
+          >
+            <label>
+              <span>Request per voucher</span>
+              <input
+                type="number"
+                min="1"
+                value={voucher.requests}
+                onChange={(e) =>
+                  setVoucher({ ...voucher, requests: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              <span>Jumlah voucher</span>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={voucher.count}
+                onChange={(e) =>
+                  setVoucher({ ...voucher, count: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              <span>Catatan</span>
+              <input
+                value={voucher.note}
+                maxLength={80}
+                onChange={(e) =>
+                  setVoucher({ ...voucher, note: e.target.value })
+                }
+                placeholder="mis. hadiah giveaway"
+              />
+            </label>
+            <button className="dash-btn accent">Buat voucher</button>
+          </form>
+          {codes && (
+            <div className="admin-codes">
+              <p className="dash-note">
+                Simpan sekarang, kode hanya tampil sekali ({fmt(codes.requests)}{" "}
+                request per kode):
+              </p>
+              <pre>{codes.codes.join("\n")}</pre>
+              <Copy text={codes.codes.join("\n")} label="Salin semua" />
+            </div>
+          )}
+        </Panel>
+        <Panel title="Pembayaran terbaru" icon="card" id="admin-payments">
+          {!payments.data ? (
+            <Loading rows={2} />
+          ) : !payments.data.payments.length ? (
+            <Empty icon="card" title="Belum ada pembayaran" />
+          ) : (
+            <ul className="admin-payments">
+              {payments.data.payments.slice(0, 12).map((p) => (
+                <li key={p.id}>
+                  <div>
+                    <b>{PRODUCT_LABEL[p.product] || p.product}</b>
+                    <small>
+                      {p.email} · {p.key} · {date(p.createdAt)}
+                    </small>
+                  </div>
+                  <span>{rupiah(p.amount)}</span>
+                  <span className={"dash-badge " + p.status.toLowerCase()}>
+                    {STATUS_LABEL[p.status] || p.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
+    </>
+  );
+}
+
 function device(ua = "") {
   const browser = /Edg\//.test(ua)
     ? "Edge"
@@ -2496,9 +3445,11 @@ export function Dashboard({ path, search }) {
     ) : section === "usage" ? (
       <Usage search={search} key={search} />
     ) : section === "logs" ? (
-      <Logs />
+      <Logs search={search} key={search} />
     ) : section === "billing" ? (
       <Billing search={search} />
+    ) : section === "admin" && account.admin ? (
+      <AdminPanel account={account} />
     ) : section === "fanbase" ? (
       <Fanbase />
     ) : section === "account" ? (
@@ -2520,7 +3471,10 @@ export function Dashboard({ path, search }) {
         </div>
         <nav className="dash-nav" ref={nav} aria-label="Menu dashboard">
           <span className="dash-nav-pill" ref={marker} aria-hidden="true" />
-          {SECTIONS.map(([id, label, icon]) => (
+          {[
+            ...SECTIONS,
+            ...(account.admin ? [["admin", "Admin", "shield"]] : []),
+          ].map(([id, label, icon]) => (
             <Link
               key={id}
               href={"/dashboard" + (id ? "/" + id : "")}

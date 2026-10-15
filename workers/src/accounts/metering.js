@@ -8,6 +8,7 @@ import {
   routeOf,
   sha256,
 } from "./core.js";
+import { captureRequest, serializeDetails } from "./capture.js";
 
 // Every /api request outside the app's own session routes spends one request
 // of the caller's monthly quota. The first-party app keeps working through its
@@ -105,8 +106,12 @@ const pass = (client = null) => ({ client, finish: (response) => response });
 export async function meter(request, bindings, execution, verify = {}) {
   const url = new URL(request.url);
   if (!isMetered(url.pathname, request.method)) return pass();
+  // Keys work from the X-API-Key header or the api_key / apikey query.
   const token =
-    request.headers.get("X-API-Key") || url.searchParams.get("api_key") || "";
+    request.headers.get("X-API-Key") ||
+    url.searchParams.get("api_key") ||
+    url.searchParams.get("apikey") ||
+    "";
   const required = keysRequired(bindings);
   if (bindings.API_KEY && token === bindings.API_KEY)
     return pass({ kind: "server" });
@@ -127,7 +132,7 @@ export async function meter(request, bindings, execution, verify = {}) {
         401,
         token
           ? "API key tidak valid. Gunakan key jkc_… dari dashboard."
-          : "API key diperlukan. Buat API key gratis di dashboard lalu kirim lewat header X-API-Key.",
+          : "API key diperlukan. Buat API key gratis di dashboard lalu kirim lewat header X-API-Key atau query ?apikey=.",
       ),
     };
   }
@@ -151,12 +156,15 @@ export async function meter(request, bindings, execution, verify = {}) {
   )
     .bind(key.id, month, quota.monthly)
     .first();
-  const route = routeOf(request.method, url.pathname);
+  const route = routeOf(request.method, url.pathname),
+    seen = captureRequest(request, url);
   const log = (status, started, extra = []) =>
     execution?.waitUntil(
       bindings.DB.batch([
         bindings.DB.prepare(
-          "INSERT INTO api_request_log(account_id,key_id,at,method,path,status,duration_ms) VALUES(?,?,?,?,?,?,?)",
+          `INSERT INTO api_request_log(account_id,key_id,at,method,path,status,duration_ms,
+             ip,country,city,region,colo,as_org,user_agent,referer,origin,key_source,details)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         ).bind(
           key.account_id,
           key.id,
@@ -165,6 +173,17 @@ export async function meter(request, bindings, execution, verify = {}) {
           url.pathname.slice(0, 200),
           status,
           Math.max(0, Date.now() - started),
+          seen.ip,
+          seen.country,
+          seen.city,
+          seen.region,
+          seen.colo,
+          seen.asOrg,
+          seen.userAgent,
+          seen.referer,
+          seen.origin,
+          seen.keySource,
+          serializeDetails(seen.details),
         ),
         ...extra,
         ...(Math.random() < 0.01

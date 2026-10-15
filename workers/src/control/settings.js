@@ -25,13 +25,16 @@ const caches=new WeakMap();
 async function encryptionKey(secret){return crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',encoder.encode(secret)),{name:'AES-GCM'},false,['encrypt','decrypt']);}
 async function encrypt(value,secret){const iv=crypto.getRandomValues(new Uint8Array(12));return b64(iv)+'.'+b64(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await encryptionKey(secret),encoder.encode(value))));}
 async function decrypt(value,secret){const [iv,data]=value.split('.');return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(iv)},await encryptionKey(secret),unb64(data)));}
+// Settings secrets are encrypted with the control session secret; without one
+// (admin through a developer account) the Worker's own SECRET is the key.
+const controlKey=bindings=>bindings.CONTROL_SESSION_SECRET||bindings.SECRET;
 export function clearSettingsCache(bindings){if(bindings.DB)caches.delete(bindings.DB);}
 export async function effectiveBindings(bindings){
-  if(!bindings.DB || !bindings.CONTROL_SESSION_SECRET)return bindings;
+  if(!bindings.DB || !controlKey(bindings))return bindings;
   let cached=caches.get(bindings.DB);
   if(!cached || cached.until<Date.now()){
     const {results}=await bindings.DB.prepare('SELECT name,value,is_secret FROM control_settings').all();
-    const values={};for(const row of results){if(specification.has(row.name))values[row.name]=row.is_secret?await decrypt(row.value,bindings.CONTROL_SESSION_SECRET):row.value;}
+    const values={};for(const row of results){if(specification.has(row.name))values[row.name]=row.is_secret?await decrypt(row.value,controlKey(bindings)):row.value;}
     cached={values,until:Date.now()+10000};caches.set(bindings.DB,cached);
   }
   return {...bindings,...cached.values};
@@ -64,7 +67,7 @@ export async function saveSettings(bindings,changes){
   const statements=[];
   for(const {name,value,definition}of entries){
     if(value===null)statements.push(bindings.DB.prepare('DELETE FROM control_settings WHERE name=?').bind(name));
-    else statements.push(bindings.DB.prepare('INSERT INTO control_settings(name,value,is_secret,updated_at) VALUES(?,?,?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value,is_secret=excluded.is_secret,updated_at=excluded.updated_at').bind(name,definition.secret?await encrypt(value,bindings.CONTROL_SESSION_SECRET):value,definition.secret?1:0,Date.now()));
+    else statements.push(bindings.DB.prepare('INSERT INTO control_settings(name,value,is_secret,updated_at) VALUES(?,?,?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value,is_secret=excluded.is_secret,updated_at=excluded.updated_at').bind(name,definition.secret?await encrypt(value,controlKey(bindings)):value,definition.secret?1:0,Date.now()));
   }
   if(statements.length)await bindings.DB.batch(statements);
   clearSettingsCache(bindings);
