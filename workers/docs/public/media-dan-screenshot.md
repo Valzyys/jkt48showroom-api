@@ -18,7 +18,8 @@ Tampilkan placeholder ketika URL kosong atau gambar tidak dapat dimuat. Jangan m
 ## Screenshot satu sesi
 
 ```sh
-curl 'https://api.jkt48connect.app/api/screenshots/DATA_ID'
+curl 'https://api.jkt48connect.app/api/screenshots/DATA_ID' \
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
 ```
 
 Daftar timestamp dapat dikombinasikan dengan `base_url` serta `format` yang diberikan respons.

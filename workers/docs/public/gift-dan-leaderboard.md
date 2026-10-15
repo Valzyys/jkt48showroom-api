@@ -33,8 +33,10 @@ Total gold yang dilaporkan sumber dapat tersedia meskipun rincian jenis gift ata
 ## Daftar tambahan
 
 ```sh
-curl 'https://api.jkt48connect.app/api/recent/DATA_ID/gifts'
-curl 'https://api.jkt48connect.app/api/recent/DATA_ID/stagelist'
+curl 'https://api.jkt48connect.app/api/recent/DATA_ID/gifts' \
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
+curl 'https://api.jkt48connect.app/api/recent/DATA_ID/stagelist' \
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
 ```
 
 Lihat referensi untuk bentuk respons dan kebutuhan parameter tiap endpoint. Daftar yang tersedia bukan jaminan seluruh penonton sepanjang sesi.

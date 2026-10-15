@@ -7400,90 +7400,230 @@ a.fb-chip:hover {
 }
 
 /* boot screen: shown until the app script renders */
+@property --boot-p {
+  syntax: "<integer>";
+  initial-value: 0;
+  inherits: false;
+}
 .boot {
-  position: relative;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
   display: grid;
   place-items: center;
-  min-height: 100vh;
-  padding: 24px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 24px 16px 84px;
   overflow: hidden;
-  background: var(--bg);
+  background:
+    radial-gradient(60% 50% at 50% 40%, var(--accent-soft), transparent 70%),
+    var(--bg);
 }
 .boot-grid {
   position: absolute;
-  inset: -40px;
-  background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px);
+  inset: -44px;
+  background-image: radial-gradient(var(--dot) 1.3px, transparent 1.3px);
   background-size: 22px 22px;
-  animation: boot-drift 18s linear infinite;
-  mask-image: radial-gradient(circle at 50% 45%, #000 20%, transparent 70%);
+  animation: boot-drift 14s linear infinite;
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 45%,
+    #000 25%,
+    transparent 75%
+  );
+  mask-image: radial-gradient(circle at 50% 45%, #000 25%, transparent 75%);
 }
 @keyframes boot-drift {
   to {
     transform: translate(22px, 22px);
   }
 }
+.boot-particles i {
+  position: absolute;
+  bottom: -12px;
+  left: var(--x);
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  animation: boot-rise-dot var(--t) linear var(--w) infinite;
+}
+.boot-particles i:nth-child(3n) {
+  background: var(--ink);
+}
+.boot-particles i:nth-child(4n) {
+  width: 4px;
+  height: 4px;
+  background: var(--accent-2);
+}
+@keyframes boot-rise-dot {
+  10% {
+    opacity: 0.55;
+  }
+  80% {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-105vh) rotate(180deg);
+  }
+}
 .boot-card {
   position: relative;
   display: grid;
-  justify-items: start;
-  gap: 16px;
-  width: min(440px, 100%);
-  padding: 30px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  width: min(860px, 100%);
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--r-xl);
   background: var(--panel);
-  box-shadow: 0 30px 80px -40px rgba(19, 19, 21, 0.35);
-  animation: boot-rise 0.7s var(--ease) both;
+  box-shadow: 0 40px 90px -45px rgba(19, 19, 21, 0.45);
+  animation: boot-in 0.8s var(--ease) both;
 }
-@keyframes boot-rise {
+@keyframes boot-in {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.98);
+    transform: translateY(24px) scale(0.97);
+  }
+}
+.boot-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 360px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(228, 0, 43, 0.28), transparent 60%),
+    var(--code-bg);
+}
+.boot-orbit,
+.boot-orbit span {
+  position: absolute;
+  border-radius: 50%;
+}
+.boot-orbit {
+  inset: 0;
+}
+.boot-orbit span {
+  top: 50%;
+  left: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  animation: boot-spin 9s linear infinite;
+}
+.boot-orbit span::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent-2);
+  box-shadow: 0 0 14px var(--accent-2);
+}
+.boot-orbit span:nth-child(1) {
+  width: 170px;
+  height: 170px;
+  margin: -85px;
+}
+.boot-orbit span:nth-child(2) {
+  width: 230px;
+  height: 230px;
+  margin: -115px;
+  animation-duration: 14s;
+  animation-direction: reverse;
+}
+.boot-orbit span:nth-child(2)::after {
+  background: #fff;
+  box-shadow: 0 0 12px #fff;
+}
+.boot-orbit span:nth-child(3) {
+  width: 290px;
+  height: 290px;
+  margin: -145px;
+  animation-duration: 22s;
+  border-style: dotted;
+}
+@keyframes boot-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 .boot-mark {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(5, 9px);
-  gap: 3px;
-  padding: 10px;
-  border-radius: 14px;
-  background: var(--ink);
+  grid-template-columns: repeat(7, 11px);
+  gap: 4px;
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 .boot-mark i {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.boot-mark i.on {
   background: #fff;
-  opacity: 0.12;
-  animation: boot-pixel 1.6s ease-in-out infinite;
+  animation: boot-wave 1.8s ease-in-out var(--d) infinite;
 }
-.boot-mark i:nth-child(5n + 1) {
-  animation-delay: 0s;
-}
-.boot-mark i:nth-child(5n + 2) {
-  animation-delay: 0.1s;
-}
-.boot-mark i:nth-child(5n + 3) {
-  animation-delay: 0.2s;
-  background: var(--accent-2);
-}
-.boot-mark i:nth-child(5n + 4) {
-  animation-delay: 0.3s;
-}
-.boot-mark i:nth-child(5n + 5) {
-  animation-delay: 0.4s;
-}
-.boot-mark i:nth-child(n + 6):nth-child(-n + 10) {
-  animation-delay: 0.5s;
-}
-.boot-mark i:nth-child(n + 16):nth-child(-n + 20) {
-  animation-delay: 0.7s;
-}
-@keyframes boot-pixel {
-  40%,
-  60% {
-    opacity: 1;
+@keyframes boot-wave {
+  0%,
+  100% {
+    transform: none;
   }
+  30% {
+    transform: translateY(-4px);
+    background: var(--accent-2);
+    box-shadow: 0 0 12px var(--accent-2);
+  }
+}
+.boot-percent {
+  position: absolute;
+  bottom: 18px;
+  left: 20px;
+  color: #fff;
+  font: 700 30px/1 var(--pixel);
+  animation: boot-count 3.2s cubic-bezier(0.3, 0.7, 0.4, 1) forwards;
+  counter-reset: p var(--boot-p);
+}
+.boot-percent::after {
+  content: counter(p) "%";
+}
+@keyframes boot-count {
+  to {
+    --boot-p: 99;
+  }
+}
+.boot-scan {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    transparent,
+    rgba(255, 255, 255, 0.07) 50%,
+    transparent
+  );
+  background-size: 100% 40%;
+  background-repeat: no-repeat;
+  animation: boot-scan 2.6s linear infinite;
+  pointer-events: none;
+}
+@keyframes boot-scan {
+  from {
+    background-position: 0 -40%;
+  }
+  to {
+    background-position: 0 140%;
+  }
+}
+.boot-body {
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 30px 30px 26px;
 }
 .boot-eyebrow {
   display: flex;
@@ -7511,14 +7651,32 @@ a.fb-chip:hover {
 }
 .boot-title {
   margin: 0;
-  font: 600 34px/1.05 var(--sans);
+  font: 600 38px/1.02 var(--sans);
   letter-spacing: -0.045em;
 }
 .boot-title em {
+  display: inline-block;
   color: var(--accent);
-  font: 700 30px/1.2 var(--pixel);
+  font: 700 32px/1.25 var(--pixel);
   font-style: normal;
   letter-spacing: 0;
+  animation: boot-glitch 3s steps(1) infinite;
+}
+@keyframes boot-glitch {
+  0%,
+  86%,
+  100% {
+    transform: none;
+    text-shadow: none;
+  }
+  88% {
+    transform: translateX(2px);
+    text-shadow: -2px 0 var(--ink);
+  }
+  92% {
+    transform: translateX(-2px);
+    text-shadow: 2px 0 var(--accent-2);
+  }
 }
 .boot-bar,
 .dash-loading-bar {
@@ -7547,36 +7705,163 @@ a.fb-chip:hover {
   }
 }
 .boot-steps {
-  position: relative;
-  width: 100%;
-  height: 20px;
+  display: grid;
+  gap: 7px;
   margin: 0;
   padding: 0;
-  overflow: hidden;
   list-style: none;
   color: var(--ink-2);
   font: 500 13px var(--sans);
 }
-.boot-steps li,
+.boot-steps li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  opacity: 0.35;
+  animation: boot-step 0.4s var(--ease) calc(0.5s + var(--i) * 0.7s) forwards;
+}
+.boot-check {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border: 1.5px solid var(--line-2);
+  border-radius: 5px;
+}
+.boot-check::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 2px;
+  background: var(--ok);
+  transform: scale(0);
+  animation: boot-tickbox 0.3s var(--ease) calc(0.7s + var(--i) * 0.7s) forwards;
+}
+@keyframes boot-step {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes boot-tickbox {
+  to {
+    transform: none;
+  }
+}
+.boot-term {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 12px 14px;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  background: var(--code-bg);
+  color: #d9dbe0;
+  font: 11.5px/1.6 var(--mono);
+  list-style: none;
+}
+.boot-term li {
+  overflow: hidden;
+  white-space: nowrap;
+  width: 0;
+  animation: boot-type 0.55s steps(28) calc(0.3s + var(--i) * 0.55s) forwards;
+}
+.boot-term b {
+  color: #7ee2a8;
+  font-weight: 600;
+}
+.boot-term em {
+  color: #7ee2a8;
+  font-style: normal;
+}
+.boot-term small {
+  color: #6f7280;
+  font-size: inherit;
+}
+.boot-term li:last-child::after {
+  content: "▋";
+  margin-left: 4px;
+  color: var(--accent-2);
+  animation: boot-blink 0.8s steps(1) infinite;
+}
+@keyframes boot-type {
+  to {
+    width: 100%;
+  }
+}
+@keyframes boot-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.boot-link {
+  justify-self: start;
+  color: var(--muted);
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--line-2);
+}
+.boot-marquee {
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+}
+.boot-marquee div {
+  display: flex;
+  gap: 10px;
+  width: max-content;
+  animation: boot-marquee 30s linear infinite;
+}
+.boot-marquee span {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 11px var(--mono);
+  white-space: nowrap;
+}
+.boot-marquee span:nth-child(3n + 1) {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+@keyframes boot-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes boot-pixel {
+  40%,
+  60% {
+    opacity: 1;
+  }
+}
 .dash-loading-ticker span {
   position: absolute;
   inset: 0;
   opacity: 0;
   animation: boot-tick 6s infinite;
 }
-.boot-steps li::before {
-  content: "› ";
-  color: var(--accent);
-}
-.boot-steps li:nth-child(2),
 .dash-loading-ticker span:nth-child(2) {
   animation-delay: 1.5s;
 }
-.boot-steps li:nth-child(3),
 .dash-loading-ticker span:nth-child(3) {
   animation-delay: 3s;
 }
-.boot-steps li:nth-child(4),
 .dash-loading-ticker span:nth-child(4) {
   animation-delay: 4.5s;
 }
@@ -7596,33 +7881,16 @@ a.fb-chip:hover {
     transform: translateY(-100%);
   }
 }
-.boot-ascii {
-  width: 100%;
-  margin: 0;
-  padding: 12px 14px;
-  overflow: hidden;
-  border-radius: var(--r-sm);
-  background: var(--code-bg);
-  color: #7ee2a8;
-  font: 11.5px/1.6 var(--mono);
-  white-space: pre;
-  -webkit-mask-image: linear-gradient(#000 60%, transparent);
-  mask-image: linear-gradient(#000 60%, transparent);
-  animation: boot-scroll 2.4s steps(4) infinite;
-}
-@keyframes boot-scroll {
-  from {
-    background-position: 0 0;
-    text-indent: 0;
+@media (max-width: 720px) {
+  .boot-card {
+    grid-template-columns: minmax(0, 1fr);
   }
-  50% {
-    color: #c7f5d9;
+  .boot-stage {
+    min-height: 200px;
   }
-}
-.boot-link {
-  color: var(--muted);
-  font-size: 12.5px;
-  border-bottom: 1px solid var(--line-2);
+  .boot-title {
+    font-size: 32px;
+  }
 }
 
 /* in-app loading */
@@ -7720,8 +7988,11 @@ a.fb-chip:hover {
   .dash-loading * {
     animation: none !important;
   }
-  .boot-steps li:first-child,
+  .boot-steps li,
   .dash-loading-ticker span:first-child {
     opacity: 1;
+  }
+  .boot-term li {
+    width: auto;
   }
 }
