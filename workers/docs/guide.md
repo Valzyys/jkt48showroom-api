@@ -322,7 +322,9 @@ Lihat referensi untuk bentuk respons dan kebutuhan parameter tiap endpoint. Daft
 ## Gambar leaderboard
 
 
-Detail recent menyediakan URL gambar rekap yang bisa ditampilkan atau dibagikan. Gunakan URL dari respons agar versi desain serta identitas sesi sesuai dengan datanya.
+Daftar dan detail recent menyediakan URL gambar rekap melalui satu field `leaderboard_designs`, dengan dua tema: `photobook` dan `jkt48connect`. Setiap tema mempunyai layout `portrait` dan `banner`. Gunakan URL dari respons agar versi desain serta identitas sesi sesuai dengan datanya.
+
+Untuk integrasi yang sebelumnya memakai `leaderboard_image` atau `leaderboard_images`, pindahkan pembacaan gambar ke `leaderboard_designs.photobook.portrait` atau `.banner`. Kedua field lama sudah dihapus dari respons.
 
 ## Tema dan layout
 
