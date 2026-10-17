@@ -79,9 +79,9 @@ advancing recording; provider checks and a grace period confirm the end. Chat
 reconnects independently, and unrelated/expected socket closures do not count as
 active chat failures.
 
-Both portrait posters (1800 × 2400 PNG) and independently composed landscape banners (2400 × 1350 PNG, 16:9) are rendered automatically. Read `leaderboard_images.portrait` and `leaderboard_images.banner` on recent list/detail. The legacy `leaderboard_image` remains the portrait. Jobs alternate between layouts, each with its own lease and R2 object; one layout failing does not invalidate the other.
+Both portrait posters (1800 × 2400 PNG) and independently composed landscape banners (2400 × 1350 PNG, 16:9) are rendered automatically. Recent list/detail exposes the images only through `leaderboard_designs.photobook.{portrait,banner}` and `leaderboard_designs.jkt48connect.{portrait,banner}`. The duplicate `leaderboard_image` and `leaderboard_images` fields have been removed. Jobs alternate between layouts, each with its own lease and R2 object; one layout failing does not invalidate the other.
 
-Additional Fan Signal theme: `leaderboard_designs.jkt48connect.{portrait,banner}`. Photobook remains in `leaderboard_images` and `leaderboard_designs.photobook`. Renderer alternates all four jobs, up to 12 per run. Apply migration 0007 before activating the new Worker/renderer.
+Fan Signal uses `leaderboard_designs.jkt48connect.{portrait,banner}`; Photobook uses `leaderboard_designs.photobook.{portrait,banner}`. Renderer alternates all four jobs, up to 12 per run. Apply migration 0007 before activating the new Worker/renderer.
 
 ### IDN collection accuracy
 
