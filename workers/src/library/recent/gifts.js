@@ -1,3 +1,7 @@
+import {recentGiftCatalog} from './gift-catalog';
+import {giftAvailability, presentGiftEvent} from './gift-presentation';
+import {idnGoldSummary} from '../../idn/ranking';
+import {giftCounts} from './gift-counts';
 import Fuse from 'fuse.js';
 import config from '@/config';
 import LiveLog from '@/database/live/schema/LiveLog';
@@ -61,7 +65,9 @@ function getUserIDN(data, gifts) {
     }
     return users;
 }
-function parseGift(c, data) {
+async function parseGift(c, data) {
+    const catalog = await recentGiftCatalog(data);
+    const gold = data.type === 'idn' ? idnGoldSummary(data.gift_data?.gift_log || [], data.gift_data?.provider_ranking, data.users || []) : null;
     let page = Number(c.req.query('page') || 1);
     const search = c.req.query('s') || '';
     const perpage = Number(c.req.query('perpage') || config.giftPerpage);
@@ -105,16 +111,13 @@ function parseGift(c, data) {
     }
     if (page < 1) page = 1;
     return {
+        gift_summary: giftAvailability(data, gold),
+        ...(gold ? {fans: gold.fans, gold_summary: {...gold, fans: undefined}} : {}),
+        list: [...catalog.values()].map(gift => ({...gift, ...giftCounts(data.gift_data?.gift_log, gift.id), image_available: Boolean(gift.img), count_source: 'observed_events'})),
         gifts: giftLogs.map((i)=>{
             return {
                 ...i,
-                gifts: i.gifts.map((g)=>{
-                    return {
-                        id: g.gift_id,
-                        date: g.date.toISOString(),
-                        num: g.num
-                    };
-                })
+                gifts: i.gifts.map(g => presentGiftEvent(g, catalog))
             };
         }),
         users,

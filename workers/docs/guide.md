@@ -289,6 +289,8 @@ Rekap gift membantu menampilkan dukungan penggemar selama satu sesi. Gunakan uni
 
 Rincian gift yang tersedia dapat menyertakan nama, gambar, jumlah unit, frekuensi pengiriman, serta jumlah pengirim. Gunakan nama field dari output endpoint yang dipakai; `num` dan jumlah event pengiriman dapat memiliki arti berbeda.
 
+Log gift juga menyertakan `name`, `img`, `image_available`, `point`, dan `send_count`. URL `img` disajikan dari R2 melalui API media. Respons `/api/recent/DATA_ID/gifts` menyediakan ringkasan `list` dan `gift_summary`; untuk IDN, `fans` serta `gold_summary` tetap tersedia saat log kosong. Alasan `gift_events_not_captured` berarti jenis atau jumlah gift tidak tercatat meskipun total gold sumber tersedia.
+
 ```jsx
 <div>
   {gift.img && <img src={gift.img} alt={gift.name} loading="lazy" />}

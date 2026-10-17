@@ -9,3 +9,6 @@ test('all IRC events in one frame survive with stable provider IDs and numeric q
 test('malformed quantities cannot poison gold totals and unknown price stays unknown',()=>{
  assert.equal(parseFrames(JSON.stringify({...data,gift:{slug:'rose',gold:'NaN'}})).length,0);assert.equal(parseFrames(JSON.stringify({...data,gift:{slug:'rose',gold:-1}})).length,0);assert.equal(parseFrames(JSON.stringify({...data,gift:{slug:'rose',quantity:0}})).length,0);assert.equal(parseFrames(JSON.stringify({...data,gift:{slug:'rose'}}))[0].gift.gold,null);
 });
+test('malformed nested envelopes cannot crash the observer',()=>{
+ for(const message of ['null','false','42','[]','not-json'])assert.deepEqual(parseFrames(JSON.stringify({Type:'MESSAGE',Attributes:{message}})),[]);
+});

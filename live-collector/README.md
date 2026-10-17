@@ -99,3 +99,15 @@ Full session snapshots no longer serialize on each IDN event: a compact SQLite
 journal is committed first and checkpointed about every 750 ms. Restart replays
 uncheckpointed events with provider IDs for deduplication. Video upload retries
 and multipart recovery retain their existing behavior.
+
+The IDN browser observer replaces crashed tabs and tabs that fail navigation or
+reload. Each room has its own recovery state; slow page creation does not block
+auth updates, removal, or other rooms. Events from old tab generations and other
+room IDs are discarded. Browser disconnects allow a fresh launch. Recovery never
+changes video recording tasks. Run `node --test tests/idn-*.test.cjs` to verify it.
+
+Recent gift logs and their paginated endpoint include gift names and R2 image
+URLs. Catalog IDs are merged with observed log IDs, so incomplete older ID lists
+do not hide recorded gifts. Cumulative top-gifter gold cannot reconstruct missing
+gift types or quantities: responses expose `gift_events_not_captured` when no
+gift events were saved, while retaining the separately sourced fan leaderboard.

@@ -1,6 +1,8 @@
 import {runWithEnv,env} from './env.js';
 import {IDNGift} from '../database/live/schema/idn/Gift.js';
 import ShowroomGift from '../database/schema/showroom/ShowroomGift.js';
+import {ensureIdnGifts} from '../idn/catalog.js';
+import {effectiveBindings} from '../control/settings.js';
 export function giftImageUrl(provider,id){return (env.REQUEST_ORIGIN||'https://api.jkt48connect.app')+'/media/gifts/'+provider+'/'+encodeURIComponent(String(id));}
 export async function serveGiftImage(request,bindings){
  const url=new URL(request.url);if(!url.pathname.startsWith('/media/gifts/'))return null;
@@ -10,7 +12,16 @@ export async function serveGiftImage(request,bindings){
  try{
   const [_,provider,id]=match,key='gifts/'+provider+'/'+id;let object=await bindings.IMAGES_BUCKET.get(key);
   if(!object){
-   const source=await runWithEnv(bindings,null,async()=>provider==='idn'?(await IDNGift.findOne({slug:id}).lean())?.image_url:(await ShowroomGift.findOne({gift_id:Number(id)}).lean())?.image||'https://static.showroom-live.com/image/gift/'+id+'_s.png');
+   const effective=provider==='idn'?await effectiveBindings(bindings):bindings;
+   const source=await runWithEnv(effective,null,async()=>{
+    if(provider==='idn'){
+     let gift=await IDNGift.findOne({slug:id}).lean();
+     if(!gift?.image_url){await ensureIdnGifts(effective);gift=await IDNGift.findOne({slug:id}).lean();}
+     return gift?.image_url;
+    }
+    const image=(await ShowroomGift.findOne({gift_id:Number(id)}).lean())?.image;
+    return /^https:\/\/static\.showroom-live\.com\/image\/gift\//.test(image||'')?image:'https://static.showroom-live.com/image/gift/'+id+'_s.png';
+   });
    if(!source)return new Response('Gift image unavailable',{status:404});const target=new URL(source);if(target.protocol!=='https:'||target.username||target.password||target.port||!(provider==='idn'?target.hostname==='cdn.idntimes.com'&&target.pathname.startsWith('/content-images/'):target.hostname==='static.showroom-live.com'&&target.pathname.startsWith('/image/gift/')))return new Response('Gift image unavailable',{status:404});
    const response=await fetch(target,{redirect:'manual',signal:AbortSignal.timeout(15000)});if(!response.ok)return new Response('Gift image unavailable',{status:response.status===404?404:502});
    const type=response.headers.get('Content-Type')?.split(';')[0];if(!['image/png','image/jpeg','image/webp','image/gif','image/avif'].includes(type))return new Response('Invalid gift image',{status:502});

@@ -1,14 +1,12 @@
 import {idnGoldSummary} from '../../idn/ranking.js';
 import {recordingSession} from '../../collector/recording-session';
 import {leaderboardImages} from '../../collector/leaderboards';
-import {ensureIdnGifts} from '../../idn/catalog';
-import {giftImageUrl} from '../../runtime/gift-media';
+import {recentGiftCatalog} from './gift-catalog';
+import {giftAvailability, presentGiftEvent} from './gift-presentation';
 import { giftCounts } from './gift-counts';
 import { env } from '@/runtime/env';
-import ShowroomGift from '@schema/showroom/ShowroomGift';
 import dayjs from 'dayjs';
 import config from '@/config';
-import { IDNGift } from '@/database/live/schema/idn/Gift';
 import LiveLog from '@/database/live/schema/LiveLog';
 import { StageList } from '@/database/showroomDB/StageList';
 import UserLog from '@/database/userDB/UserLog';
@@ -70,10 +68,8 @@ export async function parseShowroom(data) {
         data_id: data.data_id
     }).lean();
     const fansRank = calculateFansPoints(data?.users ?? [], stageListData?.stage_list ?? [], data?.gift_data?.gift_log ?? []);
-    const giftList = await ShowroomGift.find({
-        gift_id: data.gift_data.gift_id_list
-    }).lean();
-    const giftMap = new Map();
+    const giftMap = await recentGiftCatalog(data);
+    for (const gift of giftMap.values()) Object.assign(gift, {num: 0, user_count: 0});
     const userMap = new Map();
     const stageList = (stageListData?.stage_list ?? []).pop();
     if (stageList) {
@@ -94,21 +90,9 @@ export async function parseShowroom(data) {
             ...user
         });
     }
-    for (const gift of giftList){
-        giftMap.set(gift.gift_id, {
-            name: gift.gift_name,
-            point: gift.point,
-            id: gift.gift_id,
-            free: gift.free,
-            img: giftImageUrl('showroom',gift.gift_id),
-            is_delete_from_stage: gift.is_delete_from_stage,
-            user_count: 0,
-            num: 0
-        });
-    }
     for (const giftLog of data.gift_data.gift_log ?? []){
         for (const gift of giftLog.gifts){
-            const g = giftMap.get(gift.gift_id);
+            const g = giftMap.get(String(gift.gift_id));
             if (g) {
                 g.num += gift.num;
                 g.user_count += 1;
@@ -119,34 +103,18 @@ export async function parseShowroom(data) {
         gift.user_count = data.gift_data.gift_log.filter((i)=>i.gifts.some((g)=>String(g.gift_id) === String(gift.id))).length;
     }
     for (const freeGift of data.gift_data.free_gifts ?? []){
-        const g = giftMap.get(freeGift.gift_id);
+        const g = giftMap.get(String(freeGift.gift_id));
         if (g) {
             g.num += freeGift.num;
             g.user_count += freeGift.users;
         }
     }
-    const gifts = (giftList ?? []).map((g)=>{
-        const gift = giftMap.get(g.gift_id);
-        if (gift) {
-            return {
-                ...gift,
-                ...giftCounts(data.gift_data.gift_log,gift.id),
-                ...(data.type==='showroom'?{num:gift.num,user_count:gift.user_count}:{}),
-                count_source:'observed_events'
-            };
-        } else {
-            return {
-                name: g.gift_name,
-                point: 0,
-                id: g.gift_id,
-                user_count: 0,
-                free: false,
-                img: giftImageUrl('showroom',g.gift_id),
-                is_delete_from_stage: true,
-                num: 0
-            };
-        }
-    });
+    const gifts = [...giftMap.values()].map(gift => ({
+        ...gift,
+        ...giftCounts(data.gift_data.gift_log, gift.id),
+        num: gift.num, user_count: gift.user_count, image_available: Boolean(gift.img),
+        count_source: 'observed_events'
+    }));
     let screenshot;
     if (env.DISABLE_SCREENSHOTS !== 'true' && data.live_info?.screenshots) {
         screenshot = {
@@ -165,16 +133,10 @@ export async function parseShowroom(data) {
                 stageList
             ] : [],
             gift: {
+                ...giftAvailability(data),
                 log: giftPagination.gifts.map((i)=>{
                     return {
-                        gifts: i.gifts.map((g)=>{
-                            return {
-                                id: g.gift_id,
-                                num: g.num,
-                                send_count: g.send_count ?? null,
-                                date: g.date.toISOString()
-                            };
-                        }),
+                        gifts: i.gifts.map(g => presentGiftEvent(g, giftMap)),
                         total: i.total,
                         user_id: i.user_id
                     };
@@ -207,12 +169,8 @@ export async function parseShowroom(data) {
 }
 export async function parseIDN(data) {
     const gold=idnGoldSummary(data.gift_data?.gift_log||[],data.gift_data?.provider_ranking,data.users||[]);
-    await ensureIdnGifts(env);
     const giftPagination = getGiftPagination(data);
-    const giftList = await IDNGift.find({
-        slug: data.gift_data.gift_id_list
-    }).lean();
-    const giftMap = new Map();
+    const giftMap = await recentGiftCatalog(data);
     const users = giftPagination.users.map((i)=>{
         return {
             id: i.user_id,
@@ -221,52 +179,11 @@ export async function parseIDN(data) {
             comments: i.comments
         };
     });
-    for (const gift of giftList){
-        giftMap.set(gift.slug, {
-            name: gift.name,
-            point: gift.gold,
-            id: gift.slug,
-            free: false,
-            img: gift.image_url ? giftImageUrl('idn',gift.slug) : '',
-            image_available: Boolean(gift.image_url),
-            user_count: 0,
-            num: 0
-        });
-    }
-    for (const giftLog of data.gift_data.gift_log ?? []){
-        for (const gift of giftLog.gifts){
-            const g = giftMap.get(String(gift.gift_id));
-            if (g) {
-                g.num += gift.num || 1;
-                g.user_count += 1;
-            }
-        }
-    }
-    for (const gift of giftMap.values()){
-        gift.user_count = data.gift_data.gift_log.filter((i)=>i.gifts.some((g)=>String(g.gift_id) === String(gift.id))).length;
-    }
-    const gifts = (giftList ?? []).map((g)=>{
-        const gift = giftMap.get(g.slug);
-        if (gift) {
-            return {
-                ...gift,
-                ...giftCounts(data.gift_data.gift_log,gift.id),
-                ...(data.type==='showroom'?{num:gift.num,user_count:gift.user_count}:{}),
-                count_source:'observed_events'
-            };
-        } else {
-            return {
-                name: g.name,
-                point: 0,
-                id: g.slug,
-                user_count: 0,
-                free: false,
-                img: g.image_url ? giftImageUrl('idn',g.slug) : '',
-                image_available: Boolean(g.image_url),
-                num: 0
-            };
-        }
-    });
+    const gifts = [...giftMap.values()].map(gift => ({
+        ...gift,
+        ...giftCounts(data.gift_data.gift_log, gift.id),
+        image_available: Boolean(gift.img), count_source: 'observed_events'
+    }));
     let screenshot;
     if (env.DISABLE_SCREENSHOTS !== 'true' && data.live_info?.screenshots) {
         screenshot = {
@@ -282,16 +199,10 @@ export async function parseIDN(data) {
         live_info: {
             duration: data.live_info.duration,
             gift: {
+                ...giftAvailability(data, gold),
                 log: giftPagination.gifts.map((i)=>{
                     return {
-                        gifts: i.gifts.map((g)=>{
-                            return {
-                                id: g.gift_id,
-                                num: g.num || 1,
-                                send_count: g.send_count ?? null,
-                                date: g.date.toISOString()
-                            };
-                        }),
+                        gifts: i.gifts.map(g => presentGiftEvent(g, giftMap)),
                         total: i.total,
                         user_id: i.user_id
                     };
