@@ -1,0 +1,27 @@
+[Unit]
+Description=Render theater schedule cards and upload directly to R2
+After=network-online.target
+[Service]
+Type=oneshot
+User=jkt48collector
+Group=jkt48collector
+RuntimeDirectory=jkt48-theater-schedule
+Environment=XDG_CONFIG_HOME=/run/jkt48-theater-schedule
+Environment=XDG_CACHE_HOME=/run/jkt48-theater-schedule
+WorkingDirectory=/opt/jkt48-live-collector
+EnvironmentFile=/etc/jkt48-live-collector.env
+EnvironmentFile=-/etc/jkt48-theater-schedule.env
+Environment=COLLECTOR_API_TRANSPORT_URL=https://api.jkt48connect.app:8443
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+Environment=COLLECTOR_CHROME_PATH=/opt/jkt48-live-collector/chrome/chrome
+Environment=COLLECTOR_MEDIA_TRANSPORT_URL=https://jkt48showroom-api.aslannarnia806.workers.dev
+ExecStart=/usr/bin/node /opt/jkt48-live-collector/theater-schedule-renderer.cjs
+TimeoutStartSec=4min
+CPUQuota=40%
+MemoryMax=600M
+TasksMax=180
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077

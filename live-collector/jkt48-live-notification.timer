@@ -1,0 +1,9 @@
+[Unit]
+Description=Generate notification cards for newly detected live sessions
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=15s
+RandomizedDelaySec=2s
+Unit=jkt48-live-notification.service
+[Install]
+WantedBy=timers.target

@@ -1,3 +1,5 @@
+import {theaterScheduleDesigns} from '../../../collector/theater-schedules.js';
+import {theaterRecordings} from '../../../collector/theater.js';
 import { kebabCase } from 'lodash';
 import comparator from 'string-comparison';
 import IdolMember from '@/database/schema/48group/IdolMember';
@@ -122,6 +124,8 @@ export async function getTheaterDetail(c) {
         shows: [
             {
                 id: data.code,
+                schedule_designs: (await theaterScheduleDesigns(env,[data.code],env.REQUEST_ORIGIN||'https://api.jkt48connect.app')).get(data.code),
+                recordings: await theaterRecordings(env.DB,env.REQUEST_ORIGIN||'https://api.jkt48connect.app',data.code),
                 title: data.title,
                 url: data.link == null || data.link === '' ? null : getNewTheaterUrl(data.code),
                 setlist,

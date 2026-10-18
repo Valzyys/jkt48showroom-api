@@ -1,3 +1,6 @@
+import {notificationAdmin} from '../licenses/notifications.js';
+import {theaterRecordings} from '../collector/theater.js';
+import {licenseAdmin} from '../licenses/index.js';
 import { idnAuthStatus } from '../idn/auth.js';
 import { assets } from '../docs/assets.js';
 import { authenticated,verifyPassword,sessionCookie,logoutCookie,controlCsrf } from './auth.js';
@@ -52,6 +55,8 @@ export async function controlResponse(request,bindings,execution){
    const data=await body(request);const changed=await saveSettings(bindings,data.changes);return json({ok:true,changed,message:'Pengaturan disimpan. Instance lain memperbarui konfigurasi dalam 10 detik.'});
   }
   const effective=await effectiveBindings(bindings);
+  if(url.pathname==='/control/api/extension-notifications')return json(await notificationAdmin(url,request,effective,body));
+  if(url.pathname==='/control/api/licenses'||url.pathname==='/control/api/licenses/generate'||url.pathname==='/control/api/licenses/package')return json(await licenseAdmin(url,request,effective,body));
   if(url.pathname==='/control/api/key'&&request.method==='GET')return json({key:effective.API_KEY||null});
   if(url.pathname==='/control/api/key/new'&&request.method==='POST')return json({key:Array.from(crypto.getRandomValues(new Uint8Array(32)),v=>v.toString(16).padStart(2,'0')).join('')});
   if(url.pathname==='/control/api/status'&&request.method==='GET'){
@@ -64,7 +69,8 @@ export async function controlResponse(request,bindings,execution){
    const collector=await bindings.DB.prepare("SELECT value,updated_at FROM collector_state WHERE name='vps'").first();
    const recent=await bindings.DB.prepare("SELECT count(*) AS completedCount,max(json_extract(document,'$.live_info.date.end')) AS lastCompleted FROM documents WHERE database_name='liveDB' AND collection_name='livelogs' AND json_extract(document,'$.capture.status')='completed'").first();
    const monitor=collectorMonitor(collector?{...JSON.parse(collector.value),lastSeen:collector.updated_at}:null,effective,{...recent,lastCompleted:recent.lastCompleted?Date.parse(recent.lastCompleted):0});
-   return json({idnAuth:idnAuthStatus(effective),monitor,collectorSessions:sessions.results.map(s=>({...s,recordings:JSON.parse(s.recordings||'[]')})),liveImages:liveMedia.objects.filter(o=>o.key.endsWith('.jpg')).length,liveVideos:liveMedia.objects.filter(o=>o.key.endsWith('.mp4')).length,videoUploads:uploads.records,liveMediaTruncated:liveMedia.truncated,collector:collector?{...JSON.parse(collector.value),lastSeen:collector.updated_at}:null,collections:results,cacheEntries:cache.records,mediaObjects:media.objects.length,mediaTruncated:media.truncated,autoSync:effective.JKT48_AUTO_SYNC!=='false',scraperConfigured:Boolean(effective.JKT48_SCRAPER_URL&&effective.JKT48_SCRAPER_TOKEN)});
+   const theaterState=await bindings.DB.prepare("SELECT value,updated_at FROM collector_state WHERE name='theater'").first();
+   return json({theaterRecorder:theaterState?{...JSON.parse(theaterState.value),lastSeen:theaterState.updated_at}:null,theaterRecordings:await theaterRecordings(bindings.DB,url.origin),idnAuth:idnAuthStatus(effective),monitor,collectorSessions:sessions.results.map(s=>({...s,recordings:JSON.parse(s.recordings||'[]')})),liveImages:liveMedia.objects.filter(o=>o.key.endsWith('.jpg')).length,liveVideos:liveMedia.objects.filter(o=>o.key.endsWith('.mp4')).length,videoUploads:uploads.records,liveMediaTruncated:liveMedia.truncated,collector:collector?{...JSON.parse(collector.value),lastSeen:collector.updated_at}:null,collections:results,cacheEntries:cache.records,mediaObjects:media.objects.length,mediaTruncated:media.truncated,autoSync:effective.JKT48_AUTO_SYNC!=='false',scraperConfigured:Boolean(effective.JKT48_SCRAPER_URL&&effective.JKT48_SCRAPER_TOKEN)});
   }
   if(url.pathname==='/control/api/cache/clear'&&request.method==='POST'){
    await bindings.DB.prepare('DELETE FROM cache_entries').run();return json({ok:true,message:'Cache API dihapus. Data dan media R2 dipertahankan.'});

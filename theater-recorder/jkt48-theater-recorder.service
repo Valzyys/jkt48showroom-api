@@ -1,0 +1,31 @@
+[Unit]
+Description=JKT48 theater recorder and YouTube uploader
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=jkt48collector
+Group=jkt48collector
+WorkingDirectory=/opt/jkt48-theater-recorder
+EnvironmentFile=/etc/jkt48-live-collector.env
+EnvironmentFile=/etc/jkt48-theater-recorder.env
+Environment=PYTHONUNBUFFERED=1
+Environment=THEATER_STATE_DIR=/var/lib/jkt48-theater-recorder
+Environment=THEATER_API_TRANSPORT_URL=https://api.jkt48connect.app:8443
+ExecStart=/opt/jkt48-live-collector/.venv/bin/python /opt/jkt48-theater-recorder/recorder.py
+Restart=always
+RestartSec=15
+StateDirectory=jkt48-theater-recorder
+StateDirectoryMode=0700
+TimeoutStopSec=60
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jkt48-theater-recorder
+MemoryMax=650M
+CPUQuota=75%
+TasksMax=120
+[Install]
+WantedBy=multi-user.target

@@ -15,7 +15,7 @@ function parseFrames(raw){
   if(typeof nested==='string'){try{body=JSON.parse(nested)}catch{return}}
   if(!body||typeof body!=='object'||Array.isArray(body))return;
   const event_id=envelope.Id??envelope.MessageId??tags.id??tags.msgid??body.event_id,
-   event_time=envelope.SendTime??envelope.sendTime??tags['tmi-sent-ts']??body.created_at;
+   event_time=envelope.SendTime??envelope.sendTime??tags.time??tags['tmi-sent-ts']??body.created_at;
   const user=body.user;if(!user||!(user.uuid||user.username)){if(envelope.Type==='MESSAGE'||envelope.Type==='EVENT')events.push({kind:'connected'});return}
   const identity={uuid:user.uuid,username:user.username,name:user.name,avatar_url:user.avatar_url};
   const room=body.room_id?{room_id:String(body.room_id)}:{};

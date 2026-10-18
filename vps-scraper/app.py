@@ -134,10 +134,10 @@ def create_app(token=None, session_factory=None, cache_seconds=60, requests_per_
                 await response.aclose()
 
     async def fetch_upstream(resource, params):
-        async def receive():
+        async def receive(session):
             response = None
             try:
-                response = await app.state.session.get(
+                response = await session.get(
                     UPSTREAM + resource, params=params, timeout=20,
                     allow_redirects=False, stream=True,
                 )
@@ -164,7 +164,19 @@ def create_app(token=None, session_factory=None, cache_seconds=60, requests_per_
 
         async with app.state.semaphore:
             try:
-                return await asyncio.wait_for(receive(), timeout=25)
+                try:
+                    return await asyncio.wait_for(receive(app.state.session), timeout=25)
+                except ScrapeError as error:
+                    if error.status not in (403, 503):
+                        raise
+                    # A long-lived connection can be rejected while the same
+                    # public GET succeeds on a new session. Retry once only;
+                    # persistent rejection remains an error and is never cached.
+                    fresh = session_factory()
+                    try:
+                        return await asyncio.wait_for(receive(fresh), timeout=25)
+                    finally:
+                        await fresh.close()
             except ScrapeError:
                 raise
             except (TimeoutError, asyncio.TimeoutError, CurlTimeout):

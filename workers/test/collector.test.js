@@ -12,6 +12,35 @@ test('collector archives real contracts, protects ingestion, serves R2 images an
  row.catalog=Array.from({length:160},(_,i)=>({id:i+1,name:'Gift '+(i+1),point:i===0?50:0,free:false,img:'https://img.test/gift.jpg'}));
  r=await call('/internal/collector/archive','PUT',row);assert.equal(r.status,200,await r.clone().text());
  const recent=()=>mf.dispatchFetch('https://worker.test/api/recent',{headers:{'x-api-key':'collector-test'}});
+
+ // Notification identity remains stable as live statistics change; each format has a separate lease.
+ const noticeJobPath='/internal/collector/live-notifications/jobs';
+ assert.equal((await call(noticeJobPath,'GET',undefined,false)).status,401);
+ const notice=(await(await call(noticeJobPath)).json()).job;
+ assert.equal(notice.snapshot.name,'Test Member');assert.equal(notice.snapshot.is_preview,false);
+ assert.equal((await(await call(noticeJobPath)).json()).job,null);
+ row.viewers+=10;assert.equal((await call('/internal/collector/archive','PUT',row)).status,200);
+ const noticeVersion=(await db.prepare('SELECT source_version FROM collector_live_notices WHERE data_id=?').bind(row.data_id).first()).source_version;
+ assert.equal(noticeVersion,notice.source_version);
+ const notifyPng=new Uint8Array(32);notifyPng.set([137,80,78,71,13,10,26,10]);new DataView(notifyPng.buffer).setUint32(16,1080);new DataView(notifyPng.buffer).setUint32(20,1350);
+ const uploadNotice=(job,body=notifyPng,token=job.render_token)=>mf.dispatchFetch('https://worker.test/internal/collector/live-notifications/'+job.data_id+'/'+job.source_version+'?theme='+job.theme+'&layout='+job.layout,{method:'PUT',headers:{Authorization:'Bearer synthetic-collector-token','X-Render-Token':token},body});
+ assert.equal((await uploadNotice(notice,notifyPng,'incorrect')).status,409);
+ assert.equal((await uploadNotice(notice,new Uint8Array(30))).status,400);
+ let notifyResponse=await uploadNotice(notice);assert.equal(notifyResponse.status,200);const notifyUrl=(await notifyResponse.json()).url;
+ notifyResponse=await mf.dispatchFetch(notifyUrl);assert.equal(notifyResponse.status,200);assert.equal(notifyResponse.headers.get('X-Media-Storage'),'r2');
+ const notifyEtag=notifyResponse.headers.get('ETag');assert.equal((await mf.dispatchFetch(notifyUrl,{headers:{'If-None-Match':notifyEtag}})).status,304);
+ assert.equal((await mf.dispatchFetch(notifyUrl,{method:'HEAD'})).status,200);
+ const noticePublic=()=>mf.dispatchFetch('https://worker.test/api/live-notifications/'+row.data_id,{headers:{'x-api-key':'collector-test'}});
+ let noticePayload=await(await noticePublic()).json();assert.equal(noticePayload.is_live,true);assert.equal(noticePayload.notification_designs.photobook.portrait.url,notifyUrl);
+ for(const theme of ['jkt48connect','photobook','avonera48'])for(const layout of ['portrait','banner']){
+  if(theme==='photobook'&&layout==='portrait')continue;
+  const job=(await(await call(noticeJobPath+'?theme='+theme+'&layout='+layout)).json()).job;assert.equal(job.data_id,row.data_id);
+  const image=new Uint8Array(notifyPng);if(layout==='banner'){new DataView(image.buffer).setUint32(16,1600);new DataView(image.buffer).setUint32(20,900);assert.equal((await uploadNotice(job)).status,400)}
+  if(theme==='avonera48'){new DataView(image.buffer).setUint32(16,layout==='banner'?2400:1800);new DataView(image.buffer).setUint32(20,layout==='banner'?1350:2400)}
+  assert.equal((await uploadNotice(job,image)).status,200);
+ }
+ await db.prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/live-notifications%'").run();
+ noticePayload=await(await noticePublic()).json();for(const theme of Object.values(noticePayload.notification_designs))for(const image of Object.values(theme))assert.equal(image.status,'ready');
  assert.equal((await(await recent()).json()).total_count,0);row.capture.status='completed';r=await call('/internal/collector/archive','PUT',row);assert.equal(r.status,200,await r.clone().text());
  const list=await(await recent()).json();assert.equal(list.total_count,1);assert.equal(list.recents[0].points,100);assert.equal(list.recents[0].member.name,'Test Member');
  r=await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}});assert.equal(r.status,200,await r.clone().text());const detail=await r.json();assert.equal(detail.live_info.gift.list[0].num,2);assert.equal(detail.capture.gifts_status,'partial');assert.equal(detail.live_info.gift.list[0].img,'https://worker.test/media/gifts/showroom/1');
@@ -47,7 +76,8 @@ test('collector archives real contracts, protects ingestion, serves R2 images an
  const uploadCard=(token)=>mf.dispatchFetch('https://worker.test/internal/collector/leaderboards/'+job.data_id+'/'+job.source_version,{method:'PUT',headers:{Authorization:'Bearer synthetic-collector-token','X-Render-Token':token,'Content-Type':'image/png'},body:png});
  assert.equal((await uploadCard('wrong-token')).status,409);r=await uploadCard(job.render_token);assert.equal(r.status,200);const image=(await r.json()).url;
  r=await mf.dispatchFetch(image);assert.equal(r.status,200);assert.equal(r.headers.get('Content-Type'),'image/png');assert.equal(r.headers.get('X-Media-Storage'),'r2');
- r=await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}});const card=(await r.json()).leaderboard_image;assert.equal(card.status,'ready');assert.equal(card.url,image);assert.equal(card.width,1800);
+ const assertDesignsOnly=value=>{assert.deepEqual(Object.keys(value).filter(key=>key.startsWith('leaderboard_')),['leaderboard_designs']);assert.deepEqual(Object.keys(value.leaderboard_designs).sort(),['avonera48','jkt48connect','photobook']);for(const theme of Object.values(value.leaderboard_designs))assert.deepEqual(Object.keys(theme).sort(),['banner','portrait']);};
+ r=await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}});const portraitDetail=await r.json();assertDesignsOnly(portraitDetail);const card=portraitDetail.leaderboard_designs.photobook.portrait;assert.equal(card.status,'ready');assert.equal(card.url,image);assert.equal(card.width,1800);
  assert.equal((await uploadCard(job.render_token)).status,409);
 
  const bannerJob=(await(await call('/internal/collector/leaderboards/jobs?layout=banner')).json()).job;assert.equal(bannerJob.data_id,job.data_id);assert.equal(bannerJob.layout,'banner');
@@ -56,26 +86,26 @@ test('collector archives real contracts, protects ingestion, serves R2 images an
  const uploadBanner=(body,token=bannerJob.render_token)=>mf.dispatchFetch('https://worker.test/internal/collector/leaderboards/'+job.data_id+'/'+job.source_version+'?layout=banner',{method:'PUT',headers:{Authorization:'Bearer synthetic-collector-token','X-Render-Token':token,'Content-Type':'image/png'},body});
  assert.equal((await uploadBanner(bannerPng,job.render_token)).status,409);assert.equal((await uploadBanner(png)).status,400);
  r=await uploadBanner(bannerPng);assert.equal(r.status,200);const bannerUrl=(await r.json()).url;assert.match(bannerUrl,/-banner\.png$/);r=await mf.dispatchFetch(bannerUrl);assert.equal(r.status,200);assert.equal(r.headers.get('X-Media-Storage'),'r2');
- const dual=(await(await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}})).json());assert.equal(dual.leaderboard_image.url,image);assert.equal(dual.leaderboard_images.portrait.url,image);assert.equal(dual.leaderboard_images.banner.url,bannerUrl);assert.equal(dual.leaderboard_images.banner.width,2400);assert.equal(dual.leaderboard_images.banner.height,1350);
- const dualList=(await(await recent()).json()).recents[0];assert.equal(dualList.leaderboard_images.banner.url,bannerUrl);
+ const dual=(await(await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}})).json());assertDesignsOnly(dual);assert.equal(dual.leaderboard_designs.photobook.portrait.url,image);assert.equal(dual.leaderboard_designs.photobook.banner.url,bannerUrl);assert.equal(dual.leaderboard_designs.photobook.banner.width,2400);assert.equal(dual.leaderboard_designs.photobook.banner.height,1350);
+ const dualList=(await(await recent()).json()).recents[0];assertDesignsOnly(dualList);assert.equal(dualList.leaderboard_designs.photobook.banner.url,bannerUrl);
  assert.equal((await call('/internal/collector/leaderboards/jobs?layout=invalid')).status,400);
 
- // Additional design theme has independent leases and R2 objects; legacy fields stay photobook.
+ // Both design themes have independent leases and R2 objects.
  assert.equal((await call('/internal/collector/leaderboards/jobs?theme=unknown')).status,400);
  assert.equal((await call('/internal/collector/leaderboards/jobs?theme=__proto__')).status,400);
  for(const layout of ['portrait','banner']){
   const themed=(await(await call('/internal/collector/leaderboards/jobs?theme=jkt48connect&layout='+layout)).json()).job;assert.equal(themed.theme,'jkt48connect');assert.equal(themed.layout,layout);assert.equal(themed.data_id,row.data_id);
   const themedUpload=(token,theme='jkt48connect')=>mf.dispatchFetch('https://worker.test/internal/collector/leaderboards/'+job.data_id+'/'+job.source_version+'?theme='+theme+'&layout='+layout,{method:'PUT',headers:{Authorization:'Bearer synthetic-collector-token','X-Render-Token':token,'Content-Type':'image/png'},body:layout==='banner'?bannerPng:png});
-  assert.equal((await themedUpload(themed.render_token,'photobook')).status,409);const uploaded=await themedUpload(themed.render_token);assert.equal(uploaded.status,200);const url=(await uploaded.json()).url;assert.match(url,/leaderboards\/jkt48connect\/v1\//);assert.equal((await mf.dispatchFetch(url)).status,200);
+  assert.equal((await themedUpload(themed.render_token,'photobook')).status,409);const uploaded=await themedUpload(themed.render_token);assert.equal(uploaded.status,200);const url=(await uploaded.json()).url;assert.match(url,/leaderboards\/jkt48connect\/v3\//);assert.equal((await mf.dispatchFetch(url)).status,200);
  }
- const themedDetail=await(await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}})).json();assert.deepEqual(themedDetail.leaderboard_images,themedDetail.leaderboard_designs.photobook);assert.equal(themedDetail.leaderboard_designs.jkt48connect.portrait.status,'ready');assert.equal(themedDetail.leaderboard_designs.jkt48connect.banner.status,'ready');assert.equal(themedDetail.leaderboard_image.url,image);
+ const themedDetail=await(await mf.dispatchFetch('https://worker.test/api/recent/'+row.data_id,{headers:{'x-api-key':'collector-test'}})).json();assertDesignsOnly(themedDetail);assert.equal(themedDetail.leaderboard_designs.jkt48connect.portrait.status,'ready');assert.equal(themedDetail.leaderboard_designs.jkt48connect.banner.status,'ready');assert.equal(themedDetail.leaderboard_designs.photobook.portrait.url,image);const themedList=(await(await recent()).json()).recents[0];assertDesignsOnly(themedList);assert.deepEqual(themedList.leaderboard_designs,themedDetail.leaderboard_designs);
  // Updating source data invalidates both images, while existing immutable PNG URLs survive.
  row.viewers++;assert.equal((await call('/internal/collector/archive','PUT',row)).status,200);
- const changed=(await(await recent()).json()).recents[0];assert.equal(changed.leaderboard_designs.jkt48connect.banner.status,'pending');assert.equal(changed.leaderboard_images.banner.status,'pending');assert.equal(changed.leaderboard_images.portrait.status,'pending');assert.equal((await mf.dispatchFetch(image)).status,200);assert.equal((await mf.dispatchFetch(bannerUrl)).status,200);
+ const changed=(await(await recent()).json()).recents[0];assertDesignsOnly(changed);assert.equal(changed.leaderboard_designs.jkt48connect.banner.status,'pending');assert.equal(changed.leaderboard_designs.photobook.banner.status,'pending');assert.equal(changed.leaderboard_designs.photobook.portrait.status,'pending');assert.equal((await mf.dispatchFetch(image)).status,200);assert.equal((await mf.dispatchFetch(bannerUrl)).status,200);
 
  const idnRow={...row,data_id:'idn-test-authoritative',type:'idn',live_id:'test-idn-slug',idn:{id:'creator',username:'jkt48_test',slug:'test-idn-slug',title:'Live'},catalog:[{id:'rose',name:'Rose',point:10,gold:10,free:false,img:'https://img.test/rose.png'}],gift_log:[{user_id:'u1',total:20,gifts:[{gift_id:'rose',num:2,point:10,date:'2026-10-13T12:01:00.000Z'}]}],provider_ranking:{source:'idn_top_gifter',updated_at:'2026-10-13T12:05:01.000Z',users:[{user_id:'u1',name:'Viewer',avatar_url:'',gold:100},{user_id:'u2',name:'Previously missed',avatar_url:'',gold:50}]}};
  assert.equal((await call('/internal/collector/archive','PUT',idnRow)).status,200);let idnDetail=await(await mf.dispatchFetch('https://worker.test/api/recent/'+idnRow.data_id,{headers:{'x-api-key':'collector-test'}})).json();assert.equal(idnDetail.total_gifts,150);assert.equal(idnDetail.gold_summary.observed_gold,20);assert.equal(idnDetail.gold_summary.reported_gold,150);assert.equal(idnDetail.gold_summary.unattributed_gold,130);assert.equal(idnDetail.fans.length,2);assert.equal(idnDetail.fans[1].name,'Previously missed');assert.equal(idnDetail.live_info.gift.list[0].num,2);assert.equal(idnDetail.live_info.gift.list.length,1);
- const idnGift=idnDetail.live_info.gift.list[0];assert.equal(idnGift.img,'https://worker.test/media/gifts/idn/rose');assert.equal(idnDetail.live_info.gift.log[0].gifts[0].img,idnGift.img);assert.equal(idnDetail.live_info.gift.log[0].gifts[0].name,'Rose');
+ assertDesignsOnly(idnDetail);const idnGift=idnDetail.live_info.gift.list[0];assert.equal(idnGift.img,'https://worker.test/media/gifts/idn/rose');assert.equal(idnDetail.live_info.gift.log[0].gifts[0].img,idnGift.img);assert.equal(idnDetail.live_info.gift.log[0].gifts[0].name,'Rose');
  assert.equal(catalogRequests,2);assert.equal(tokenRefreshes,2);
  r=await mf.dispatchFetch(idnGift.img);assert.equal(r.status,200);assert.equal(r.headers.get('X-Media-Storage'),'r2');assert.equal(r.headers.get('Content-Type'),'image/png');
  const idnGifts=await(await mf.dispatchFetch('https://worker.test/api/recent/'+idnRow.data_id+'/gifts',{headers:{'x-api-key':'collector-test'}})).json();assert.equal(idnGifts.gifts[0].gifts[0].img,idnGift.img);assert.equal(idnGifts.fans.length,2);assert.equal(idnGifts.gift_summary.unattributed_gold,130);

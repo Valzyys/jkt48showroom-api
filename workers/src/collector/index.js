@@ -1,3 +1,6 @@
+import {theaterScheduleOperation,serveTheaterSchedule} from './theater-schedules.js';
+import {theaterOperation} from './theater.js';
+import {serveLiveNotification,liveNotificationOperation,saveLiveNotification} from './live-notifications.js';
 import {fetchIdnRanking,idnGoldSummary} from '../idn/ranking.js';
 import {sessionPlaylist} from './recording-session.js';
 import {serveLeaderboard,leaderboardOperation} from './leaderboards.js';
@@ -23,6 +26,8 @@ const schema=z.object({data_id:ident,live_id:z.union([z.string().max(200),z.numb
 function equal(a,b){if(a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0;}
 function json(data,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}});}
 export async function collectorResponse(request,bindings,execution){
+ const scheduleImage=await serveTheaterSchedule(request,bindings);if(scheduleImage)return scheduleImage;
+ const notice=await serveLiveNotification(request,bindings);if(notice)return notice;
  const leaderboard=await serveLeaderboard(request,bindings);if(leaderboard)return leaderboard;
  const session=await sessionPlaylist(request,bindings,durationHeader);if(session)return session;
  const player=playerResponse(request);if(player)return player;
@@ -51,6 +56,9 @@ export async function collectorResponse(request,bindings,execution){
  const env=await effectiveBindings(bindings),expected='Bearer '+String(env.COLLECTOR_TOKEN||'');
  if(!env.COLLECTOR_TOKEN||!equal(request.headers.get('Authorization')||'',expected))return json({message:'Unauthorized'},401);
  try{return await runWithEnv({...env,REQUEST_ORIGIN:url.origin},execution,async()=>{
+  const schedule=await theaterScheduleOperation(request,env);if(schedule)return schedule;
+  const theater=await theaterOperation(request,env);if(theater)return theater;
+  const notice=await liveNotificationOperation(request,bindings);if(notice)return notice;
   const leaderboard=await leaderboardOperation(request,bindings);if(leaderboard)return leaderboard;
   if(url.pathname==='/internal/collector/config'&&request.method==='GET'){
    const members=await IdolMember.find({group:'jkt48','info.is_graduate':{$ne:true}}).lean();
@@ -111,6 +119,7 @@ export async function collectorResponse(request,bindings,execution){
    const screenshot={folder:'live-screenshots/'+row.data_id,format:'jpg',list:row.frames,base_url:url.origin+'/media/live/'+row.data_id};
    store.upsert(LiveLog,{data_id:row.data_id},{live_id:row.live_id,room_id:row.room_id,type:row.type,is_dev:false,created_at:row.date.end,total_gifts:total,c_gift:total,gift_rate:row.type==='showroom'?1:0,...(row.idn?{idn:row.idn}:{}),capture:row.capture,recordings:row.recordings.sort((a,b)=>(a.started_at||a.run).localeCompare(b.started_at||b.run)).map(r=>({...r,bytes:Math.max(r.bytes,previous?.recordings?.find(old=>old.run===r.run)?.bytes||0),url:url.origin+'/media/live/'+row.data_id+'/video-'+r.run+'.mp4',stream_url:r.index_available===false?null:url.origin+'/media/live/'+row.data_id+'/video-'+r.run+'.m3u8',player_url:url.origin+'/replay/'+row.data_id+'/'+r.run})),live_info:{date:row.date,duration:end-start,viewers:{peak:row.viewers,active:row.viewers},comments:{num:row.comments,users:row.users.filter(u=>u.comments>0).length},screenshots:screenshot},gift_data:{...(row.provider_ranking?{provider_ranking:row.provider_ranking}:{}),gift_log:row.gift_log,gift_id_list:row.catalog.map(g=>g.id),free_gifts:[]}});
    store.upsert(UserLog,{data_id:row.data_id},{users:row.users,created_at:row.date.end});await store.flush();
+   await saveLiveNotification(bindings,row,member);
    await bindings.DB.prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/recent%' OR key LIKE '%/api/screenshots%' OR key LIKE '%/api/member%' OR key LIKE '%memberv8'").run();
    return json({ok:true,data_id:row.data_id,status:row.capture.status,frames:row.frames.length});
   }

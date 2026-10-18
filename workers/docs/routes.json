@@ -3097,6 +3097,94 @@
       "tryEnabled": false,
       "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/collector/leaderboards.js",
       "responseLabel": "Kontrak dari source; output bergantung pada sesi dan izin akses."
+    },
+    {
+      "method": "GET",
+      "path": "/api/live-notifications",
+      "description": "Kartu notifikasi untuk sesi live aktif; dua tema, portrait dan banner.",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/live-notifications",
+      "response": {
+        "status": 200,
+        "body": {
+          "lives": []
+        }
+      },
+      "responseLabel": "Contoh struktur respons",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/live-notifications/:id",
+      "description": "Detail notifikasi live berdasarkan data_id, termasuk caption dan status empat PNG.",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/live-notifications/idn-example",
+      "response": {
+        "status": 200,
+        "body": {
+          "data_id": "idn-example",
+          "is_live": true,
+          "is_preview": false,
+          "notification_designs": {
+            "photobook": {
+              "portrait": {
+                "status": "pending",
+                "url": null,
+                "width": 1080,
+                "height": 1350,
+                "format": "png"
+              },
+              "banner": {
+                "status": "pending",
+                "url": null,
+                "width": 1600,
+                "height": 900,
+                "format": "png"
+              }
+            },
+            "jkt48connect": {
+              "portrait": {
+                "status": "pending",
+                "url": null,
+                "width": 1080,
+                "height": 1350,
+                "format": "png"
+              },
+              "banner": {
+                "status": "pending",
+                "url": null,
+                "width": 1600,
+                "height": 900,
+                "format": "png"
+              }
+            }
+          }
+        }
+      },
+      "responseLabel": "Contoh struktur respons",
+      "tryEnabled": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/theater/recordings",
+      "description": "Status rekaman theater, screenshot di R2, dan URL YouTube unlisted setelah unggahan berhasil.",
+      "group": "Publik",
+      "auth": "Publik",
+      "query": {},
+      "examplePath": "/api/theater/recordings",
+      "response": {
+        "status": 200,
+        "body": {
+          "recordings": [],
+          "total_count": 0
+        }
+      },
+      "responseLabel": "Contoh struktur respons",
+      "tryEnabled": true
     }
   ]
 }

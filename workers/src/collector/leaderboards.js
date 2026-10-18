@@ -2,26 +2,44 @@ import {idnGoldSummary} from '../idn/ranking.js';
 import {rewriteMedia} from '../runtime/jkt48-media.js';
 import UserLog from '../database/userDB/UserLog.js';
 import {getRecentDetails} from '../library/recent/details.js';
-const designs={photobook:3,jkt48connect:1},ident=/^[a-zA-Z0-9_-]{1,160}$/;
+const designs={photobook:3,jkt48connect:3,avonera48:1},ident=/^[a-zA-Z0-9_-]{1,160}$/;
 const scope="database_name='liveDB' AND collection_name='livelogs'";
+// Upgrade older databases atomically before accepting the third theme.
+// Keep the explicit SQL migration for fresh deployments too.
+const upgradedDatabases=new WeakSet();
+async function ensurePlayfulTheme(db){
+ if(upgradedDatabases.has(db))return;
+ const row=await db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='collector_leaderboards'").first();
+ if(row&&!row.sql.includes("'avonera48'")){
+  await db.batch([
+   db.prepare("ALTER TABLE collector_leaderboards RENAME TO collector_leaderboards_before_playful"),
+   db.prepare("CREATE TABLE collector_leaderboards (data_id TEXT NOT NULL,layout TEXT NOT NULL DEFAULT 'portrait' CHECK(layout IN ('portrait','banner')),theme TEXT NOT NULL DEFAULT 'photobook' CHECK(theme IN ('photobook','jkt48connect','avonera48')),source_version INTEGER NOT NULL,design_version INTEGER NOT NULL DEFAULT 1,state TEXT NOT NULL,render_token TEXT,lease_until INTEGER NOT NULL DEFAULT 0,object_key TEXT,width INTEGER,height INTEGER,updated_at INTEGER NOT NULL,last_error TEXT,PRIMARY KEY(data_id,layout,theme))"),
+   db.prepare("INSERT INTO collector_leaderboards SELECT * FROM collector_leaderboards_before_playful"),
+   db.prepare("DROP TABLE collector_leaderboards_before_playful"),
+   db.prepare("CREATE INDEX collector_leaderboards_state ON collector_leaderboards(state,lease_until)")
+  ]);
+ }
+ upgradedDatabases.add(db);
+}
 export async function leaderboardImages(db,ids,origin){
  if(!ids.length)return new Map();
- const {results}=await db.prepare("SELECT wanted.value AS data_id,layouts.value AS layout,themes.value AS theme,c.state,c.source_version,c.design_version,c.width,c.height,c.updated_at,d.version AS current_version FROM json_each(?) wanted CROSS JOIN json_each('[\"portrait\",\"banner\"]') layouts CROSS JOIN json_each('[\"photobook\",\"jkt48connect\"]') themes LEFT JOIN collector_leaderboards c ON c.data_id=wanted.value AND c.layout=layouts.value AND c.theme=themes.value LEFT JOIN documents d ON d.database_name='liveDB' AND d.collection_name='livelogs' AND json_extract(d.document,'$.data_id')=wanted.value").bind(JSON.stringify(ids)).all();
+ const {results}=await db.prepare("SELECT wanted.value AS data_id,layouts.value AS layout,themes.value AS theme,c.state,c.source_version,c.design_version,c.width,c.height,c.updated_at,d.version AS current_version FROM json_each(?) wanted CROSS JOIN json_each('[\"portrait\",\"banner\"]') layouts CROSS JOIN json_each('[\"photobook\",\"jkt48connect\",\"avonera48\"]') themes LEFT JOIN collector_leaderboards c ON c.data_id=wanted.value AND c.layout=layouts.value AND c.theme=themes.value LEFT JOIN documents d ON d.database_name='liveDB' AND d.collection_name='livelogs' AND json_extract(d.document,'$.data_id')=wanted.value").bind(JSON.stringify(ids)).all();
  const cards=new Map();
- for(const r of results){const design=designs[r.theme],prefix=r.theme==='jkt48connect'?'jkt48connect/':'';const ready=r.state==='ready'&&r.source_version===r.current_version&&r.design_version===design;const themes=cards.get(r.data_id)||{},formats=themes[r.theme]||{};formats[r.layout]={status:ready?'ready':r.state==='error'?'failed':'pending',url:ready?origin+'/media/leaderboards/'+prefix+'v'+design+'/'+r.data_id+'/'+r.source_version+(r.layout==='banner'?'-banner':'')+'.png':null,width:ready?r.width:null,height:ready?r.height:null,format:'png',updated_at:r.updated_at?new Date(r.updated_at).toISOString():null};themes[r.theme]=formats;cards.set(r.data_id,themes)}
+ for(const r of results){const design=designs[r.theme],prefix=r.theme==='photobook'?'':r.theme+'/';const ready=r.state==='ready'&&r.source_version===r.current_version&&r.design_version===design;const themes=cards.get(r.data_id)||{},formats=themes[r.theme]||{};formats[r.layout]={status:ready?'ready':r.state==='error'?'failed':'pending',url:ready?origin+'/media/leaderboards/'+prefix+'v'+design+'/'+r.data_id+'/'+r.source_version+(r.layout==='banner'?'-banner':'')+'.png':null,width:ready?r.width:null,height:ready?r.height:null,format:'png',updated_at:r.updated_at?new Date(r.updated_at).toISOString():null};themes[r.theme]=formats;cards.set(r.data_id,themes)}
  return cards;
 }
 export async function serveLeaderboard(request,bindings){
  const url=new URL(request.url);if(!url.pathname.startsWith('/media/leaderboards/'))return null;
- const match=/^\/media\/leaderboards\/(jkt48connect\/)?(v[123])\/([a-zA-Z0-9_-]{1,160})\/(\d{1,16})(-banner)?\.png$/.exec(url.pathname);
- if(!match||url.search||(match[1]&&match[2]!=='v1'))return new Response('Invalid leaderboard path',{status:400});if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405});
+ const match=/^\/media\/leaderboards\/((?:jkt48connect|avonera48)\/)?(v[123])\/([a-zA-Z0-9_-]{1,160})\/(\d{1,16})(-banner)?\.png$/.exec(url.pathname);
+ if(!match||url.search||(match[1]==='avonera48/'&&match[2]!=='v1'))return new Response('Invalid leaderboard path',{status:400});if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405});
  const object=await bindings.IMAGES_BUCKET.get('leaderboards/'+(match[1]||'')+match[2]+'/'+match[3]+'/'+match[4]+(match[5]||'')+'.png');if(!object)return new Response('Leaderboard not ready',{status:404,headers:{'Cache-Control':'no-store'}});
  const headers={'Content-Type':'image/png','Content-Length':String(object.size),'Cache-Control':'public, max-age=31536000, immutable','Access-Control-Allow-Origin':'*','X-Media-Storage':'r2','X-Content-Type-Options':'nosniff',ETag:object.httpEtag};if(request.headers.get('If-None-Match')===object.httpEtag)return new Response(null,{status:304,headers});return new Response(request.method==='HEAD'?null:object.body,{headers});
 }
 export async function leaderboardOperation(request,bindings){
- const url=new URL(request.url),now=Date.now(),layout=url.searchParams.get('layout')||'portrait',theme=url.searchParams.get('theme')||'photobook',design=designs[theme],prefix=theme==='jkt48connect'?'jkt48connect/':'';
+ const url=new URL(request.url),now=Date.now(),layout=url.searchParams.get('layout')||'portrait',theme=url.searchParams.get('theme')||'photobook',design=designs[theme],prefix=theme==='photobook'?'':theme+'/';
  if(!Object.hasOwn(designs,theme)||!['portrait','banner'].includes(layout))return Response.json({message:'Invalid layout'},{status:400});
  if(url.pathname==='/internal/collector/leaderboards/jobs'&&request.method==='GET'){
+  await ensurePlayfulTheme(bindings.DB);
   const candidate=await bindings.DB.prepare(`SELECT d.document,d.version FROM documents d LEFT JOIN collector_leaderboards c ON c.data_id=json_extract(d.document,'$.data_id') AND c.layout=? AND c.theme=? WHERE d.database_name='liveDB' AND d.collection_name='livelogs' AND json_extract(d.document,'$.data_id') IS NOT NULL AND COALESCE(json_extract(d.document,'$.capture.status'),'completed')='completed' AND COALESCE(json_extract(d.document,'$.is_dev'),0)=0 AND (c.data_id IS NULL OR c.source_version!=d.version OR c.design_version!=? OR c.state!='ready') AND COALESCE(c.lease_until,0)<? ORDER BY json_extract(d.document,'$.live_info.date.end') DESC LIMIT 1`).bind(layout,theme,design,now).first();
   if(!candidate)return Response.json({job:null});const log=JSON.parse(candidate.document),id=log.data_id;if(!ident.test(id))return Response.json({job:null});
   const token=crypto.randomUUID(),claimed=await bindings.DB.prepare("INSERT INTO collector_leaderboards(data_id,layout,theme,source_version,design_version,state,render_token,lease_until,updated_at) VALUES(?,?,?,?,?,'processing',?,?,?) ON CONFLICT(data_id,layout,theme) DO UPDATE SET source_version=excluded.source_version,design_version=excluded.design_version,state='processing',render_token=excluded.render_token,lease_until=excluded.lease_until,updated_at=excluded.updated_at,last_error=NULL WHERE collector_leaderboards.lease_until<?").bind(id,layout,theme,candidate.version,design,token,now+300000,now,now).run();

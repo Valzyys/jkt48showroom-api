@@ -34,8 +34,12 @@ export function createJKT48Transport(config={},fetcher=(input,init)=>globalThis.
     const target=new URL(url);
     if(target.origin!==base.origin||!target.pathname.startsWith(base.pathname))throw invalid();
     const headers=new Headers(init.headers);
-    headers.delete('Cookie');headers.delete('User-Agent');headers.set('Authorization','Bearer '+token);
-    const response=await fetcher(target.href,{...init,headers,redirect:'manual'});
+    headers.delete('Cookie');headers.set('User-Agent','JKT48Connect-Sync/1.0 (+https://api.jkt48connect.app)');headers.set('Authorization','Bearer '+token);
+    let response=await fetcher(target.href,{...init,headers,redirect:'manual'});
+    if([403,503].includes(response.status)&&(!init.method||init.method==='GET')&&!init.signal?.aborted){
+      await response.body?.cancel();
+      response=await fetcher(target.href,{...init,headers,redirect:'manual'});
+    }
     if(response.status>=300&&response.status<400) {
       await response.body?.cancel();
       throw new JKT48SourceError('The private VPS scraper redirected the request. Configure its final HTTPS API URL.',{status:502,code:'JKT48_SCRAPER_REDIRECT_ERROR'});

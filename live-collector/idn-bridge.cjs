@@ -126,8 +126,9 @@ class IdnObserver {
 }
 module.exports={IdnObserver};
 if(require.main===module){
- const observer=new IdnObserver({puppeteer:require('puppeteer-core'),emit:value=>process.stdout.write(JSON.stringify(value)+'\n')});
- // Start rooms independently; a slow page must not block remove/auth or other rooms.
+ const {IdnChatObserver}=require('./idn-chat.cjs');
+ const observer=new IdnChatObserver({emit:value=>process.stdout.write(JSON.stringify(value)+'\n')});
+ // Start rooms independently; slow metadata must not block remove/auth or other rooms.
  require('readline').createInterface({input:process.stdin}).on('line',line=>{try{observer.message(JSON.parse(line)).catch(()=>{})}catch{}});
  setInterval(()=>observer.tick(),2000).unref();
  process.on('SIGTERM',()=>observer.stop().finally(()=>process.exit(0)));

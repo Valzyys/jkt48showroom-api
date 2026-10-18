@@ -1,1 +1,1 @@
-{"name":"jkt48-live-collector","version":"1.0.0","private":true,"dependencies":{"puppeteer-core":"24.15.0"}}
+{"name":"jkt48-live-collector","version":"1.0.0","private":true,"dependencies":{"puppeteer-core":"24.15.0","ws":"8.22.0"}}

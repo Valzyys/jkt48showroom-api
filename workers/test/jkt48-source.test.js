@@ -73,6 +73,7 @@ test('private VPS transport adds bearer token only to its HTTPS origin and strip
   await client('news',{page:1});
   assert.equal(calls[0].url,'https://scrape.jkt48connect.com/api/v1/news?lang=id&page=1');
   assert.equal(calls[0].init.headers.get('Authorization'),'Bearer '+token);assert.equal(calls[0].init.headers.has('Cookie'),false);assert.equal(calls[0].init.redirect,'manual');
+  assert.equal(calls[0].init.headers.get('User-Agent'),'JKT48Connect-Sync/1.0 (+https://api.jkt48connect.app)');
   await assert.rejects(transport.fetcher('https://evil.test/api/v1/news'),/Configure/);
 });
 test('private VPS mode fails closed without a valid token and does not change direct mode',()=>{
@@ -92,4 +93,13 @@ test('private VPS redirects are rejected without forwarding authentication to th
   });
   await assert.rejects(transport.fetcher('https://scrape.test/api/v1/news'),error=>error.code==='JKT48_SCRAPER_REDIRECT_ERROR');
   assert.equal(calls,1);
+});
+
+test('private scraper retries an intermittent rejection once, without hiding persistent failures',async()=>{
+ let calls=0;
+ const config={JKT48_SCRAPER_URL:'https://scrape.test/api/v1/',JKT48_SCRAPER_TOKEN:'x'.repeat(64)};
+ const recovering=createJKT48Transport(config,async()=>++calls===1?new Response('rejected',{status:403}):Response.json({status:true,data:[]}));
+ assert.equal((await recovering.fetcher('https://scrape.test/api/v1/news')).status,200);assert.equal(calls,2);
+ calls=0;const failing=createJKT48Transport(config,async()=>{calls++;return new Response('rejected',{status:403})});
+ assert.equal((await failing.fetcher('https://scrape.test/api/v1/news')).status,403);assert.equal(calls,2);
 });

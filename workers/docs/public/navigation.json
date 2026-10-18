@@ -8,7 +8,9 @@
  {"slug":"live-dan-recent","title":"Live & recent"},
  {"slug":"gift-dan-leaderboard","title":"Gift & leaderboard"},
  {"slug":"gambar-leaderboard-recent","title":"Gambar leaderboard"},
+ {"slug":"gambar-notifikasi-live","title":"Gambar notifikasi live"},
  {"slug":"memutar-replay","title":"Memutar replay"},
+ {"slug":"rekaman-theater","title":"Rekaman theater YouTube"},
  {"slug":"media-dan-screenshot","title":"Media & screenshot"},
  {"slug":"pagination-waktu-dan-error","title":"Pagination, waktu & error"}
 ]

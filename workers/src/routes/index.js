@@ -1,3 +1,5 @@
+import {getTheaterRecordings} from '../collector/theater.js';
+import {getLiveNotifications,getLiveNotification,liveNotificationData} from '../collector/live-notifications.js';
 import { createHash } from 'node:crypto';
 import { env } from '@/runtime/env';
 import { Hono } from 'hono';
@@ -170,8 +172,12 @@ app.post('/beta', ...handler(async (c)=>{
     },
     useSingleProcess: false
 }));
+app.get('/live-notifications', ...handler(getLiveNotifications, {seconds: 1}));
+app.get('/live-notifications/:id', ...handler(getLiveNotification, {seconds: 1}));
 app.get('/now_live', ...handler(async (c)=>{
     const data = await combinedLives();
+    const notices=await liveNotificationData(env.DB,new URL(c.req.url).origin);
+    for(const live of data){const notice=notices.find(n=>n.type===live.type&&(live.type==='idn'?n.data_id==='idn-'+createHash('sha256').update(live.slug||'').digest('hex').slice(0,24):Number(n.room_id)===Number(live.room_id)));if(notice){live.notification_designs=notice.notification_designs;live.notification_caption=notice.caption;live.notification_data_id=notice.data_id;}}
     const debug = c.req.query('debug');
     const group = c.req.query('group') || 'jkt48';
     if (debug) {
@@ -216,6 +222,7 @@ app.get('/next_schedule', ...handler(getSchedule, {
 app.get('/event', ...handler(getEvents, {
     minutes: 5
 }));
+app.get('/theater/recordings', ...handler(getTheaterRecordings, {seconds: 3}));
 app.get('/theater', ...handler(getTheater, {
     minutes: 5
 }));

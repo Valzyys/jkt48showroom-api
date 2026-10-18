@@ -15,8 +15,6 @@ import { calculateFansPoints } from '../fansPoints';
 export async function parseBase(data) {
     const leaderboard_designs=(await leaderboardImages(env.DB,[data.data_id],env.REQUEST_ORIGIN||'https://api.jkt48connect.app')).get(data.data_id);
     return {
-        leaderboard_image: leaderboard_designs?.photobook?.portrait,
-        leaderboard_images:leaderboard_designs?.photobook,
         leaderboard_designs,
         recording_session:recordingSession(data,env.REQUEST_ORIGIN||'https://api.jkt48connect.app'),
         point_unit: data.type==='idn'?'idn_gold':'showroom_points',

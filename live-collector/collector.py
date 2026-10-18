@@ -14,6 +14,11 @@ def epoch(value):
  try:return datetime.fromisoformat(str(value).replace('Z','+00:00')).timestamp()
  except (ValueError,TypeError):return time.time()
 def normal(value):return re.sub('[^a-z0-9]','',str(value).lower())
+def canonical_api_value(value,transport,canonical):
+ if isinstance(value,str) and value.startswith(transport+'/'):return canonical+value[len(transport):]
+ if isinstance(value,list):return [canonical_api_value(v,transport,canonical) for v in value]
+ if isinstance(value,dict):return {k:canonical_api_value(v,transport,canonical) for k,v in value.items()}
+ return value
 def match_member(name,key,members):
  key=normal(re.sub(r'^jkt48[-_]?', '',key,flags=re.I));n=normal(name)
  candidates=[m for m in members if key in {normal(m.get('slug')),normal(m['name']),*[normal(v) for v in m.get('nicknames',[])]} or normal(m['name'])==n]
@@ -48,6 +53,9 @@ class Collector:
  def __init__(self):
   self.base=os.environ['COLLECTOR_API_URL'].rstrip('/');self.token=os.environ['COLLECTOR_TOKEN'];
   if urlparse(self.base).hostname=='apitest.jkt48connect.com':self.base='https://api.jkt48connect.app'
+  self.transport=os.environ.get('COLLECTOR_API_TRANSPORT_URL',self.base).rstrip('/')
+  target=urlparse(self.transport)
+  if target.scheme!='https' or target.hostname not in {urlparse(self.base).hostname,'apitest.jkt48connect.com'} or target.username or target.password or target.path or target.query or target.fragment:raise ValueError('Unsupported collector transport')
   self.stop=asyncio.Event();self.state=Path(os.environ.get('COLLECTOR_STATE_DIR','/var/lib/jkt48-live-collector'));self.state.mkdir(parents=True,exist_ok=True);os.chmod(self.state,0o700)
   self.store=Store(self.state/'state.sqlite');self.rows={r['data_id']:r for r in self.store.rows()};self.finished=self.store.completed();
   for saved in self.rows.values():
@@ -66,9 +74,9 @@ class Collector:
    sessions.append({'data_id':row['data_id'],'name':row['name'],'type':row['type'],'completed':row['completed'],'last_seen':int(row['last_seen']*1000),'last_screenshot':row['frames'][-1] if row['frames'] else 0,'screenshot_errors':row['screenshot_errors'],'screenshots_allowed':row['screenshots_allowed'],'stream_available':bool(row.get('stream')),'video':row.get('video_monitor',{'status':'waiting','bytes':0,'parts':0,'last_part':0,'errors':0}),'last_archive':row.get('last_archive',0),'archive_error':row.get('archive_error',False),'chat_status':row.get('chat_status','connecting'),'last_gift_event':row.get('last_gift_event'),'last_ranking':row.get('provider_ranking',{}).get('updated_at'),'ranking_error':row.get('ranking_error'),'observed_events':row.get('observed_events',0),'event_lag_ms':row.get('event_lag_ms'),'ranking_users':len(row.get('provider_ranking',{}).get('users',[])),'reported_gold':sum(u['gold'] for u in row.get('provider_ranking',{}).get('users',[])) if row.get('provider_ranking') else None,'observed_gold':sum((g['point'] or 0)*g['num'] for g in row.get('gifts',{}).values())})
   return {'pid':os.getpid(),'uptime_seconds':int(time.time()-self.started),'last_archive':self.last_archive,'last_completed':self.last_completed,'archive_errors':self.archive_errors,'sessions':sessions}
  async def api(self,path,method='GET',value=None,data=None):
-  response=await self.client.request(method,self.base+'/internal/collector/'+path,headers={'Authorization':'Bearer '+self.token,'Content-Type':'application/json' if data is None else 'application/octet-stream'},json=value if data is None else None,data=data,timeout=50)
+  response=await self.client.request(method,self.transport+'/internal/collector/'+path,headers={'Authorization':'Bearer '+self.token,'Content-Type':'application/json' if data is None else 'application/octet-stream'},json=value if data is None else None,data=data,timeout=(8,50))
   if response.status_code!=200:raise RuntimeError('Worker rejected '+path.split('/')[0]+': HTTP '+str(response.status_code))
-  return response.json()
+  return canonical_api_value(response.json(),self.transport,self.base)
  async def reliable_video_api(self,path,method='POST',value=None,data=None,monitor=None):
   attempt=0
   while True:
@@ -331,6 +339,9 @@ class Collector:
     person=row['users'].setdefault(str(uid),{'user_id':str(uid),'name':user.get('name','Viewer'),'avatar_url':user.get('avatar_url',''),'comments':0})
     if kind=='comment':person['comments']+=1
    row['observed_events']=row.get('observed_events',0)+1;row['gifts_status']='partial';row['gifts_error']=None
+   if value.get('event_time'):
+    received=epoch(value['event_time'])
+    if received>=epoch(row.get('last_idn_event_at',row['observed'])):row['last_idn_event_at']=iso(received);row['last_idn_message_id']=value.get('event_id')
    if value.get('event_time'):row['event_lag_ms']=max(0,int((time.time()-epoch(value['event_time']))*1000))
   elif kind=='error':
    if row['completed']:return
@@ -383,7 +394,7 @@ class Collector:
    except Exception:row['screenshots_allowed']=False;log.warning('permission-check-retry room=%s',row['room_id']);return
    jobs.append(asyncio.create_task(self.sr_socket(row)))
   else:
-   await self.bridge_send({'action':'add','id':row['data_id'],'url':'https://www.idn.app/'+row['url_key']+'/live/'+row['live_id']})
+   await self.bridge_send({'action':'add','id':row['data_id'],'url':'https://www.idn.app/'+row['url_key']+'/live/'+row['live_id'],'cursor':{'id':row.get('last_idn_message_id'),'time':row.get('last_idn_event_at',row['observed'])}})
    jobs.append(asyncio.create_task(self.idn_rankings(row)))
   if row['completed'] or self.stop.is_set():return
   jobs.extend([asyncio.create_task(self.frames(row)),asyncio.create_task(self.video(row))]);self.tasks[row['data_id']]=jobs
@@ -411,7 +422,7 @@ class Collector:
    if row['completed']:continue
    row.update(stream=live.get('stream'),last_seen=time.time(),missing=0,viewers=max(row['viewers'],live['viewers']));row['date']['end']=iso();self.store.save(row)
    if id not in self.tasks and (id not in self.attach_jobs or self.attach_jobs[id].done()):self.attach_jobs[id]=asyncio.create_task(self.attach(row))
-   elif row['type']=='idn':await self.bridge_send({'action':'add','id':row['data_id'],'url':'https://www.idn.app/'+row['url_key']+'/live/'+row['live_id']})
+   elif row['type']=='idn':await self.bridge_send({'action':'add','id':row['data_id'],'url':'https://www.idn.app/'+row['url_key']+'/live/'+row['live_id'],'cursor':{'id':row.get('last_idn_message_id'),'time':row.get('last_idn_event_at',row['observed'])}})
   for id,row in list(self.rows.items()):
    if row['type']!=kind or row['completed'] or id in found:continue
    row['missing']+=1;self.store.save(row)

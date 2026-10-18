@@ -37,7 +37,7 @@ async function ctl(path, { method = "GET", body } = {}) {
     data = await response.json();
   } catch {}
   if (!response.ok)
-    throw Object.assign(new Error(data.message || "HTTP " + response.status), {
+    throw Object.assign(new Error(data.message || Object.entries(data.results || {}).filter(([, value]) => value?.error).map(([dataset, value]) => dataset + ": " + value.error).join("; ") || "HTTP " + response.status), {
       status: response.status,
     });
   return data;
@@ -47,7 +47,10 @@ const developerCall = (path, options) => ctl("developers" + path, options);
 const SECTIONS = [
   ["", "Ringkasan", "grid"],
   ["collector", "Collector live", "live"],
+  ["theater", "Theater YouTube", "live"],
   ["developers", "Developer API", "user"],
+  ["licenses", "Lovable license", "key"],
+  ["extension-notifications", "Notifikasi ekstensi", "list"],
   ["settings", "Pengaturan", "bars"],
   ["key", "Key server", "key"],
   ["data", "Data & cache", "list"],
@@ -879,6 +882,101 @@ function Data({ status }) {
   );
 }
 
+function ExtensionNotifications() {
+  const empty=()=>({id:null,title:'',message:'',link:'',published:false});
+  const [items,setItems]=useState(null),[form,setForm]=useState(empty),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState('');
+  const load=async()=>{const data=await ctl('extension-notifications');setItems(data.notifications)};
+  useEffect(()=>{load().catch(e=>setError(e.message))},[]);
+  const change=(name,value)=>setForm(f=>({...f,[name]:value}));
+  async function save(e){
+    e.preventDefault();setBusy(true);setError('');setSuccess('');
+    try{await ctl('extension-notifications',{method:form.id?'PUT':'POST',body:form});await load();setSuccess(form.published?'Informasi diterbitkan. Ekstensi memperbarui notifikasi sekitar 30 detik saat online.':'Draft disimpan. Informasi ini belum ditampilkan di ekstensi.');setForm(empty())}
+    catch(e){setError(e.message)}finally{setBusy(false)}
+  }
+  async function remove(item){
+    if(!confirm('Hapus notifikasi “'+item.title+'”?'))return;
+    setBusy(true);setError('');setSuccess('');
+    try{await ctl('extension-notifications',{method:'DELETE',body:{id:item.id}});await load();if(form.id===item.id)setForm(empty());setSuccess('Notifikasi dihapus.')}
+    catch(e){setError(e.message)}finally{setBusy(false)}
+  }
+  return <>
+    {error&&<p role="alert" className="dash-error">{error}</p>}
+    {success&&<p role="status" className="dash-note">{success}</p>}
+    <div className="dash-grid-2">
+      <Panel title={form.id?'Edit informasi':'Tulis informasi baru'} icon="plus">
+        <p className="dash-note">Informasi yang diterbitkan muncul di menu notifikasi VALZY Studio v6.0.1. Draft hanya terlihat oleh admin.</p>
+        <form className="dash-form ctl-notice-form" onSubmit={save}>
+          <label><span>Judul</span><input required maxLength={160} value={form.title} onChange={e=>change('title',e.target.value)} placeholder="Informasi terbaru untuk pengguna"/></label>
+          <label><span>Isi informasi</span><textarea required maxLength={5000} rows={7} value={form.message} onChange={e=>change('message',e.target.value)} placeholder="Tulis informasi yang akan dibaca pengguna…"/></label>
+          <label><span>Tautan HTTPS · opsional</span><input type="url" pattern="https://.*" maxLength={2000} value={form.link} onChange={e=>change('link',e.target.value)} placeholder="https://…"/></label>
+          <label className="ctl-notice-publish"><input type="checkbox" checked={form.published} onChange={e=>change('published',e.target.checked)}/><span>Terbitkan di ekstensi</span></label>
+          <div className="ctl-notice-actions"><button className="dash-btn primary" disabled={busy}>{busy?'Menyimpan…':form.published?'Simpan & terbitkan':'Simpan draft'}</button>{form.id&&<button type="button" className="dash-btn" disabled={busy} onClick={()=>setForm(empty())}>Batal edit</button>}</div>
+        </form>
+      </Panel>
+      <Panel title="Pratinjau notifikasi" icon="list">
+        <div className="ctl-notice-preview"><span className="dash-eyebrow">{form.published?'AKAN DITERBITKAN':'DRAFT · BELUM TERBIT'}</span><h3>{form.title||'Judul informasi Anda'}</h3><p>{form.message||'Isi informasi akan terlihat di sini.'}</p>{form.link.startsWith('https://')&&<a href={form.link} target="_blank" rel="noopener noreferrer" className="dash-btn">Buka tautan ↗</a>}<small>{new Date().toLocaleDateString('id-ID',{timeZone:'Asia/Jakarta'})}</small></div>
+        <p className="dash-note">Pesan ditampilkan sebagai teks. Judul, isi dan tautan mengikuti format notifikasi ekstensi; status telah dibaca tetap disimpan di perangkat pengguna.</p>
+      </Panel>
+    </div>
+    <Panel title="Informasi tersimpan" icon="list">
+      {!items?<Loading rows={3}/>:!items.length?<p className="dash-note">Belum ada informasi. Buat draft atau terbitkan informasi pertama melalui formulir di atas.</p>:<div className="dash-table-wrap"><table className="dash-table"><thead><tr><th>Informasi</th><th>Status</th><th>Diperbarui · WIB</th><th>Tindakan</th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td><b>{item.title}</b><p className="ctl-notice-excerpt">{item.message}</p></td><td>{item.published?'Terbit':'Draft'}</td><td>{new Date(item.updated_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})}</td><td><div className="ctl-notice-actions"><button className="dash-btn" disabled={busy} onClick={()=>{setForm({...item});setError('');setSuccess('');window.scrollTo({top:0,behavior:'smooth'})}}>Edit</button><button className="dash-btn danger-text" disabled={busy} onClick={()=>remove(item)}>Hapus</button></div></td></tr>)}</tbody></table></div>}
+    </Panel>
+  </>;
+}
+
+function LicensePanel() {
+  const [data,setData]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[result,setResult]=useState(null);
+  const [form,setForm]=useState({plan:'Trial',email:'',durationValue:1,durationUnit:'month',maxActivations:5}),[prefix,setPrefix]=useState('VALZY'),[secret,setSecret]=useState('');
+  const requestId=useRef(crypto.randomUUID());
+  const load=()=>ctl('licenses').then(d=>{setData(d);setPrefix(d.prefix)}).catch(e=>setError(e.message));
+  useEffect(()=>{load()},[]);
+  const change=(name,value)=>{setForm(f=>({...f,[name]:value}));requestId.current=crypto.randomUUID();setResult(null)};
+  return <>
+    <Panel title="Konfigurasi lisensi" icon="key">
+      <p className="dash-note">API key hanya tersimpan terenkripsi di server. Prefix baru berlaku untuk lisensi berikutnya; lisensi lama tetap aktif.</p>
+      <form className="dash-form" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{await ctl('settings',{method:'PUT',body:{changes:{LOVABLE_LICENSE_PREFIX:prefix,...(secret?{LOVABLE_LICENSE_API_KEY:secret}:{})}}});setSecret('');await load();requestId.current=crypto.randomUUID()}catch(e){setError(e.message)}finally{setBusy(false)}}}>
+        <label><span>Prefix</span><input value={prefix} pattern="[A-Z][A-Z0-9]{1,15}" maxLength={16} required onChange={e=>setPrefix(e.target.value.toUpperCase())}/></label>
+        <label><span>API key penyedia {data?.configured?'· tersimpan':'· belum tersimpan'}</span><input type="password" autoComplete="new-password" value={secret} placeholder="Isi hanya untuk mengganti" onChange={e=>setSecret(e.target.value)}/></label>
+        <button className="dash-btn" disabled={busy}>Simpan konfigurasi</button>
+      </form>
+    </Panel>
+    <Panel title="Buat lisensi Lovable" icon="plus">
+      <form className="dash-form" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');setResult(null);try{const r=await ctl('licenses/generate',{method:'POST',body:{...form,requestId:requestId.current}});setResult(r);await load()}catch(e){setError(e.message)}finally{setBusy(false)}}}>
+        <label><span>Paket</span><select value={form.plan} onChange={e=>change('plan',e.target.value)}><option>Trial</option><option>Pro</option></select></label>
+        <label><span>Email opsional</span><input type="email" value={form.email} onChange={e=>change('email',e.target.value)}/></label>
+        {form.plan==='Pro'&&<><label><span>Durasi</span><input type="number" min="1" max={form.durationUnit==='year'?10:10000} required value={form.durationValue} onChange={e=>change('durationValue',Number(e.target.value))}/></label><label><span>Satuan</span><select value={form.durationUnit} onChange={e=>change('durationUnit',e.target.value)}>{[['minute','Menit'],['hour','Jam'],['day','Hari'],['week','Minggu'],['month','Bulan'],['year','Tahun (12 bulan)']].map(([v,t])=><option key={v} value={v}>{t}</option>)}</select></label></>}
+        <label><span>Maksimal perangkat</span><input type="number" min="1" max="100" required value={form.maxActivations} onChange={e=>change('maxActivations',Number(e.target.value))}/></label>
+        <p className="dash-note">Trial berlaku 30 menit sesuai penyedia. Tanggal kedaluwarsa selalu mengikuti respons penyedia.</p>
+        <button className="dash-btn primary" disabled={busy||!data?.configured||Boolean(result)}>{busy?'Memproses…':'Buat lisensi'}</button>
+        {result&&<button type="button" className="dash-btn" onClick={()=>{requestId.current=crypto.randomUUID();setResult(null)}}>Siapkan lisensi berikutnya</button>}
+      </form>
+      {error&&<p role="alert" className="dash-error">{error}</p>}
+      {result&&<div className="dash-codes"><p>Simpan kode ini untuk pelanggan. Riwayat hanya menampilkan kode tersamarkan.</p><code style={{overflowWrap:'anywhere'}}>{result.license_key}</code><button className="dash-btn" onClick={()=>navigator.clipboard.writeText(result.license_key)}>Salin lisensi</button><p>{result.plan} · berakhir {new Date(result.expires_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB</p></div>}
+    </Panel>
+    <Panel title="50 pembuatan terakhir" icon="list"><div className="dash-table-wrap"><table className="dash-table"><thead><tr><th>Lisensi</th><th>Paket</th><th>Email</th><th>Durasi</th><th>Perangkat</th><th>Status</th><th>Berakhir</th></tr></thead><tbody>{data?.licenses?.map(l=><tr key={l.id}><td>{l.key_hint||'—'}</td><td>{l.plan}</td><td>{l.email||'—'}</td><td>{l.duration_value?l.duration_value+' '+l.duration_unit:'30 menit'}</td><td>{l.max_activations}</td><td>{l.state}</td><td>{l.expires_at?new Date(l.expires_at).toLocaleDateString('id-ID',{timeZone:'Asia/Jakarta'}):'—'}</td></tr>)}</tbody></table></div></Panel>
+  </>;
+}
+
+function TheaterRecorder({status}) {
+  if(!status.data)return <Loading rows={3}/>;
+  const health=status.data.theaterRecorder,rows=status.data.theaterRecordings||[],online=health&&Date.now()-health.lastSeen<120000;
+  return <>
+    <Panel title="Theater → YouTube" icon="live">
+      <p className="dash-note">Rekaman video diunggah ke YouTube. Screenshot disimpan di R2 dan satu gambar menjadi thumbnail. Resolver menggunakan slug 14 Mei sesuai konfigurasi.</p>
+      <KV rows={[["Service",online?'Online':'Belum terhubung / terlambat'],["OAuth YouTube",health?.auth_status==='ready'?'Siap':health?.auth_error||'Menunggu'],["Deteksi theater",health?.discovery_ok?'Berjalan':'Menunggu / perlu dicek'],["Sedang direkam",String(health?.active||0)],["Antrean upload",String(health?.queued||0)],["Ruang kosong VPS",health?((health.disk_free_bytes||0)/1024**3).toFixed(1)+' GB':'—'],["Masalah terakhir",health?.last_error||'—']]}/>
+      <p className="dash-note">Data hasil tersedia melalui <code>/api/theater/recordings</code>. Rekaman ditandai parsial bila terlambat mulai atau koneksi terputus.</p>
+    </Panel>
+    <Panel title="Rekaman theater" icon="list">
+      {!rows.length?<p className="dash-note">Belum ada rekaman. Service menunggu theater berstatus live.</p>:rows.map(r=><article key={r.id} style={{padding:'20px 0',borderBottom:'1px solid var(--line)'}}>
+        <h3>{r.title}</h3><p>{r.theater_code||r.slug} · {r.status}{r.youtube_privacy?' · '+r.youtube_privacy:''}{r.partial?' · parsial':''}</p>
+        <p className="dash-note">Mulai {new Date(r.started_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB · {Math.floor(r.duration_ms/60000)} menit · {r.screenshots.length} screenshot{r.error?' · '+r.error:''}</p>
+        {r.youtube_url&&<a className="dash-btn" href={r.youtube_url} target="_blank" rel="noreferrer">Buka rekaman YouTube ↗</a>}
+        <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:14}}>{[...new Set([0,Math.floor(r.screenshots.length/2),r.screenshots.length-1])].filter(i=>r.screenshots[i]).map(i=><a key={i} href={r.screenshots[i].url} target="_blank" rel="noreferrer"><img src={r.screenshots[i].url} alt={'Screenshot '+(i+1)} loading="lazy" style={{width:180,maxWidth:'100%',borderRadius:12}}/></a>)}</div>
+      </article>)}
+    </Panel>
+  </>;
+}
+
 export function ControlPanel({ search }) {
   const account = useAccount(),
     motionEnabled = useMotionEnabled(),
@@ -906,7 +1004,7 @@ export function ControlPanel({ search }) {
       .catch(() => setSettings([]));
   }, [session, tick]);
   const status = useStatus(
-    Boolean(session) && ["", "collector", "data"].includes(section),
+    Boolean(session) && ["", "collector", "theater", "data"].includes(section),
   );
   useEffect(() => {
     if (!motionEnabled || !main.current || !session) return;
@@ -992,10 +1090,13 @@ export function ControlPanel({ search }) {
               "": "Kesehatan layanan, data, dan operasi cepat.",
               collector:
                 "Heartbeat VPS, rekaman live, screenshot dan arsip replay.",
+              theater: "Rekaman, screenshot, antrean unggahan dan URL YouTube theater.",
               developers:
                 "Akun developer, paket, kuota, voucher, pembayaran dan program fanbase.",
               settings:
                 "Variable dan secret server. Perubahan berlaku di semua instance dalam 10 detik.",
+              licenses: "Pembuatan lisensi, prefix, durasi dan batas perangkat.",
+              "extension-notifications": "Tulis, pratinjau dan terbitkan informasi untuk pengguna ekstensi.",
               key: "Key server untuk backend sendiri.",
               data: "Isi database dan cache respons.",
             }[section]
@@ -1003,6 +1104,7 @@ export function ControlPanel({ search }) {
         </PageHead>
         {section === "" && <Overview status={status} settings={settings} />}
         {section === "collector" && <Collector status={status} />}
+        {section === "theater" && <TheaterRecorder status={status} />}
         {section === "developers" && (
           <AdminPanel call={developerCall} embedded />
         )}
@@ -1015,6 +1117,8 @@ export function ControlPanel({ search }) {
           ) : (
             <Loading rows={4} />
           ))}
+        {section === "licenses" && <LicensePanel />}
+        {section === "extension-notifications" && <ExtensionNotifications />}
         {section === "key" && <ServerKey />}
         {section === "data" && <Data status={status} />}
       </main>

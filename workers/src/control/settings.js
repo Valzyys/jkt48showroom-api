@@ -1,4 +1,5 @@
 const vars = {
+  LOVABLE_LICENSE_PREFIX:['Lovable license','Prefix lisensi: 2–16 huruf/angka kapital, diawali huruf.'],
   COLLECTOR_RECORD_VIDEO:['Live collector','Rekam video penuh langsung ke R2: true/false'],COLLECTOR_ENABLED:['Live collector','Collector live aktif: true/false'],COLLECTOR_POLL_SECONDS:['Live collector','Interval deteksi sesi, 15–300 detik'],COLLECTOR_SCREENSHOT_SECONDS:['Live collector','Interval screenshot, 30–600 detik'],COLLECTOR_SCREENSHOT_WIDTH:['Live collector','Lebar screenshot, 320–1280 piksel'],COLLECTOR_MAX_SESSIONS:['Live collector','Observer chat IDN bersamaan, 1–16; video tetap merekam semua live terdeteksi'],
   ORIGINS:['Frontend & akses','Origin frontend, dipisahkan koma'],SECONDARY_ORIGINS:['Frontend & akses','Origin tambahan; bypass signature publik untuk recent'],DEFAULT_ORIGIN:['Frontend & akses','Origin frontend default'],ADMIN_IDS:['Frontend & akses','ID user Showroom admin, dipisahkan koma'],
   SHOWROOM_API:['Showroom & live','Base URL HTTPS Showroom'],PROXY_URL:['Showroom & live','Prefix relay HTTPS Showroom'],STREAM_ALLOWED_HOSTS:['Showroom & live','Host streaming yang diizinkan, dipisahkan koma'],LIVE_REFRESH_SECONDS:['Showroom & live','Interval refresh live dalam detik'],ENABLE_COMPETITION_CRON:['Showroom & live','Aktifkan cron competition: true/false'],ENABLE_MONTHLY_STATS_CRON:['Showroom & live','Aktifkan cron statistik: true/false'],
@@ -9,6 +10,7 @@ const vars = {
   API_KEY_REQUIRED:['Developer API','Wajibkan API key developer di semua endpoint /api: true/false'],API_FREE_MONTHLY_LIMIT:['Developer API','Kuota bulanan key Free, 1–1000000 request'],API_MAX_KEYS:['Developer API','Maksimal key aktif per akun, 1–20'],API_KEY_EXEMPT_ORIGINS:['Developer API','Origin frontend sendiri yang boleh tanpa key, dipisahkan koma'],API_PRICES:['Developer API','Harga produk dalam rupiah, JSON {"starter-30d":15000}'],API_FANBASE_MONTHLY_LIMIT:['Developer API','Kuota bulanan paket Fanbase, 1–10000000 request'],FANBASE_X_HANDLE:['Developer API','Akun X yang wajib di-follow pemohon program fanbase, tanpa @']
 };
 const secrets={
+  LOVABLE_LICENSE_API_KEY:['Lovable license','API key penyedia untuk generate lisensi; hanya digunakan server.'],
   IDN_WEB_CLIENT_KEY:['IDN authentication','Client key web IDN untuk membaca katalog gift resmi.'],IDN_REFRESH_TOKEN:['IDN authentication','Refresh token Cognito milik akun IDN; JWT diperbarui otomatis di server.'],IDN_COGNITO_CLIENT_ID:['IDN authentication','Client ID Cognito harus sama dengan aplikasi yang menerbitkan refresh token.'],
   COLLECTOR_TOKEN:['Live collector','Token privat VPS collector; harus sama dengan token pada VPS.'],
   API_KEY:['API key & token','Key server untuk recent, weekly dan collector. Mengubah key membatalkan key sebelumnya.'],
@@ -23,8 +25,8 @@ const b64=bytes=>btoa(String.fromCharCode(...bytes));
 const unb64=text=>Uint8Array.from(atob(text),c=>c.charCodeAt(0));
 const caches=new WeakMap();
 async function encryptionKey(secret){return crypto.subtle.importKey('raw',await crypto.subtle.digest('SHA-256',encoder.encode(secret)),{name:'AES-GCM'},false,['encrypt','decrypt']);}
-async function encrypt(value,secret){const iv=crypto.getRandomValues(new Uint8Array(12));return b64(iv)+'.'+b64(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await encryptionKey(secret),encoder.encode(value))));}
-async function decrypt(value,secret){const [iv,data]=value.split('.');return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(iv)},await encryptionKey(secret),unb64(data)));}
+export async function encrypt(value,secret){const iv=crypto.getRandomValues(new Uint8Array(12));return b64(iv)+'.'+b64(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},await encryptionKey(secret),encoder.encode(value))));}
+export async function decrypt(value,secret){const [iv,data]=value.split('.');return new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(iv)},await encryptionKey(secret),unb64(data)));}
 // Settings secrets are encrypted with the control session secret; without one
 // (admin through a developer account) the Worker's own SECRET is the key.
 const controlKey=bindings=>bindings.CONTROL_SESSION_SECRET||bindings.SECRET;
@@ -46,6 +48,7 @@ export async function settingsView(bindings){
   return definitions.map(item=>({...item,value:item.secret?'':String(effective[item.name]??''),configured:Boolean(effective[item.name]),source:saved.has(item.name)?'control':'deployment',updatedAt:saved.get(item.name)||null}));
 }
 function validate(name,value){
+  if(name==='LOVABLE_LICENSE_PREFIX'&&!/^[A-Z][A-Z0-9]{1,15}$/.test(value))throw Object.assign(new Error('Prefix harus 2–16 huruf/angka kapital'),{status:400});
   const definition=specification.get(name);
   if(!definition || typeof value!=='string' || value.length>(name==='IDN_REFRESH_TOKEN'?8192:4096))throw Object.assign(new Error('Pengaturan tidak valid: '+name),{status:400});
   if(['SECRET','AUTH_SECRET','JWT_SECRET','API_KEY','JKT48_SCRAPER_TOKEN','COLLECTOR_TOKEN'].includes(name)){

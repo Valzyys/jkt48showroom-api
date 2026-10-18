@@ -1,3 +1,5 @@
+import {theaterScheduleDesigns} from '../../../collector/theater-schedules.js';
+import {env} from '../../../runtime/env.js';
 import defu from 'defu';
 import IdolMember from '@/database/schema/48group/IdolMember';
 import EventDetail from '@/database/showroomDB/jkt48/EventDetail';
@@ -93,6 +95,7 @@ export async function getTheaterList(page, perpage, query) {
             jkt48id: 1
         }).populate('showroom').lean();
     }
+    const designs=await theaterScheduleDesigns(env,theater.map(s=>s.code),env.REQUEST_ORIGIN||'https://api.jkt48connect.app');
     return {
         theater: theater.map((i)=>{
             const setlist = findSetlist(allData, i.title, i.set_list ?? '');
@@ -122,6 +125,7 @@ export async function getTheaterList(page, perpage, query) {
             });
             return {
                 id: i.code,
+                schedule_designs: designs.get(i.code),
                 title: i.title.trim(),
                 banner: setlist?.banner,
                 poster: setlist?.poster,

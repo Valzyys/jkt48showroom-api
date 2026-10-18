@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS collector_theater_schedules (code TEXT PRIMARY KEY,source_version TEXT NOT NULL,snapshot TEXT NOT NULL,start_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS collector_theater_schedule_images (code TEXT NOT NULL,theme TEXT NOT NULL,layout TEXT NOT NULL,source_version TEXT NOT NULL,state TEXT NOT NULL,render_token TEXT,lease_until INTEGER NOT NULL DEFAULT 0,object_key TEXT,updated_at INTEGER NOT NULL,PRIMARY KEY(code,theme,layout));

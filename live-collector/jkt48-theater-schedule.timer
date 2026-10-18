@@ -1,0 +1,9 @@
+[Unit]
+Description=Generate theater schedule posters and banners
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=30s
+RandomizedDelaySec=2s
+Unit=jkt48-theater-schedule.service
+[Install]
+WantedBy=timers.target

@@ -1,3 +1,5 @@
+import {serveTheaterScreenshot} from './collector/theater.js';
+import {licenseResponse} from './licenses/index.js';
 import {serveGiftImage} from './runtime/gift-media';
 import { collectorResponse, cleanupCollectorUploads } from './collector/index.js';
 import { controlResponse } from './control/index.js';
@@ -66,6 +68,8 @@ export default {
     const control = await controlResponse(request,bindings,execution);
     if (control) return rewriteMediaResponse(control,request);
     bindings = await effectiveBindings(bindings);
+    const theaterScreenshot=await serveTheaterScreenshot(request,bindings);if(theaterScreenshot)return theaterScreenshot;
+    const license = await licenseResponse(request,bindings);if(license)return license;
     const account = await accountResponse(request,bindings);
     if (account) return account;
     const giftMedia=await serveGiftImage(request,bindings);if(giftMedia)return giftMedia;

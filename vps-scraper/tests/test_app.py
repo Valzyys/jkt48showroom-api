@@ -110,7 +110,21 @@ class ScraperTests(unittest.IsolatedAsyncioTestCase):
                 response = (await client.get("/api/v1/news", headers=self.headers()))
                 self.assertEqual(response.status_code, 403)
                 self.assertNotIn("private upstream body", response.text)
-        self.assertEqual(len(session.calls), 2)
+        self.assertEqual(len(session.calls), 4)
+
+    async def test_rejected_connection_retries_once_with_a_new_session(self):
+        stale = FakeSession(FakeResponse(403))
+        fresh = FakeSession()
+        sessions = iter([stale, fresh])
+        app = create_app(token=TOKEN, session_factory=lambda: next(sessions))
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='https://scraper.test') as client:
+                response = await client.get('/api/v1/news', headers=self.headers())
+                self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(stale.calls), 1)
+        self.assertEqual(len(fresh.calls), 1)
+        self.assertTrue(fresh.closed)
+        self.assertTrue(stale.response.closed)
 
     async def test_redirect_challenge_and_large_body_are_rejected(self):
         for fake in [FakeResponse(302), FakeResponse(body=b"<html>challenge</html>"), FakeResponse(body=b"x" * (2 * 1024 * 1024 + 1)), FakeResponse(body=b'{"status":false,"data":[]}')]:

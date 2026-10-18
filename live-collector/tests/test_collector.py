@@ -1,6 +1,6 @@
 import os,unittest,tempfile,subprocess,json,shutil
 from unittest.mock import patch
-from collector import Store,match_member,stream_allowed,frame_command,video_command,Collector
+from collector import Store,match_member,stream_allowed,frame_command,video_command,Collector,iso,epoch
 from mp4_repair import boxes,box,repair_moov,repair_mfra
 class CollectorTests(unittest.TestCase):
  def test_stream_and_commands(self):
@@ -85,6 +85,22 @@ class ResilienceTests(unittest.IsolatedAsyncioTestCase):
 
 
 class IdnAccuracyTests(unittest.IsolatedAsyncioTestCase):
+ async def test_private_transport_preserves_canonical_urls_and_authentication(self):
+  from unittest.mock import AsyncMock,Mock
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.jkt48connect.app','COLLECTOR_API_TRANSPORT_URL':'https://apitest.jkt48connect.com','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();response=Mock(status_code=200);response.json.return_value={'recording':{'url':'https://apitest.jkt48connect.com/media/live/test.mp4'},'other':'https://provider.test/a'};c.client=Mock();c.client.request=AsyncMock(return_value=response)
+   result=await c.api('heartbeat','POST',{'active':0});call=c.client.request.await_args
+   self.assertEqual(call.args[1],'https://apitest.jkt48connect.com/internal/collector/heartbeat');self.assertEqual(call.kwargs['headers']['Authorization'],'Bearer synthetic');self.assertEqual(result['recording']['url'],'https://api.jkt48connect.app/media/live/test.mp4');self.assertEqual(result['other'],'https://provider.test/a')
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.jkt48connect.app','COLLECTOR_API_TRANSPORT_URL':'https://untrusted.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   with self.assertRaises(ValueError):Collector()
+ async def test_idn_gift_image_quantity_and_cursor_survive_checkpoint(self):
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'COLLECTOR_API_URL':'https://api.test','COLLECTOR_TOKEN':'synthetic','COLLECTOR_STATE_DIR':root}):
+   c=Collector();row=c.new(self.live());when=iso(epoch(row['observed'])+1)
+   event={'kind':'gift','event_id':'provider-message','event_time':when,'user':{'uuid':'fan','name':'Viewer'},'gift':{'slug':'rose','name':'Rose','gold':20,'quantity':3,'image_url':'https://cdn.idntimes.com/content-images/rose.png'}}
+   c.handle_idn_event(row,event);c.store.save(row);restarted=Collector();saved=restarted.rows[row['data_id']];restarted.handle_idn_event(saved,event)
+   payload=restarted.payload(saved)
+   self.assertEqual(payload['catalog'][0]['img'],event['gift']['image_url']);self.assertEqual(payload['gift_log'][0]['gifts'][0]['num'],3);self.assertEqual(payload['gift_log'][0]['total'],60)
+   self.assertEqual(saved['last_idn_message_id'],'provider-message');self.assertEqual(saved['last_idn_event_at'],when);self.assertEqual(saved['observed_events'],1)
  def collector(self,root):
   return Collector()
  def live(self):
