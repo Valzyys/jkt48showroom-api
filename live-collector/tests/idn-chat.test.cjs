@@ -54,3 +54,30 @@ test('observer accepts only IDN live URLs and capacity never prevents existing r
  await f.observer.message({action:'limits',value:1});await f.add();await f.add('two');assert.equal(f.events.at(-1).code,'chat_capacity');assert.equal(f.sockets.length,1);await f.observer.stop();
  assert.equal(ircLine('@time=t :server PRIVMSG #room :hello there').params[1],'hello there');
 });
+test('404 metadata falls back to matching public page and accepts the real IVS ARN channel',async()=>{
+ const f=fixture(),arn='arn:aws:ivschat:us-east-1:050891932989:room/ActualRoom';
+ f.observer.fetcher=async(url,options)=>{
+  f.calls.push({url,options});
+  if(url.startsWith('https://api.idn.app/'))return Response.json({data:null},{status:404});
+  assert.equal(options.headers,undefined,'credentials are never forwarded to the page');
+  return new Response('<script id="__NEXT_DATA__" type="application/json">'+JSON.stringify({props:{pageProps:{livestream:{slug:'one',creator:{username:'jkt48_test'},chat_room_id:arn}}}})+'</script>');
+ };
+ await f.add();const socket=f.sockets[0];f.register(socket);
+ assert.equal(f.observer.pages.get('one').nick,'idn-'+f.observer.pages.get('one').viewerId+'-web');assert.ok(socket.sent.includes('JOIN #'+arn));assert.ok(socket.sent.some(s=>s.startsWith('PRIVMSG IDNHeimdall :JOINED ')));
+ f.frame(socket,':server 366 nick #'+arn+' :End of names');assert.ok(f.events.some(e=>e.kind==='connected'));
+ assert.equal(f.calls.length,3);await f.observer.stop();
+});
+test('IDNOdin private gift events require the intended nick, trusted sender and exact room',async()=>{
+ const f=fixture();await f.add();const socket=f.sockets[0];f.register(socket);f.join(socket);
+ const nick=f.observer.pages.get('one').nick,gift={room_id:'one',user:{uuid:'fan',name:'A'},gift:{slug:'rose',gold:10,quantity:4,image_url:'https://cdn.idntimes.com/content-images/rose.png'}};
+ f.frame(socket,'@msgid=gift-id :IDNOdin!bot@server PRIVMSG '+nick+' :'+JSON.stringify(gift));
+ assert.equal(f.events.filter(e=>e.kind==='gift').length,1);assert.equal(f.events.at(-1).gift.quantity,4);assert.ok(f.events.at(-1).gift.image_url);
+ for(const [sender,target,room] of [['fan',nick,'one'],['IDNOdin','someone-else','one'],['IDNOdin',nick,'two'],['IDNOdin',nick,undefined]])f.frame(socket,':'+sender+' PRIVMSG '+target+' :'+JSON.stringify({...gift,room_id:room}));
+ assert.equal(f.events.filter(e=>e.kind==='gift').length,1);await f.observer.stop();
+});
+test('public page cannot redirect collection into a different or restricted live room',async()=>{
+ for(const patch of [{slug:'two'},{creator:{username:'another'}},{live_type:'idnliveplus'},{is_hidden:true},{chat_room_id:'room\r\nJOIN #evil'}]){
+  const f=fixture();f.observer.fetcher=async url=>url.startsWith('https://api.')?Response.json({}, {status:404}):new Response('<script id="__NEXT_DATA__">'+JSON.stringify({props:{pageProps:{livestream:{slug:'one',creator:{username:'jkt48_test'},chat_room_id:'room-one',...patch}}}})+'</script>');
+  await f.add();assert.equal(f.sockets.length,0);await f.observer.stop();
+ }
+});

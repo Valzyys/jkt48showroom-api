@@ -155,3 +155,13 @@ with bounded connection timeouts and always validates the original TLS hostname.
 Migration `0010_live_notifications.sql` is idempotent. Worker initialization also
 creates these fixed tables through its own D1 binding, supporting deployments
 with Worker-only editing credentials. No secret is changed during setup.
+
+IDN chat recovery (October 2026): when v5/v4 live metadata returns 404, the
+observer reads the exact public live page's `__NEXT_DATA__` livestream, checking
+its slug, creator and visibility before joining. Both short IRC channels and
+IVS ARN channels are accepted. The viewer nick and ID match the web client's
+`IDNHeimdall JOINED` registration. Gift notifications sent privately by
+`IDNOdin` are accepted only for that viewer nick and the exact live slug; other
+rooms and senders are ignored. Gift slug, image URL, gold and quantity continue
+through the existing journal/catalog/recent pipeline. Rankings alone cannot
+reconstruct gift types or images for older sessions whose events were missed.

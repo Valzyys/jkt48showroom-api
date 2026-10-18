@@ -1,5 +1,6 @@
 const {randomUUID}=require('node:crypto');
 const {parseFrames}=require('./idn-events.cjs');
+const {request}=require('./live-notification-http.cjs');
 
 // IDN's public web chat uses IRC over WebSocket. Loading the entire website is
 // unnecessary, and a working page is not proof that its chat actually joined.
@@ -18,34 +19,52 @@ function ircLine(raw){
  return {command:parts.shift()?.toUpperCase(),params:parts,prefix,tags};
 }
 function roomUrl(value){
- try{const u=new URL(value);if(u.protocol==='https:'&&u.hostname==='www.idn.app'&&!u.search&&!u.hash&&/^\/[a-zA-Z0-9_-]+\/live\/[a-zA-Z0-9_-]+$/.test(u.pathname))return u}catch{}
+ try{const u=new URL(value);if(u.protocol==='https:'&&u.hostname==='www.idn.app'&&!u.search&&!u.hash&&/^\/[a-zA-Z0-9_][a-zA-Z0-9_.-]*\/live\/[a-zA-Z0-9_-]+$/.test(u.pathname))return u}catch{}
  return null;
 }
 class IdnChatObserver{
- constructor({emit,fetcher=fetch,WebSocket=require('ws'),clientKey=process.env.IDN_WEB_CLIENT_KEY,now=Date.now}){
+ constructor({emit,fetcher=request,WebSocket=require('ws'),clientKey=process.env.IDN_WEB_CLIENT_KEY,now=Date.now}){
   Object.assign(this,{emit,fetcher,WebSocket,clientKey,now});this.pages=new Map();this.auth={};this.maxPages=16;
  }
  error(entry,code){if(!entry.closing){entry.connected=false;entry.error=code;this.emit({id:entry.id,kind:'error',code})}}
  current(entry,generation){return !entry.closing&&this.pages.get(entry.id)===entry&&entry.generation===generation}
  send(entry,line){if(entry.socket?.readyState===1)entry.socket.send(line)}
+ channel(data,entry){
+  if(!data||typeof data!=='object')throw Error('chat_metadata_invalid');
+  if(data.live_type==='idnliveplus'||data.is_hidden)throw Error('chat_room_restricted');
+  if(data.slug&&data.slug!==entry.slug)throw Error('chat_room_mismatch');
+  const channel=String(data.chat_room_id||'').replace(/^#/,'');
+  // IDN uses both short channel names and the original IVS room ARN over IRC.
+  if(!/^(?:[a-zA-Z0-9_-]{1,200}|arn:aws:ivschat:[a-z0-9-]{1,40}:\d{12}:room\/[a-zA-Z0-9_-]{1,100})$/.test(channel))throw Error('chat_room_unavailable');
+  return '#'+channel;
+ }
  async metadata(entry){
   if(!this.clientKey)throw Error('chat_config_missing');
   const headers={'x-api-key':this.clientKey,Origin:'https://www.idn.app',Referer:'https://www.idn.app/'};
   if(this.auth.ready){headers['access-token']=this.auth.accessToken;headers.Authorization='Bearer '+this.auth.idToken}
   for(const version of [5,4]){
    const response=await this.fetcher('https://api.idn.app/api/v'+version+'/livestream/'+encodeURIComponent(entry.slug),{headers,signal:AbortSignal.timeout(15000)});
-   if(response.status===404&&version===5)continue;
+   if(response.status===404)continue;
    if(!response.ok)throw Error('chat_metadata_http_'+response.status);
-   const body=await response.json(),data=body.data;
-   if(!data||typeof data!=='object')throw Error('chat_metadata_invalid');
-   // Public observation never supplies admission to a paid or hidden room.
-   if(data.live_type==='idnliveplus'||data.is_hidden)throw Error('chat_room_restricted');
-   if(data.slug&&data.slug!==entry.slug)throw Error('chat_room_mismatch');
-   const channel=String(data.chat_room_id||'').replace(/^#/,'');
-   if(!/^[a-zA-Z0-9_-]{1,200}$/.test(channel))throw Error('chat_room_unavailable');
-   return '#'+channel;
+   return this.channel((await response.json()).data,entry);
   }
-  throw Error('chat_room_unavailable');
+  // The public page can retain valid room metadata when the detail API is 404.
+  // Read only its matching server-rendered livestream; never guess a channel.
+  let response;
+  for(let attempt=0;attempt<2;attempt++){response=await this.fetcher(entry.url,{signal:AbortSignal.timeout(15000)});if(response.status<500)break}
+  if(!response.ok)throw Error('chat_page_http_'+response.status);
+  const html=await response.text();if(html.length>3000000)throw Error('chat_page_invalid');
+  const match=/<script\b[^>]*\bid=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i.exec(html);
+  if(!match)throw Error('chat_page_invalid');
+  let props;try{props=JSON.parse(match[1]).props?.pageProps}catch{throw Error('chat_page_invalid')}
+  const data=props?.livestream;
+  if(data?.slug!==entry.slug)throw Error('chat_room_mismatch');
+  if(data?.creator?.username&&data.creator.username!==new URL(entry.url).pathname.split('/')[1])throw Error('chat_room_mismatch');
+  return this.channel(data,entry);
+ }
+ announce(entry){
+  // Match the web client's viewer registration. Do not publish comments/gifts.
+  this.send(entry,'PRIVMSG IDNHeimdall :JOINED '+JSON.stringify({room_identifier:entry.channel.slice(1),user_identifier:entry.viewerId,extra_user_identifier:entry.viewerId,join_at:entry.joinedAt,created_at:entry.joinedAt,is_login:false}));
  }
  frame(entry,generation,raw){
   if(!this.current(entry,generation))return;
@@ -61,7 +80,7 @@ class IdnChatObserver{
     if(entry.history)wanted.push(available.includes('chathistory')?'chathistory':'draft/chathistory');
     if(wanted.length)this.send(entry,'CAP REQ :'+wanted.join(' '));else this.send(entry,'CAP END');
    }else if(command==='CAP'&&['ACK','NAK'].includes(params[1]))this.send(entry,'CAP END');
-   else if(command==='001')this.send(entry,'JOIN '+entry.channel);
+   else if(command==='001'){this.send(entry,'JOIN '+entry.channel);this.announce(entry)}
    else if((command==='JOIN'&&prefix.split('!')[0]===entry.nick&&params[0]===entry.channel)||(command==='366'&&params[1]===entry.channel)){
     if(!entry.connected){
      entry.connected=true;entry.failures=0;entry.error=null;this.emit({id:entry.id,kind:'connected'});
@@ -75,11 +94,17 @@ class IdnChatObserver{
    }else if(['464','465'].includes(command)||command==='ERROR'){
     this.error(entry,'chat_registration_rejected');entry.socket.close();
    }
-   if(command!=='PRIVMSG'||params[0]!==entry.channel)continue;
+   if(command!=='PRIVMSG')continue;
+   const channelMessage=params[0]===entry.channel;
+   // Gold/gift events are also sent privately by IDNOdin to the viewer nick.
+   // Binding BOTH sender and payload room prevents mixing simultaneous lives.
+   const directMessage=params[0]===entry.nick&&prefix.split('!')[0]==='IDNOdin';
+   if(!channelMessage&&!directMessage)continue;
    for(const event of parseFrames(text)){
     if(!['gift','comment','user'].includes(event.kind))continue;
     // The IRC channel binds the room. Some messages use a channel UUID as
     // room_id, others use the public live slug.
+    if(directMessage&&event.room_id!==entry.slug)continue;
     if(event.room_id&&![entry.slug,entry.channel.slice(1)].includes(event.room_id))continue;
     const id=event.event_id||generation+':'+(++entry.sequence);
     const when=event.event_time||message.tags.time;
@@ -93,7 +118,7 @@ class IdnChatObserver{
   entry.creating=true;entry.connected=false;const generation=++entry.generation;
   try{
    const channel=await this.metadata(entry);if(!this.current(entry,generation))return;
-   entry.channel=channel;entry.nick='idn-'+randomUUID().replaceAll('-','').slice(0,20)+'-web';entry.sequence=0;entry.capabilities=[];
+   entry.channel=channel;entry.viewerId=randomUUID();entry.joinedAt=Math.floor(this.now()/1000);entry.nick='idn-'+entry.viewerId+'-web';entry.sequence=0;entry.capabilities=[];
    const socket=new this.WebSocket('wss://chat.idn.app',{origin:'https://www.idn.app',handshakeTimeout:12000,maxPayload:1000000});
    entry.socket=socket;entry.lastActivity=this.now();entry.lastPing=this.now();
    socket.on('open',()=>{
@@ -132,7 +157,7 @@ class IdnChatObserver{
   const url=roomUrl(value.url);if(!url)return;
   const old=this.pages.get(value.id);if(old){await this.recover(old);return}
   if(this.pages.size>=this.maxPages){this.emit({id:value.id,kind:'error',code:'chat_capacity'});return}
-  const entry={id:value.id,slug:url.pathname.split('/').pop(),generation:0,failures:0,lastAttempt:0,cursor:value.cursor};
+  const entry={id:value.id,url:url.href,slug:url.pathname.split('/').pop(),generation:0,failures:0,lastAttempt:0,cursor:value.cursor};
   this.pages.set(entry.id,entry);await this.open(entry);
  }
  tick(){for(const entry of this.pages.values())this.recover(entry).catch(()=>{})}
