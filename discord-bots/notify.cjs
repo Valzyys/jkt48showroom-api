@@ -34,26 +34,26 @@ async function ingest(kind,events){
 async function sendDue(){
  if(sending||!client.isReady())return;sending=true;
  try{
-  const config=settings.load();const pending=store.due().filter(j=>config.sources[j.kind]?.enabled!==false);let index=0;
-  await Promise.all(Array.from({length:Math.min(3,pending.length)},async()=>{while(index<pending.length){const job=pending[index++];let channel;const destination=channels(job.kind).find(c=>c.channel_id===job.channel);if(!destination){store.update(job.key,{status:'cancelled',error:'channel_removed'});continue;}
+  const config=settings.load();const claim=()=>store.claimDue(Object.keys(config.sources).filter(kind=>config.sources[kind].enabled!==false));
+  await require('./delivery-dispatch.cjs').drain({claim,concurrency:6,deliver:async job=>{let channel;const destination=channels(job.kind).find(c=>c.channel_id===job.channel);if(!destination){store.update(job.key,{status:'cancelled',error:'channel_removed'});return;}
    try{channel=await client.channels.fetch(job.channel);if(!channel?.isTextBased()||!channel.send)throw Object.assign(Error('channel_unavailable'),{code:10003});
-    if(channel.guildId){let blocked=[];try{blocked=JSON.parse(fs.readFileSync(path.join(__dirname,'Discord/channel/blacklist.json'),'utf8'))}catch{}if(Array.isArray(blocked)&&blocked.some(x=>String(x?.guild_id||x?.server_id||x?.id||x)===channel.guildId)){store.update(job.key,{status:'blocked',error:'guild_blacklisted'});continue}}
+    if(channel.guildId){let blocked=[];try{blocked=JSON.parse(fs.readFileSync(path.join(__dirname,'Discord/channel/blacklist.json'),'utf8'))}catch{}if(Array.isArray(blocked)&&blocked.some(x=>String(x?.guild_id||x?.server_id||x?.id||x)===channel.guildId)){store.update(job.key,{status:'blocked',error:'guild_blacklisted'});return}}
     store.update(job.key,{status:'sending',attempts:job.attempts+1});const nonce=BigInt('0x'+crypto.createHash('sha256').update(job.key).digest('hex').slice(0,16)).toString();
-    const payload=JSON.parse(store.db.prepare('SELECT payload FROM deliveries WHERE key=?').get(job.key).payload),media=payload._x_media;delete payload._x_media;const memberKeys=payload._member_keys;delete payload._member_keys;if(memberRouting.FILTER_KINDS.has(job.kind)&&!memberRouting.allowsKeys(destination,memberKeys)){store.update(job.key,{status:'cancelled',error:'member_filter_changed'});continue;}
+    const payload=JSON.parse(store.db.prepare('SELECT payload FROM deliveries WHERE key=?').get(job.key).payload),media=payload._x_media;delete payload._x_media;const memberKeys=payload._member_keys;delete payload._member_keys;if(memberRouting.FILTER_KINDS.has(job.kind)&&!memberRouting.allowsKeys(destination,memberKeys)){store.update(job.key,{status:'cancelled',error:'member_filter_changed'});return;}
     const birthday=payload._birthday;delete payload._birthday;
-    if(job.kind==='birthday'&&!currentBirthdayJob(job.event,birthday)){store.update(job.key,{status:'cancelled',error:'birthday_date_changed'});continue}
+    if(job.kind==='birthday'&&!currentBirthdayJob(job.event,birthday)){store.update(job.key,{status:'cancelled',error:'birthday_date_changed'});return}
     const tiktok=payload._tiktok_post;delete payload._tiktok_post;
     const instagram=payload._instagram_post;delete payload._instagram_post;
     if(job.kind==='tiktok'&&tiktok){const pref=require('./guild-preferences.cjs').get(channel.guildId),config={...settings.load(),...pref};const prepared={post:tiktok};Object.assign(payload,tiktokFeed.postMessage(prepared.post,config));const cfg=channels('tiktok').find(c=>c.channel_id===job.channel),roles=[...new Set([...(cfg?.roles||[]),...tiktokFeed.roleIds(prepared.post,pref.tiktok_member_roles,channel.guild)])];payload.content=roles.map(id=>'<@&'+id+'>').join(' ')||undefined;payload.allowedMentions={parse:[],roles}}
     if(job.kind==='instagram'&&instagram){const pref=require('./guild-preferences.cjs').get(channel.guildId),config={...settings.load(),...pref};const prepared={post:instagram};Object.assign(payload,instagramFeed.postMessage(prepared.post,config));const cfg=channels('instagram').find(c=>c.channel_id===job.channel),roles=[...new Set([...(cfg?.roles||[]),...instagramFeed.roleIds(prepared.post,pref.instagram_member_roles,channel.guild)])];payload.content=roles.map(id=>'<@&'+id+'>').join(' ')||undefined;payload.allowedMentions={parse:[],roles}}
     const sent=await channel.send({...payload,nonce,enforceNonce:true});store.update(job.key,{status:'sent',message_id:sent.id,url:`https://discord.com/channels/${sent.guildId||'@me'}/${job.channel}/${sent.id}`,error:null});try{mediaDelivery.remember(job)}catch{console.warn('media-schedule-failed')}void mediaDelivery.tick().catch(()=>console.warn('media-worker-failed'));console.log('notification-sent kind='+job.kind+' channel='+job.channel+' message='+sent.id);
    }catch(error){const status=error.status||0,code=String(error.code||error.name||'send_failed');const safe=channel==null;const permanent=[10003,50001,50013].includes(Number(error.code))||(status>=400&&status<500&&status!==429);store.update(job.key,{status:permanent?'blocked':safe?'pending':'uncertain',error:code,attempts:job.attempts+1,next_at:Date.now()+Math.min(300000,5000*2**Math.min(job.attempts,6))});console.warn('notification-failed kind='+job.kind+' channel='+job.channel+' code='+code)}
-  }}));
+  }});
  }finally{sending=false;health.flush()}
 }
 const sources={
- live:{interval:3000,path:'/api/live-notifications',key:'lives',events:rs=>rs.filter(r=>r.is_live!==false&&!r.is_preview).map(row=>({id:String(row.data_id||`${row.type}-${row.room_id}-${row.started_at}`),row}))},
- recent:{interval:3000,path:'/api/recent?page=1&perpage=10&group=jkt48&type=all&sort=date&order=-1',key:'recents',events:rs=>rs.map(row=>({id:String(row.data_id||row._id||row.id),row}))},
+ live:{interval:2000,path:'/api/live-notifications',key:'lives',events:rs=>rs.filter(r=>r.is_live!==false&&!r.is_preview).map(row=>({id:String(row.data_id||`${row.type}-${row.room_id}-${row.started_at}`),row}))},
+ recent:{interval:2000,path:'/api/recent?page=1&perpage=10&group=jkt48&type=all&sort=date&order=-1',key:'recents',events:rs=>rs.map(row=>({id:String(row.data_id||row._id||row.id),row}))},
  news:{interval:45000,path:'/api/news?page=1&perpage=50',key:'news',events:rs=>rs.map(row=>({id:String(row.id),row}))},
  theater:{interval:60000,path:'/api/theater?page=1&perpage=10',key:'theater',events:rs=>rs.flatMap(row=>{const start=timestamp(row.start_date||row.date);if(!start||start*1000<Date.now())return[];const id=String(row.id||row.code),today=wibDay();return [{id:'announce:'+id,row},...(wibDay(start*1000)===today?[{id:`today:${today}:${id}`,row}]:[]),...(start*1000-Date.now()<=1800000?[{id:'reminder:'+id,row,options:{reminder:true}}]:[]) ]})},
  birthday:{interval:900000,path:'/api/birthday?group=jkt48',key:'members',events:birthdayEvents}
