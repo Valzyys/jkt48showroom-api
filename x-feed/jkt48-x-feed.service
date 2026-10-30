@@ -1,0 +1,25 @@
+[Unit]
+Description=JKT48 anonymous public X profile feed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=jkt48xfeed
+Group=jkt48xfeed
+WorkingDirectory=/var/lib/jkt48-x-feed
+EnvironmentFile=/etc/jkt48-x-feed.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/jkt48-x-feed/.venv/bin/python /opt/jkt48-x-feed/service.py
+Restart=on-failure
+RestartSec=30
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/jkt48-x-feed
+MemoryMax=256M
+CPUQuota=20%
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
