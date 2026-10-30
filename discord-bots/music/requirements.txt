@@ -1,0 +1,2 @@
+# Isolated tool venv; Node 24 and system FFmpeg/libopus are also required.
+yt-dlp[default]==2026.10.21

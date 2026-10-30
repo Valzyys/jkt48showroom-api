@@ -1,0 +1,3 @@
+const {embed}=require('./guild-settings.cjs');
+function welcome(name){return {embeds:[embed('Halo, '+String(name).slice(0,120)+'. Kita punya cerita baru.','Terima kasih sudah mengajak JKT48Connect ke servermu.\n\n**Mulai dari sini**\n1. Pilih channel lewat `/setlivechannel`, `/setnewschannel`, `/setshowchannel`, `/setbirthdaychannel`, `/setxchannel`, `/settiktokchannel`, atau `/setinstagramchannel`.\n2. Pilih role mention jika diperlukan.\n3. Lihat konfigurasi lewat `/notifikasi status`.\n\n`/help` untuk panduan · `/preview` untuk melihat format pesan.\nPengaturan servermu berdiri sendiri; pengaturan global hanya dikelola Valzyy.')],allowedMentions:{parse:[]}}}
+module.exports={welcome};

@@ -1,0 +1,29 @@
+[Unit]
+Description=JKT48Connect Discord bot %i
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=jkt48discord
+Group=jkt48discord
+WorkingDirectory=/opt/jkt48-discord-bots
+EnvironmentFile=/etc/jkt48-discord-%i.env
+Environment=NODE_ENV=production
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+ExecStart=/usr/bin/node /opt/jkt48-discord-bots/%i.cjs
+Restart=on-failure
+RestartSec=10
+StateDirectory=jkt48-discord-%i
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jkt48-discord-%i
+MemoryMax=384M
+CPUQuota=35%
+TasksMax=100
+TimeoutStopSec=30
+[Install]
+WantedBy=multi-user.target
