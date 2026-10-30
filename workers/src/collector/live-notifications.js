@@ -27,10 +27,10 @@ export async function saveLiveNotification(bindings,row,member,preview=false){
 export async function liveNotificationData(db,origin,id){
  if(id&&!ident.test(id))return null;
  await ensureSchema(db);
- const {results}=await db.prepare('SELECT * FROM collector_live_notices WHERE '+(id?'data_id=?':'is_live=1 AND updated_at>?')+' ORDER BY updated_at DESC LIMIT 100').bind(id||Date.now()-180000).all();
+ const {results}=await db.prepare("SELECT n.*,COALESCE((SELECT json_group_array(json_object('theme',i.theme,'layout',i.layout,'state',i.state)) FROM collector_live_notice_images i WHERE i.data_id=n.data_id AND i.source_version=n.source_version),'[]') AS image_states FROM collector_live_notices n WHERE "+(id?'n.data_id=?':'n.is_live=1 AND n.updated_at>?')+' ORDER BY n.updated_at DESC LIMIT 100').bind(id||Date.now()-180000).all();
  const output=[];
  for(const row of results){
-  const snapshot=JSON.parse(row.snapshot),{results:images}=await db.prepare('SELECT * FROM collector_live_notice_images WHERE data_id=? AND source_version=?').bind(row.data_id,row.source_version).all();
+  const snapshot=JSON.parse(row.snapshot),images=JSON.parse(row.image_states);
   const notification_designs={};for(const theme of themes){notification_designs[theme]={};for(const layout of layouts){const image=images.find(i=>i.theme===theme&&i.layout===layout),ready=image?.state==='ready';notification_designs[theme][layout]={status:ready?'ready':image?.state==='error'?'failed':'pending',url:ready?origin+'/media/'+image.object_key:null,width:theme==='avonera48'?(layout==='banner'?2400:1800):(layout==='banner'?1600:1080),height:theme==='avonera48'?(layout==='banner'?1350:2400):(layout==='banner'?900:1350),format:'png'};}}
   const is_live=Boolean(row.is_live&&row.updated_at>Date.now()-180000);
   output.push({...snapshot,is_live,caption:(snapshot.is_preview?'[Preview sesi arsip] ':is_live?'🔴 ':'[Live selesai] ')+snapshot.name+' — '+snapshot.title+'\n'+snapshot.live_url,notification_designs});
