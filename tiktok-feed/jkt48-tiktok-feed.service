@@ -1,0 +1,27 @@
+[Unit]
+Description=JKT48 anonymous TikTok archive collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=jkt48tiktok
+Group=jkt48tiktok
+WorkingDirectory=/var/lib/jkt48-tiktok-feed
+EnvironmentFile=/etc/jkt48-tiktok-feed.env
+Environment=PYTHONUNBUFFERED=1
+Environment=HOME=/var/lib/jkt48-tiktok-feed
+ExecStart=/opt/jkt48-tiktok-feed/.venv/bin/python /opt/jkt48-tiktok-feed/service.py
+Restart=on-failure
+RestartSec=30
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/jkt48-tiktok-feed
+MemoryMax=768M
+CPUQuota=30%
+TasksMax=160
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
