@@ -115,11 +115,14 @@ export async function collectorResponse(request,bindings,execution){
    for(const item of row.catalog){if(row.type==='showroom')store.upsert(ShowroomGift,{gift_id:Number(item.id)},{gift_name:item.name,point:item.point||0,free:item.free,image:item.img});else store.upsert(IDNGift,{slug:String(item.id)},{...(item.name&&item.name!=='Gift'?{name:item.name}:{}),...(item.gold!=null||item.point!=null?{gold:item.gold??item.point}:{}),...(item.img?{image_url:item.img}:{})});}
    const previous=await LiveLog.findOne({data_id:row.data_id}).select({capture:1,recordings:1,'gift_data.provider_ranking':1}).lean();
    if(previous?.capture?.status==='completed'&&row.capture.status==='live')return json({message:'Session already completed'},409);
+   // Publish live presence before persisting gifts, users and recordings.
+   // Completed recents remain visible only after archive persistence succeeds.
+   if(row.capture.status==='live')await saveLiveNotification(bindings,row,member);
    const total=row.type==='idn'?idnGoldSummary(row.gift_log,row.provider_ranking||previous?.gift_data?.provider_ranking,row.users).total_gold:row.gift_log.reduce((n,user)=>n+user.total,0);
    const screenshot={folder:'live-screenshots/'+row.data_id,format:'jpg',list:row.frames,base_url:url.origin+'/media/live/'+row.data_id};
    store.upsert(LiveLog,{data_id:row.data_id},{live_id:row.live_id,room_id:row.room_id,type:row.type,is_dev:false,created_at:row.date.end,total_gifts:total,c_gift:total,gift_rate:row.type==='showroom'?1:0,...(row.idn?{idn:row.idn}:{}),capture:row.capture,recordings:row.recordings.sort((a,b)=>(a.started_at||a.run).localeCompare(b.started_at||b.run)).map(r=>({...r,bytes:Math.max(r.bytes,previous?.recordings?.find(old=>old.run===r.run)?.bytes||0),url:url.origin+'/media/live/'+row.data_id+'/video-'+r.run+'.mp4',stream_url:r.index_available===false?null:url.origin+'/media/live/'+row.data_id+'/video-'+r.run+'.m3u8',player_url:url.origin+'/replay/'+row.data_id+'/'+r.run})),live_info:{date:row.date,duration:end-start,viewers:{peak:row.viewers,active:row.viewers},comments:{num:row.comments,users:row.users.filter(u=>u.comments>0).length},screenshots:screenshot},gift_data:{...(row.provider_ranking?{provider_ranking:row.provider_ranking}:{}),gift_log:row.gift_log,gift_id_list:row.catalog.map(g=>g.id),free_gifts:[]}});
    store.upsert(UserLog,{data_id:row.data_id},{users:row.users,created_at:row.date.end});await store.flush();
-   await saveLiveNotification(bindings,row,member);
+   if(row.capture.status!=='live')await saveLiveNotification(bindings,row,member);
    await bindings.DB.prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/recent%' OR key LIKE '%/api/screenshots%' OR key LIKE '%/api/member%' OR key LIKE '%memberv8'").run();
    return json({ok:true,data_id:row.data_id,status:row.capture.status,frames:row.frames.length});
   }
