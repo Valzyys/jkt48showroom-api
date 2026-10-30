@@ -1,0 +1,8 @@
+node_modules/
+Discord/channel/
+audio/
+*.env
+*.sqlite*
+state.json
+previews/admin-*.png
+previews/

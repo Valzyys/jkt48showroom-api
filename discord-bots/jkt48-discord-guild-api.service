@@ -1,0 +1,27 @@
+[Unit]
+Description=Private guild-scoped Discord dashboard bridge
+After=network-online.target jkt48-discord-notify.service
+Wants=network-online.target
+[Service]
+Type=simple
+User=jkt48discord
+Group=jkt48discord
+WorkingDirectory=/opt/jkt48-discord-bots
+EnvironmentFile=/etc/jkt48-discord-notify.env
+EnvironmentFile=/etc/jkt48-discord-guild-api.env
+Environment=NODE_ENV=production
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+ExecStart=/usr/bin/node /opt/jkt48-discord-bots/guild-api.cjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jkt48-discord-notify
+MemoryMax=160M
+CPUQuota=20%
+TasksMax=100
+UMask=0077
+[Install]
+WantedBy=multi-user.target
