@@ -66,34 +66,3 @@ response = requests.get(
 response.raise_for_status()
 print(response.json())
 ```
-
-## Contoh respons nyata (terverifikasi 2026-10-31)
-
-Request `GET /api/news?page=1&perpage=2` mengembalikan:
-
-```json
-{
-  "news": [
-    {
-      "date": "2026-10-28T17:00:00.000Z",
-      "title": "Pengumuman Mengenai JKT48 1st Generation Special Stage \"Homecoming: Where It All Began\"",
-      "category": "Theater",
-      "id": "1881",
-      "link": "pengumuman-mengenai-jkt48-1st-generation-special-stage-homecoming-where-it-all-began",
-      "url": "https://jkt48.com/news/pengumuman-mengenai-jkt48-1st-generation-special-stage-homecoming-where-it-all-began"
-    }
-  ],
-  "page": 1,
-  "perpage": 2,
-  "total_count": 35
-}
-```
-
-Header kuota pada setiap respons ber-key:
-
-```text
-X-RateLimit-Limit: 1000
-X-RateLimit-Remaining: 983
-X-RateLimit-Reset: 1793466000
-X-Quota-Period: 2026-10
-```
