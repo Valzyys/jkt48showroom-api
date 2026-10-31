@@ -17,6 +17,8 @@ import { ensureJKT48 } from './library/jkt48/scraper/sync.js';
 import { publicSyncError } from './runtime/sync-errors.js';
 export { LiveHub } from './live-hub.js';
 export { Coordinator } from './coordinator.js';
+export { IdnComments } from './idn-comments.js';
+export { ShowroomComments } from './showroom-comments.js';
 
 let appPromise;
 export function getApp() {
