@@ -314,3 +314,11 @@ curl "https://api.jkt48connect.app/api/theater?page=1&api_key=${JKT48CONNECT_API
 | Retry hanya untuk `5xx` dan jaringan | `401` dan `429` tidak akan sembuh dengan retry |
 | Baca `X-RateLimit-Remaining` | Beri peringatan sebelum kuota habis |
 | Hormati `Retry-After` | Jangan terus memanggil saat kuota habis |
+
+## Catatan bentuk respons (terverifikasi 2026-10-31)
+
+- Objek paginasi: `/api/news`, `/api/theater`, `/api/recent` → `{ data: [...], page, perpage, total_count }`
+- Array langsung: `/api/member`, `/api/birthday`, `/api/setlist`, `/api/next_schedule`, `/api/now_live`
+- Detail member: pakai slug `url` → `/api/member/abigail-rachel` (bukan ID angka)
+- Detail recent: pakai `data_id` → `/api/recent/idn-...` (bukan `_id`)
+- Detail theater: `{ date, shows: [...] }` — data ada di dalam array `shows`
