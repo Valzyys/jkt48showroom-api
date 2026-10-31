@@ -39,3 +39,15 @@ Ambil momen awal, tengah, serta akhir dari daftar yang tersedia. Jangan mengasum
 ## Media dan cache
 
 Simpan URL media yang dikembalikan API dan ikuti header cache HTTP. Untuk poster atau rekaman, gunakan versi URL terbaru dari detail recent. Hindari memodifikasi query atau nama file yang tidak didokumentasikan.
+
+## Contoh nyata (terverifikasi 2026-10-31)
+
+`GET /api/screenshots/idn-b255fd3394e21b7a7b39f3e7`:
+
+```json
+{
+  "folder": "live-screenshots/idn-b255fd3394e21b7a7b39f3e7",
+  "format": "jpg",
+  "list": [1793378892057, 1793378953739, 1793379015275]
+}
+```
