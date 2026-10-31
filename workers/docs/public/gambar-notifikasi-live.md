@@ -37,3 +37,11 @@ PNG dapat dibuka tanpa API key dan mendukung GET, HEAD, serta ETag. Gunakan URL 
 
 
 Style `avonera48` tersedia sebagai pilihan ketiga, dengan desain playful tanpa tulisan brand Avonera48. Pilih `avonera48.portrait` atau `avonera48.banner` pada field desain yang sama. Gambar playful berukuran 1800 × 2400 (portrait) atau 2400 × 1350 (banner). Style `jkt48connect` menampilkan brand JKT48Connect dan latar pola sinyal.
+
+## Contoh nyata (terverifikasi 2026-10-31)
+
+`GET /api/live-notifications` saat tidak ada live (keadaan valid):
+
+```json
+{ "lives": [] }
+```
