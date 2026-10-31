@@ -2,6 +2,9 @@
 
 Live menampilkan sesi yang sedang berlangsung. Recent menampilkan rekap sesi yang sudah tersimpan, dengan detail sesuai data yang tersedia.
 
+> [!IMPORTANT]
+> Kedua endpoint butuh API key seperti endpoint `/api` lainnya. Cukup kirim `X-API-Key` biasa — tidak perlu HMAC atau JWT tambahan (sudah diverifikasi langsung).
+
 ## Sesi aktif
 
 ```sh
@@ -11,43 +14,91 @@ curl 'https://api.jkt48connect.app/api/idn_lives' \
   -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
 ```
 
-Daftar kosong merupakan keadaan valid ketika tidak ada sesi yang tersedia. Gunakan ID dan URL dari respons; IDN dan Showroom mempunyai identitas sesi berbeda.
+Ketika tidak ada live, responsnya adalah array kosong — ini keadaan valid, bukan error:
+
+```json
+[]
+```
+
+Gunakan ID dan URL dari respons; IDN dan Showroom mempunyai identitas sesi berbeda.
 
 ## Daftar recent
 
 ```sh
-curl 'https://api.jkt48connect.app/api/recent?page=1&perpage=10' \
+curl 'https://api.jkt48connect.app/api/recent?page=1&perpage=2' \
   -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
 ```
+
+Respons nyata (dipotong):
 
 ```json
 {
-  "recents": [],
+  "recents": [
+    {
+      "_id": "e76630b397aae1f5a94bd587",
+      "data_id": "idn-b255fd3394e21b7a7b39f3e7",
+      "type": "idn",
+      "member": { "...": "..." },
+      "live_info": { "...": "..." },
+      "leaderboard_designs": { "...": "..." }
+    }
+  ],
   "page": 1,
-  "perpage": 10,
-  "total_count": 0
+  "perpage": 2,
+  "total_count": 1234
 }
 ```
 
-Struktur ringkas di atas merupakan ilustrasi. Gunakan `data_id` dari daftar untuk membuka detail:
+## Buka detail: pakai `data_id`, BUKAN `_id`
+
+Setiap item punya dua identitas: `_id` (ID database internal) dan `data_id` (identitas sesi, mis. `idn-…`). **Detail hanya bisa dibuka dengan `data_id`.** Memakai `_id` mengembalikan `404`:
 
 ```sh
-curl 'https://api.jkt48connect.app/api/recent/DATA_ID' \
+# BENAR — pakai data_id
+curl 'https://api.jkt48connect.app/api/recent/idn-b255fd3394e21b7a7b39f3e7' \
   -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
+# -> 200
+
+# SALAH — pakai _id
+curl 'https://api.jkt48connect.app/api/recent/e76630b397aae1f5a94bd587' \
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
+# -> 404 {"status":404,"message":"Data not found!","path":"/api/recent/e76630b397aae1f5a94bd587"}
 ```
 
 ## Membaca rekap
 
+Detail recent mengembalikan objek dengan field berikut (hasil testing langsung):
+
 | Field | Kegunaan |
 | --- | --- |
-| `data_id` | Identitas sesi untuk request detail |
-| `type` | Platform, misalnya `idn` atau `showroom` |
+| `data_id` | Identitas sesi, mis. `idn-b255fd3394e21b7a7b39f3e7` |
+| `type` | Platform: `idn` atau `showroom` |
+| `member` | Info member yang live |
 | `live_info.date` | Waktu mulai dan selesai |
 | `live_info.duration` | Durasi dalam milidetik |
-| `live_info.gift` | Rincian gift yang tersedia |
-| `users` | Pengguna yang tercatat, sesuai cakupan data |
-| `recording`, `recordings` | Replay gabungan dan bagian rekaman |
-| `leaderboard_designs` | Gambar leaderboard per tema dan layout |
+| `live_info.gift` | Rincian gift |
+| `live_info.screenshot` | Info screenshot sesi |
+| `live_info.viewers` | Data penonton |
+| `live_info.comments` | Info komentar |
+| `fans` | Penggemar teratas + gold |
+| `gold_summary` | Ringkasan gold (IDN) |
+| `point_unit` | Satuan: `idn_gold` / `showroom_points` |
+| `recording_session`, `recordings` | Info replay |
+| `leaderboard_designs` | Gambar rekap per tema & layout |
+
+```js
+const res = await fetch(
+  `https://api.jkt48connect.app/api/recent/${dataId}`,
+  { headers: { 'X-API-Key': process.env.JKT48CONNECT_API_KEY } },
+);
+if (res.status === 404) {
+  // Pastikan yang dipakai adalah data_id, bukan _id
+  throw new Error(`Sesi ${dataId} tidak ditemukan — cek kembali data_id dari daftar`);
+}
+const detail = await res.json();
+console.log(detail.live_info.duration); // milidetik
+console.log(detail.point_unit); // "idn_gold" atau "showroom_points"
+```
 
 ## Data yang belum lengkap
 

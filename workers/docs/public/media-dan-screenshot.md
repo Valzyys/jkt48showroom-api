@@ -2,6 +2,9 @@
 
 Gambar member, gift, screenshot live, dan poster dapat ditampilkan menggunakan URL yang disediakan respons API.
 
+> [!TIP]
+> Semua URL media (`/media/*`, `/replay/*`) **bisa dibuka tanpa API key** dan mendukung GET, HEAD, serta ETag. Jangan merakit path sendiri — selalu pakai URL dari respons.
+
 ## Gambar responsif
 
 ```jsx
@@ -22,7 +25,17 @@ curl 'https://api.jkt48connect.app/api/screenshots/DATA_ID' \
   -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
 ```
 
-Daftar timestamp dapat dikombinasikan dengan `base_url` serta `format` yang diberikan respons.
+Ganti `DATA_ID` dengan `data_id` dari recent (mis. `idn-…`). Respons nyata:
+
+```json
+{
+  "folder": "live-screenshots/idn-b255fd3394e21b7a7b39f3e7",
+  "format": "jpg",
+  "list": [1793378892057, 1793378953739, 1793379015275]
+}
+```
+
+Daftar timestamp dapat dikombinasikan dengan `base_url` serta `format` yang diberikan respons detail recent:
 
 ```js
 const screenshot = recent.live_info?.screenshot;
