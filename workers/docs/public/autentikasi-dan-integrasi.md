@@ -2,9 +2,6 @@
 
 Setiap request ke endpoint data `/api` memakai **API key** milikmu. Key gratis, langsung aktif, dan setiap key punya kuota bulanan sendiri.
 
-> [!IMPORTANT]
-> Tanpa API key, semua endpoint `/api/*` mengembalikan `401`. Ini sudah diverifikasi — tidak ada endpoint data yang bisa diakses anonim.
-
 ## Buat API key
 
 1. [Daftar akun](/register) atau [masuk](/login) ke dashboard developer.
@@ -53,10 +50,7 @@ const response = await fetch(
   'https://api.jkt48connect.app/api/news?page=1&perpage=10',
   { headers: { 'X-API-Key': process.env.JKT48CONNECT_API_KEY } },
 );
-if (!response.ok) {
-  const body = await response.json().catch(() => ({}));
-  throw new Error(`HTTP ${response.status}: ${body.message ?? response.statusText}`);
-}
+if (!response.ok) throw new Error(`HTTP ${response.status}`);
 const data = await response.json();
 ```
 
@@ -73,33 +67,10 @@ Header `X-API-Key` tetap didahulukan bila keduanya dikirim. Parameter key dihapu
 > [!WARNING]
 > URL mudah bocor lewat riwayat browser, log proxy, dan header `Referer`. Pakai query hanya untuk klien server-ke-server, dan [buat key baru](/dashboard/keys) bila URL ber-key pernah dibagikan.
 
-## Membaca error (contoh nyata)
+## Membaca error
 
-Respons `401` selalu JSON dengan bentuk yang sama. Berikut hasil testing langsung:
+Respons `401` dan `429` selalu JSON dengan bentuk yang sama, sehingga mudah ditangani di satu tempat:
 
-**Tanpa key:**
-```json
-{
-  "status": 401,
-  "message": "API key diperlukan. Buat API key gratis di dashboard lalu kirim lewat header X-API-Key atau query ?apikey=…",
-  "dashboard": "https://api.jkt48connect.app/dashboard/keys",
-  "docs": "https://api.jkt48connect.app/docs/guide/autentikasi-dan-integrasi",
-  "path": "/api/news"
-}
-```
-
-**Key salah / tidak dikenal:**
-```json
-{
-  "status": 401,
-  "message": "API key tidak dikenal.",
-  "dashboard": "https://api.jkt48connect.app/dashboard/keys",
-  "docs": "https://api.jkt48connect.app/docs/guide/autentikasi-dan-integrasi",
-  "path": "/api/news"
-}
-```
-
-**Kuota habis (`429`):**
 ```json
 {
   "status": 429,
@@ -113,7 +84,7 @@ Respons `401` selalu JSON dengan bentuk yang sama. Berikut hasil testing langsun
 }
 ```
 
-Tangani ketiganya di satu tempat — lihat [Contoh integrasi](/docs/guide/contoh-integrasi) untuk client lengkap dengan retry, cache, dan pembacaan kuota.
+Lihat [Contoh integrasi](/docs/guide/contoh-integrasi) untuk client lengkap dengan retry, cache, dan pembacaan kuota.
 
 ## Detail setiap request
 
@@ -137,21 +108,14 @@ Kuota yang habis di tengah bulan bisa **diisi ulang** (+5.000 sampai +100.000 re
 
 ## Membaca sisa kuota
 
-Setiap respons ber-key membawa header kuota (terverifikasi langsung):
+Setiap respons ber-key membawa header kuota:
 
-| Header | Arti | Contoh nilai |
-| --- | --- | --- |
-| `X-RateLimit-Limit` | Kuota bulan ini, termasuk isi ulang | `1000` |
-| `X-RateLimit-Remaining` | Sisa request bulan ini | `983` |
-| `X-RateLimit-Reset` | Waktu reset (Unix detik) | `1793466000` |
-| `X-Quota-Period` | Periode kuota, misalnya `2026-10` | `2026-10` |
-
-```sh
-# Lihat header kuota
-curl -s -D - -o /dev/null \
-  -H "X-API-Key: ${JKT48CONNECT_API_KEY}" \
-  'https://api.jkt48connect.app/api/news?perpage=1' | grep -i -E 'ratelimit|quota'
-```
+| Header | Arti |
+| --- | --- |
+| `X-RateLimit-Limit` | Kuota bulan ini, termasuk isi ulang |
+| `X-RateLimit-Remaining` | Sisa request bulan ini |
+| `X-RateLimit-Reset` | Waktu reset (Unix detik) |
+| `X-Quota-Period` | Periode kuota, misalnya `2026-10` |
 
 ## Frontend dan backend
 
@@ -169,23 +133,45 @@ flowchart LR
 
 | Status | Arti | Yang perlu dilakukan |
 | --- | --- | --- |
-| `401` | Key tidak ada, salah, atau sudah dicabut | Kirim header `X-API-Key` (atau `?apikey=`) dengan key aktif dari dashboard. Baca `message` untuk detail: `"API key diperlukan."` vs `"API key tidak dikenal."` |
-| `429` | Kuota bulanan key habis | Isi ulang atau upgrade paket, atau tunggu reset; lihat `Retry-After` dan `X-RateLimit-Reset` |
+| `401` | Key tidak ada, salah, atau sudah dicabut | Kirim header `X-API-Key` (atau `?apikey=`) dengan key aktif dari dashboard |
+| `429` | Kuota bulanan key habis | Isi ulang atau upgrade paket, atau tunggu reset; lihat `Retry-After` |
 
 Pantau pemakaian, error, dan log setiap request di [dashboard](/dashboard).
 
-## Checklist testing autentikasi
+## Contoh error nyata (terverifikasi 2026-10-31)
+
+**Tanpa key** (`GET /api/news` tanpa header):
+
+```json
+{
+  "status": 401,
+  "message": "API key diperlukan. Buat API key gratis di dashboard lalu kirim lewat header X-API-Key atau query ?apikey=...",
+  "dashboard": "https://api.jkt48connect.app/dashboard/keys",
+  "docs": "https://api.jkt48connect.app/docs/guide/autentikasi-dan-integrasi",
+  "path": "/api/news"
+}
+```
+
+**Key salah** (header `X-API-Key: jkc_0000...`):
+
+```json
+{
+  "status": 401,
+  "message": "API key tidak dikenal.",
+  "dashboard": "https://api.jkt48connect.app/dashboard/keys",
+  "docs": "https://api.jkt48connect.app/docs/guide/autentikasi-dan-integrasi",
+  "path": "/api/news"
+}
+```
+
+**Checklist testing cepat:**
 
 ```sh
 # 1. Harus 401 tanpa key
 curl -s -o /dev/null -w "%{http_code}\n" 'https://api.jkt48connect.app/api/news'
 # -> 401
 
-# 2. Harus 401 dengan key salah
-curl -s -o /dev/null -w "%{http_code}\n" -H "X-API-Key: jkc_0000000000000000000000000000000000000000" 'https://api.jkt48connect.app/api/news'
-# -> 401
-
-# 3. Harus 200 dengan key benar + header kuota
-curl -s -D - -o /dev/null -H "X-API-Key: ${JKT48CONNECT_API_KEY}" 'https://api.jkt48connect.app/api/news?perpage=1' | grep -E 'HTTP/|X-RateLimit'
-# -> HTTP/1.1 200 OK + header X-RateLimit-*
+# 2. Harus 200 dengan key benar
+curl -s -o /dev/null -w "%{http_code}\n" -H "X-API-Key: ${JKT48CONNECT_API_KEY}" 'https://api.jkt48connect.app/api/news?perpage=1'
+# -> 200
 ```

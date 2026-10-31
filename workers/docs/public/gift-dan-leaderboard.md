@@ -33,7 +33,31 @@ Rincian gift yang tersedia dapat menyertakan nama, gambar, jumlah unit, frekuens
 
 Urutkan berdasarkan unit platform dan gunakan ID pengguna sebagai identitas. Nama pengguna dapat berubah atau sama dengan pengguna lain. Jangan menggabungkan pengguna hanya berdasarkan nama tampilannya.
 
-Respons nyata `/api/recent/:data_id/gifts` (dipotong):
+## Gold dan rincian event
+
+Total gold yang dilaporkan sumber dapat tersedia meskipun rincian jenis gift atau waktu pengirimannya belum lengkap. Tampilkan total tersebut sesuai labelnya, dan pisahkan rincian gift yang diketahui.
+
+Jika `live_info.gift.reason` bernilai `gift_events_not_captured`, daftar jenis gift dapat kosong walaupun `fans` dan `gold_summary.reported_gold` tersedia. `unattributed_gold` menjelaskan gold yang belum memiliki rincian event. API tidak menebak jenis atau jumlah gift dari selisih gold.
+
+> [!NOTE]
+> Label data parsial perlu tetap terlihat. Total gold tidak cukup untuk menebak jenis gift, jumlah kiriman, atau siapa saja yang menonton sepanjang live.
+
+## Daftar tambahan
+
+```sh
+curl 'https://api.jkt48connect.app/api/recent/DATA_ID/gifts' \
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
+curl 'https://api.jkt48connect.app/api/recent/DATA_ID/stagelist' \
+  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
+```
+
+Lihat referensi untuk bentuk respons dan kebutuhan parameter tiap endpoint. Daftar yang tersedia bukan jaminan seluruh penonton sepanjang sesi.
+
+Respons `/api/recent/DATA_ID/gifts` memuat `gifts` untuk log yang dipaginasi, `list` untuk ringkasan jenis gift beserta gambar, dan `gift_summary` untuk status ketersediaan rincian. Untuk IDN, `fans` dan `gold_summary` juga tersedia, termasuk ketika log gift kosong.
+
+## Contoh nyata (terverifikasi 2026-10-31)
+
+`GET /api/recent/idn-b255fd3394e21b7a7b39f3e7/gifts` (dipotong):
 
 ```json
 {
@@ -58,29 +82,5 @@ Respons nyata `/api/recent/:data_id/gifts` (dipotong):
 }
 ```
 
-## Gold dan rincian event
-
-Total gold yang dilaporkan sumber dapat tersedia meskipun rincian jenis gift atau waktu pengirimannya belum lengkap. Tampilkan total tersebut sesuai labelnya, dan pisahkan rincian gift yang diketahui.
-
-Jika `live_info.gift.reason` bernilai `gift_events_not_captured`, daftar jenis gift dapat kosong walaupun `fans` dan `gold_summary.reported_gold` tersedia. `unattributed_gold` menjelaskan gold yang belum memiliki rincian event. API tidak menebak jenis atau jumlah gift dari selisih gold.
-
 > [!NOTE]
-> Label data parsial perlu tetap terlihat. Total gold tidak cukup untuk menebak jenis gift, jumlah kiriman, atau siapa saja yang menonton sepanjang live.
-
-## Daftar tambahan
-
-```sh
-curl 'https://api.jkt48connect.app/api/recent/DATA_ID/gifts' \
-  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
-curl 'https://api.jkt48connect.app/api/recent/DATA_ID/stagelist' \
-  -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
-```
-
-Ganti `DATA_ID` dengan `data_id` dari daftar recent (mis. `idn-…`), bukan `_id`.
-
-Lihat referensi untuk bentuk respons dan kebutuhan parameter tiap endpoint. Daftar yang tersedia bukan jaminan seluruh penonton sepanjang sesi.
-
-Respons `/api/recent/DATA_ID/gifts` memuat `gifts` untuk log yang dipaginasi, `list` untuk ringkasan jenis gift beserta gambar, dan `gift_summary` untuk status ketersediaan rincian. Untuk IDN, `fans` dan `gold_summary` juga tersedia, termasuk ketika log gift kosong.
-
-> [!NOTE]
-> Endpoint `/api/leaderboard` saat ini mengembalikan `401 {"message":"Upstream request failed"}` — endpoint ini sedang bermasalah di sisi sumber data. Gunakan `/api/recent/:data_id/gifts` sebagai alternatif yang stabil.
+> Endpoint `/api/leaderboard` saat ini mengembalikan `401 {"message":"Upstream request failed"}` — sedang bermasalah di sisi sumber data. Gunakan `/api/recent/:data_id/gifts` sebagai alternatif yang stabil.
