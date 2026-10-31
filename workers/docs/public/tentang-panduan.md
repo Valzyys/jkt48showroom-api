@@ -8,12 +8,14 @@ JKT48Connect menyediakan data JKT48 untuk website, aplikasi, bot komunitas, dan 
 https://api.jkt48connect.app
 ```
 
+Semua endpoint data ada di bawah `/api/` dan **wajib memakai API key** (tanpa key → `401`). Media (gambar, screenshot, replay) ada di bawah `/media/` dan `/replay/` dan bisa dibuka tanpa key.
+
 Gunakan **API Reference** untuk melihat method, path, parameter, label akses, dan contoh respons setiap endpoint. Pencarian tersedia melalui `Ctrl+K` atau `⌘K`.
 
 | Kelompok | Data yang tersedia |
 | --- | --- |
 | Kabar & profil | News, member, ulang tahun, banner |
-| Theater & acara | Jadwal, detail show, setlist, event |
+| Theater & acara | Jadwal, detail show, setlist, event, rekaman YouTube |
 | Live & recent | Sesi aktif, rekap, gift, leaderboard |
 | Media | Foto, screenshot, gambar leaderboard, replay |
 
