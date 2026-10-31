@@ -44,31 +44,3 @@ Gunakan URL gambar yang diberikan respons secara langsung. Tampilkan placeholder
 ```
 
 Nama properti gambar berbeda menurut endpoint; beberapa respons menyediakan `img`, `img_alt`, atau objek profil. Gunakan field sesuai referensi endpoint yang dipakai.
-
-## Contoh nyata & jebakan umum (terverifikasi 2026-10-31)
-
-**Daftar member mengembalikan array langsung** (bukan objek):
-
-```json
-[
-  {
-    "jkt48_id": "1",
-    "name": "Abigail Rachel",
-    "nicknames": ["Aralie"],
-    "img": "https://api.jkt48connect.app/media/jkt48/media/jkt48-member/abigail_rachel.jpg",
-    "url": "abigail-rachel",
-    "group": "jkt48",
-    "is_graduate": false
-  }
-]
-```
-
-**Detail member memakai slug `url`, bukan `jkt48_id`:**
-
-```sh
-# BENAR -> 200
-curl 'https://api.jkt48connect.app/api/member/abigail-rachel' -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
-
-# SALAH -> 404 {"status":404,"message":"Data not found!"}
-curl 'https://api.jkt48connect.app/api/member/1' -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
-```
