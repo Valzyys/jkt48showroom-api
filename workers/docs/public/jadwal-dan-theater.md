@@ -54,35 +54,3 @@ Gambar PNG disimpan di R2. Status `pending` berarti gambar sedang disiapkan; `fa
 
 
 Style `avonera48` tersedia sebagai pilihan ketiga, dengan desain playful tanpa tulisan brand Avonera48. Pilih `avonera48.portrait` atau `avonera48.banner` pada field desain yang sama. Gambar playful berukuran 1800 × 2400 (portrait) atau 2400 × 1350 (banner). Style `jkt48connect` menampilkan brand JKT48Connect dan latar pola sinyal.
-
-## Contoh nyata (terverifikasi 2026-10-31)
-
-**Detail theater** mengembalikan `{ date, shows: [...] }`:
-
-```sh
-curl 'https://api.jkt48connect.app/api/theater/SH9F6C' -H "X-API-Key: ${JKT48CONNECT_API_KEY}"
-```
-
-```json
-{
-  "date": "2026-11-07T00:00:00.000Z",
-  "shows": [
-    {
-      "id": "SH9F6C",
-      "title": "Cara Meminum Ramune",
-      "members": ["..."],
-      "setlist": ["..."],
-      "schedule_designs": { "photobook": {...}, "jkt48connect": {...}, "avonera48": {...} }
-    }
-  ]
-}
-```
-
-**Setlist** mengembalikan array langsung:
-
-```json
-[
-  { "id": "carameminumramune", "title": "Cara Meminum Ramune" },
-  { "id": "pajamadrive", "title": "Pajama Drive" }
-]
-```
