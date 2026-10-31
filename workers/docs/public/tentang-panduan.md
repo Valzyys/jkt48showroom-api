@@ -25,8 +25,3 @@ Gunakan **API Reference** untuk melihat method, path, parameter, label akses, da
 Semua endpoint data memakai API key gratis dari [dashboard developer](/dashboard/keys). Mulai dari news dan member, lalu lanjut ke endpoint lain sesuai kebutuhan proyekmu.
 
 [Ikuti quick start →](/docs/guide/mulai-menggunakan)
-
-## Catatan akses (terverifikasi 2026-10-31)
-
-- Semua endpoint di bawah `/api/` **wajib** memakai API key — tanpa key mengembalikan `401`.
-- Endpoint media di bawah `/media/` dan `/replay/` (gambar, screenshot, replay) bisa dibuka **tanpa** API key.
