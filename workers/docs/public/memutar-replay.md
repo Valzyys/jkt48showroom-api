@@ -34,3 +34,19 @@ Satu live dapat memiliki beberapa bagian rekaman. Playlist gabungan menyusun bag
 
 > [!NOTE]
 > URL MP4 satu bagian tidak selalu mewakili seluruh live. Gunakan metadata sesi dan playlist gabungan bila tersedia.
+
+## Mendapatkan URL replay (terverifikasi 2026-10-31)
+
+```js
+// 1. Ambil data_id dari daftar
+const list = await fetch('https://api.jkt48connect.app/api/recent?perpage=1', {
+  headers: { 'X-API-Key': process.env.JKT48CONNECT_API_KEY },
+}).then(r => r.json());
+const dataId = list.recents[0].data_id; // mis. "idn-..."
+
+// 2. Buka detail untuk URL rekaman
+const detail = await fetch(`https://api.jkt48connect.app/api/recent/${dataId}`, {
+  headers: { 'X-API-Key': process.env.JKT48CONNECT_API_KEY },
+}).then(r => r.json());
+console.log(detail.recording_session, detail.recordings);
+```
