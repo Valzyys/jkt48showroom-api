@@ -5,6 +5,9 @@ Contoh di halaman ini siap dipakai di produksi: client dengan retry dan pembacaa
 > [!TIP]
 > Mulai dari client TypeScript di bawah. Contoh lain di halaman ini membangun di atas pola yang sama: satu fungsi request, retry terbatas, dan kuota dibaca dari header.
 
+> [!NOTE]
+> Bentuk respons sudah diverifikasi langsung: `/api/news`, `/api/theater`, `/api/recent` mengembalikan objek `{ data: [...], page, perpage, total_count }`, sedangkan `/api/member`, `/api/birthday`, `/api/setlist`, `/api/next_schedule`, `/api/now_live` mengembalikan **array langsung**. Detail member memakai slug `url` (`/api/member/abigail-rachel`), detail recent memakai `data_id` (`/api/recent/idn-…`).
+
 ## Client TypeScript dengan retry dan kuota
 
 Client ini mengirim key lewat header, membatasi waktu tiap request, mengulang request saat `5xx` atau jaringan gagal dengan backoff eksponensial, dan berhenti dengan error yang jelas saat `401` atau `429`.
@@ -183,8 +186,9 @@ async def main():
         pages = [get(client, "/api/news", page=p, perpage=20) for p in range(1, 6)]
         members, *news_pages = await asyncio.gather(get(client, "/api/member"), *pages)
 
+        # /api/member mengembalikan array langsung (bukan objek)
         titles = [n["title"] for page in news_pages for n in page["news"]]
-        print(f"{len(titles)} berita, {len(members.get('members', members))} member")
+        print(f"{len(titles)} berita, {len(members)} member")
 
 
 asyncio.run(main())
