@@ -54,3 +54,33 @@ curl 'https://api.jkt48connect.app/api/recent/DATA_ID/stagelist' \
 Lihat referensi untuk bentuk respons dan kebutuhan parameter tiap endpoint. Daftar yang tersedia bukan jaminan seluruh penonton sepanjang sesi.
 
 Respons `/api/recent/DATA_ID/gifts` memuat `gifts` untuk log yang dipaginasi, `list` untuk ringkasan jenis gift beserta gambar, dan `gift_summary` untuk status ketersediaan rincian. Untuk IDN, `fans` dan `gold_summary` juga tersedia, termasuk ketika log gift kosong.
+
+## Contoh nyata (terverifikasi 2026-10-31)
+
+`GET /api/recent/idn-b255fd3394e21b7a7b39f3e7/gifts` (dipotong):
+
+```json
+{
+  "gift_summary": {
+    "status": "partial",
+    "reason": null,
+    "count_source": "observed_events",
+    "unattributed_gold": 4
+  },
+  "fans": [
+    {
+      "id": "31fd8fe2-03aa-49bd-b6bb-34b955342658",
+      "name": "Y .",
+      "avatar_url": "https://cdn.idn.media/idnaccount/avatar/500/7a577b12caba8f39883d9a771189f2c1.webp?v=1787740568",
+      "observed_gold": 1916,
+      "reported_gold": 1916,
+      "gold": 1916,
+      "source": "idn_top_gifter",
+      "rank": 1
+    }
+  ]
+}
+```
+
+> [!NOTE]
+> Endpoint `/api/leaderboard` saat ini mengembalikan `401 {"message":"Upstream request failed"}` — sedang bermasalah di sisi sumber data. Gunakan `/api/recent/:data_id/gifts` sebagai alternatif yang stabil.
