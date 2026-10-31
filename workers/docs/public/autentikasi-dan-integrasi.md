@@ -137,3 +137,41 @@ flowchart LR
 | `429` | Kuota bulanan key habis | Isi ulang atau upgrade paket, atau tunggu reset; lihat `Retry-After` |
 
 Pantau pemakaian, error, dan log setiap request di [dashboard](/dashboard).
+
+## Contoh error nyata (terverifikasi 2026-10-31)
+
+**Tanpa key** (`GET /api/news` tanpa header):
+
+```json
+{
+  "status": 401,
+  "message": "API key diperlukan. Buat API key gratis di dashboard lalu kirim lewat header X-API-Key atau query ?apikey=...",
+  "dashboard": "https://api.jkt48connect.app/dashboard/keys",
+  "docs": "https://api.jkt48connect.app/docs/guide/autentikasi-dan-integrasi",
+  "path": "/api/news"
+}
+```
+
+**Key salah** (header `X-API-Key: jkc_0000...`):
+
+```json
+{
+  "status": 401,
+  "message": "API key tidak dikenal.",
+  "dashboard": "https://api.jkt48connect.app/dashboard/keys",
+  "docs": "https://api.jkt48connect.app/docs/guide/autentikasi-dan-integrasi",
+  "path": "/api/news"
+}
+```
+
+**Checklist testing cepat:**
+
+```sh
+# 1. Harus 401 tanpa key
+curl -s -o /dev/null -w "%{http_code}\n" 'https://api.jkt48connect.app/api/news'
+# -> 401
+
+# 2. Harus 200 dengan key benar
+curl -s -o /dev/null -w "%{http_code}\n" -H "X-API-Key: ${JKT48CONNECT_API_KEY}" 'https://api.jkt48connect.app/api/news?perpage=1'
+# -> 200
+```
