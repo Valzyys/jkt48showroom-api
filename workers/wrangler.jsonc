@@ -93,12 +93,12 @@
     ]
   },
   "migrations": [
+    // Tag v3-idn-comments sudah diterapkan di worker yang terdeploy; DO LiveHub dan
+    // Coordinator sudah memiliki instance aktif. Jangan menambahkan new_sqlite_classes
+    // lagi -- Cloudflare menolaknya dengan error 10074. Tambahkan tag baru hanya untuk
+    // class Durable Object yang benar-benar baru.
     {
-      "tag": "v1",
-      "new_sqlite_classes": [
-        "LiveHub",
-        "Coordinator"
-      ]
+      "tag": "v3-idn-comments"
     }
   ],
   "triggers": {
