@@ -220,10 +220,15 @@ settings (profile, password, sessions, delete). Each logged request keeps IP, co
 ISP, user agent, origin, key source, query, headers and cookie names for seven days
 (migration `0009`); key, `Authorization` and cookie values are masked before storage. Plans: Free 1.000/month, Fanbase 50.000
 (free after review), Starter 25.000 and Pro 150.000 per 30 days. Top-ups add requests to the
-current month. Payments run through MYPG (yobasepay.net): the dashboard creates a bill and
-the checkout page `/pay/<id>` shows the QRIS through the same-origin proxy
-`/dashboard/api/payments/<id>/qr` (any MYPG QR shape: URL, data URI or raw QRIS payload) and polls `checkstatus` through the Worker until it is paid, then
-applies the purchase exactly once and only for the full amount.
+current month. New payments use JKT48Connect PG (`https://pg.jkt48connect.app`).
+Checkout displays QRIS, the exact total including its unique code, a hosted payment link,
+and a cancel button. Pending invoices poll every four seconds. A signed webhook at
+`/dashboard/api/payments/webhook/jktpg` also confirms payments. The Worker checks the transaction
+ID, reference, base amount and exact total against the gateway before granting a purchase
+exactly once. Legacy invoices retain MYPG for status checks and cancellation.
+Apply migration `0019_api_payment_gateway.sql` before deployment. Store `JKTPG_API_KEY` and
+`JKTPG_WEBHOOK_SECRET` as Cloudflare secrets and configure the merchant webhook to this callback.
+Webhook signatures older than five minutes are rejected. Keep secrets out of frontend code.
 
 Fan communities apply for the Fanbase plan at `/dashboard/fanbase` with a detailed form,
 a required follow of the project's X account (`FANBASE_X_HANDLE`, default `JKT48Connect`)
@@ -233,7 +238,8 @@ that agreed to it appear on the landing page.
 
 ```bash
 npx wrangler d1 migrations apply DB --remote   # account tables (0008), request details (0009)
-npx wrangler secret put MYPG_API_KEY           # MYPG project key, never committed
+npx wrangler secret put JKTPG_API_KEY          # merchant key, never committed
+npx wrangler secret put JKTPG_WEBHOOK_SECRET   # merchant HMAC signing secret
 ```
 
 Vars (also editable in the control panel): `API_KEY_REQUIRED` (`true` in `wrangler.jsonc`),

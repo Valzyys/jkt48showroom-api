@@ -1,0 +1,33 @@
+[Unit]
+Description=JKT48 recent replay R2 to YouTube (RAM streaming)
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=jkt48collector
+Group=jkt48collector
+WorkingDirectory=/opt/jkt48-recent-youtube
+EnvironmentFile=/etc/jkt48-live-collector.env
+EnvironmentFile=/etc/jkt48-theater-recorder.env
+EnvironmentFile=-/etc/jkt48-recent-youtube-oauth.env
+Environment=PYTHONUNBUFFERED=1
+Environment=RECENT_YOUTUBE_STATE_DIR=/var/lib/jkt48-recent-youtube
+Environment=RECENT_YOUTUBE_API_TRANSPORT_URL=https://api.jkt48connect.app:8443
+ExecStart=/opt/jkt48-live-collector/.venv/bin/python /opt/jkt48-recent-youtube/uploader.py
+Restart=always
+RestartSec=30
+StateDirectory=jkt48-recent-youtube
+StateDirectoryMode=0700
+TimeoutStopSec=110
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/jkt48-recent-youtube
+MemoryMax=240M
+CPUQuota=30%
+TasksMax=40
+Nice=10
+[Install]
+WantedBy=multi-user.target

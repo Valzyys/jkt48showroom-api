@@ -1,10 +1,10 @@
+import { jktpg, pgUrl, validateTransaction, verifyWebhook } from "./payments-jktpg.js";
 import { period, plans, products, randomHex } from "./core.js";
 import { forgetKey } from "./metering.js";
 
-// Plan and top-up purchases through the MYPG gateway (yobasepay.net). The
-// project key stays in the Worker env (MYPG_API_KEY) and never reaches the
-// browser. There is no webhook: payments are confirmed by polling
-// checkstatus while the buyer watches, and again whenever billing loads.
+// New purchases prefer JKT48Connect PG. Provider is recorded per invoice so
+// existing MYPG orders keep their original check/cancel path. Credentials never
+// reach the browser. Signed webhooks and polling share idempotent fulfilment.
 const GATEWAY = "https://yobasepay.net/api_my";
 const STATES = new Set(["PENDING", "SUCCESS", "EXPIRED", "CANCELLED"]);
 
@@ -12,7 +12,12 @@ const fail = (status, message) => {
   throw Object.assign(new Error(message), { status });
 };
 
-export async function gateway(bindings, action, fields) {
+export const paymentsEnabled = bindings => Boolean(bindings.JKTPG_API_KEY || bindings.MYPG_API_KEY);
+export async function gateway(bindings, action, fields, provider = bindings.JKTPG_API_KEY ? "jktpg" : "mypg") {
+  if (provider === "jktpg") return jktpg(bindings, action, fields);
+  return legacyGateway(bindings, action, fields);
+}
+async function legacyGateway(bindings, action, fields) {
   if (!bindings.MYPG_API_KEY) fail(503, "Pembayaran belum dikonfigurasi");
   let response;
   try {
@@ -51,8 +56,8 @@ export async function gateway(bindings, action, fields) {
 const safeUrl = (value) => {
   try {
     const url = new URL(String(value || ""));
-    return url.protocol === "https:" &&
-      (url.hostname === "yobasepay.net" ||
+    return !url.username && !url.password && url.protocol === "https:" &&
+      (url.hostname === "pg.jkt48connect.app" || url.hostname === "yobasepay.net" ||
         url.hostname.endsWith(".yobasepay.net"))
       ? url.href
       : null;
@@ -130,12 +135,13 @@ export async function qrImage(row) {
     });
   }
   const url = new URL(source);
+  if (row.provider === "jktpg" && !pgUrl(source, "/api/public/transactions/" + row.trx_id + "/qr.svg")) fail(404, "QR tidak tersedia");
   if (privateHost(url.hostname)) fail(404, "QR tidak tersedia");
   let response;
   try {
     response = await fetch(url, {
       headers: { Accept: "image/*" },
-      redirect: "follow",
+      redirect: row.provider === "jktpg" ? "error" : "follow",
       signal: AbortSignal.timeout(10000),
     });
   } catch {
@@ -160,6 +166,9 @@ export function publicPayment(row, catalog) {
     kind: product?.kind,
     amount: row.paid_amount || row.amount,
     baseAmount: row.amount,
+    uniqueCode: Math.max(0, (row.paid_amount || row.amount) - row.amount),
+    provider: row.provider || "mypg",
+    qrisString: row.status === "PENDING" ? row.qris_payload || null : null,
     status: row.status,
     trxId: row.trx_id,
     paymentUrl: row.status === "PENDING" ? row.payment_url : null,
@@ -188,16 +197,19 @@ export async function createPayment(bindings, account, key, productId) {
     fail(429, "Selesaikan atau batalkan tagihan yang masih menunggu dulu");
   const id = "JKC" + randomHex(8).toUpperCase(),
     now = Date.now();
+  const provider = bindings.JKTPG_API_KEY ? "jktpg" : "mypg";
   const data = await gateway(bindings, "createpayment", {
     amount: String(product.price),
     ref_id: id,
-  });
+    description: product.label,
+  }, provider);
+  if (provider === "jktpg") validateTransaction(data, { id, amount: product.price }, { creating: true });
   const amount = Number(data.amount);
   if (!data.trx_id || !Number.isSafeInteger(amount) || amount < product.price)
     fail(502, "Tagihan dari gateway tidak sesuai");
   await DB.prepare(
-    `INSERT INTO api_payments(id,account_id,key_id,product,amount,paid_amount,trx_id,payment_url,qr_image,status,expired_at,created_at,checked_at)
-     VALUES(?,?,?,?,?,?,?,?,?,'PENDING',?,?,?)`,
+    `INSERT INTO api_payments(id,account_id,key_id,product,amount,paid_amount,trx_id,payment_url,qr_image,status,expired_at,created_at,checked_at,provider,qris_payload)
+     VALUES(?,?,?,?,?,?,?,?,?,'PENDING',?,?,?,?,?)`,
   )
     .bind(
       id,
@@ -212,6 +224,8 @@ export async function createPayment(bindings, account, key, productId) {
       String(data.expired_at || "").slice(0, 32),
       now,
       now,
+      provider,
+      typeof data.qris_string === "string" ? data.qris_string.slice(0, 4096) : null,
     )
     .run();
   return publicPayment(
@@ -227,6 +241,8 @@ export async function createPayment(bindings, account, key, productId) {
       expired_at: data.expired_at,
       created_at: now,
       key_name: key.name,
+      provider,
+      qris_payload: data.qris_string || null,
     },
     catalog,
   );
@@ -236,18 +252,18 @@ export async function createPayment(bindings, account, key, productId) {
 // credit statements only match the row this batch just claimed.
 async function fulfil(bindings, row, product, paidAmount, now) {
   const DB = bindings.DB,
-    month = period(now);
+    month = period(now), token = randomHex(16);
   const claim = DB.prepare(
-    "UPDATE api_payments SET status='SUCCESS',paid_amount=?,fulfilled_at=?,checked_at=? WHERE id=? AND fulfilled_at IS NULL",
-  ).bind(paidAmount, now, now, row.id);
-  const claimed = `EXISTS (SELECT 1 FROM api_payments WHERE id=? AND fulfilled_at=?)`;
+    "UPDATE api_payments SET status='SUCCESS',paid_amount=?,fulfilled_at=?,checked_at=?,fulfilment_token=? WHERE id=? AND fulfilled_at IS NULL AND status IN ('PENDING','EXPIRED')",
+  ).bind(paidAmount, now, now, token, row.id);
+  const claimed = `EXISTS (SELECT 1 FROM api_payments WHERE id=? AND fulfilment_token=?)`;
   const credit =
     product.kind === "topup"
       ? [
           DB.prepare(
             `INSERT INTO api_key_usage(key_id,period,used,bonus) SELECT ?,?,0,? WHERE ${claimed}
              ON CONFLICT(key_id,period) DO UPDATE SET bonus=bonus+excluded.bonus`,
-          ).bind(row.key_id, month, product.requests, row.id, now),
+          ).bind(row.key_id, month, product.requests, row.id, token),
           DB.prepare(
             `INSERT INTO api_topups(account_id,key_id,period,requests,source,created_at)
              SELECT ?,?,?,?,'payment',? WHERE ${claimed}`,
@@ -258,7 +274,7 @@ async function fulfil(bindings, row, product, paidAmount, now) {
             product.requests,
             now,
             row.id,
-            now,
+            token,
           ),
         ]
       : [
@@ -267,7 +283,7 @@ async function fulfil(bindings, row, product, paidAmount, now) {
             `UPDATE api_keys SET
                plan_expires_at=CASE WHEN plan=?1 AND plan_expires_at>?2 THEN plan_expires_at ELSE ?2 END + ?3,
                plan=?1, monthly_limit=?4
-             WHERE id=?5 AND EXISTS (SELECT 1 FROM api_payments WHERE id=?6 AND fulfilled_at=?2)`,
+             WHERE id=?5 AND EXISTS (SELECT 1 FROM api_payments WHERE id=?6 AND fulfilment_token=?7)`,
           ).bind(
             product.plan,
             now,
@@ -275,6 +291,7 @@ async function fulfil(bindings, row, product, paidAmount, now) {
             plans(bindings)[product.plan].monthly,
             row.key_id,
             row.id,
+            token,
           ),
         ];
   await DB.batch([claim, ...credit]);
@@ -284,13 +301,14 @@ async function fulfil(bindings, row, product, paidAmount, now) {
   forgetKey(key?.key_hash);
 }
 
-export async function refreshPayment(bindings, row, { force = false } = {}) {
-  if (row.status !== "PENDING") return row;
+export async function refreshPayment(bindings, row, { force = false, allowExpired = false } = {}) {
+  if (row.status !== "PENDING" && !(allowExpired && row.status === "EXPIRED")) return row;
   const now = Date.now();
   // Throttle gateway checks per order; the buyer's page polls every few seconds.
   if (!force && row.checked_at && now - row.checked_at < 4000) return row;
   const DB = bindings.DB;
-  const data = await gateway(bindings, "checkstatus", { trxid: row.trx_id });
+  const data = await gateway(bindings, "checkstatus", { trxid: row.trx_id }, row.provider || "mypg");
+  if (row.provider === "jktpg") validateTransaction(data, row);
   const status = STATES.has(data.status) ? data.status : "PENDING";
   if (data.trx_id && data.trx_id !== row.trx_id)
     fail(502, "Status gateway tidak cocok dengan tagihan");
@@ -301,7 +319,8 @@ export async function refreshPayment(bindings, row, { force = false } = {}) {
     if (!product || !Number.isSafeInteger(paid) || paid < row.amount)
       fail(502, "Nominal pembayaran tidak sesuai, hubungi admin");
     await fulfil(bindings, row, product, paid, now);
-    return { ...row, status: "SUCCESS", paid_amount: paid, fulfilled_at: now };
+    const settled = await DB.prepare("SELECT * FROM api_payments WHERE id=?").bind(row.id).first();
+    return { ...row, ...settled };
   }
   // checkstatus also carries the QR and pay link; fill in what creation lacked.
   const qr = qrSource(data) || row.qr_image,
@@ -319,11 +338,37 @@ export async function cancelPayment(bindings, row) {
   // A payment made just before cancelling still counts.
   const latest = await refreshPayment(bindings, row, { force: true });
   if (latest.status !== "PENDING") return latest;
-  await gateway(bindings, "cancelpayment", { trxid: row.trx_id });
+  let cancelled;
+  try { cancelled = await gateway(bindings, "cancelpayment", { trxid: row.trx_id }, row.provider || "mypg"); }
+  catch (error) {
+    if (error.gatewayStatus === 409) {
+      const changed = await refreshPayment(bindings, latest, { force: true });
+      if (changed.status !== "PENDING") return changed;
+    }
+    throw error;
+  }
+  if (row.provider === "jktpg") {
+    validateTransaction(cancelled, row);
+    if (cancelled.status !== "CANCELLED") fail(502, "Pembatalan belum dikonfirmasi gateway");
+  }
   await bindings.DB.prepare(
     "UPDATE api_payments SET status='CANCELLED',checked_at=? WHERE id=? AND status='PENDING'",
   )
     .bind(Date.now(), row.id)
     .run();
-  return { ...latest, status: "CANCELLED" };
+  return await bindings.DB.prepare("SELECT * FROM api_payments WHERE id=?").bind(row.id).first();
+}
+
+export async function paymentWebhook(request, bindings) {
+  const event = await verifyWebhook(request, bindings.JKTPG_WEBHOOK_SECRET);
+  if (event?.event !== "transaction.paid") return { ok: true, ignored: true };
+  const reference = event.data?.reference;
+  if (typeof reference !== "string") fail(400, "Referensi webhook tidak valid");
+  const row = await bindings.DB.prepare("SELECT * FROM api_payments WHERE id=? AND provider='jktpg'").bind(reference).first();
+  if (!row) fail(404, "Tagihan tidak ditemukan");
+  validateTransaction({ ...event.data, trx_id: event.data.id, base_amount: event.data.amount, amount: event.data.amount_total }, row);
+  if (row.status === "SUCCESS") return { ok: true };
+  const latest = await refreshPayment(bindings, row, { force: true, allowExpired: true });
+  if (latest.status !== "SUCCESS") fail(503, "Pembayaran belum dikonfirmasi gateway");
+  return { ok: true };
 }

@@ -884,3 +884,74 @@ test('public proxy auth matches router decoding; Origin alone is not authenticat
  const request=apiRequest('/api/jkt48_youtube',{Origin:'https://jkt48connect.app'});
  assert.equal((await meter(request,{API_KEY_REQUIRED:'true',API_KEY_EXEMPT_ORIGINS:'https://jkt48connect.app'},work())).response.status,401);
 });
+
+test("JKT48Connect PG uses unique total, private credentials and exactly-once fulfilment", async () => {
+  const DB = d1(), bindings = { DB, JKTPG_API_KEY: "pg-private-test", MYPG_API_KEY: "legacy-only" };
+  const c = await signedUp(bindings), { item } = (await c.call("POST", "/keys", { name: "PG test" })).data;
+  const txs = new Map(); let calls = [], seq = 0, paid = false, wrong = false;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input); calls.push({url: url.href, method: init.method, headers: init.headers, body: init.body});
+    assert.equal(url.hostname, "pg.jkt48connect.app");
+    if (url.pathname.endsWith("/qr.svg")) return new Response('<svg xmlns="http://www.w3.org/2000/svg"/>', {headers:{"Content-Type":"image/svg+xml"}});
+    assert.equal(init.headers["X-API-Key"], "pg-private-test");
+    if (url.pathname === "/api/v1/transactions") {
+      assert.equal(init.method,"POST"); const b = JSON.parse(init.body), id="trx_Test"+(++seq);
+      assert.equal(b.expires_in,900);assert.match(b.return_url,/^https:\/\/api\.jkt48connect\.app\/dashboard\/pay\/JKC/);
+      const tx={id, reference:b.reference, amount:b.amount, unique_code:37, amount_total:b.amount+37, status:"pending", qris_string:"000201010212"+"A".repeat(80), qr_svg_url:"https://pg.jkt48connect.app/api/public/transactions/"+id+"/qr.svg",pay_url:"https://pg.jkt48connect.app/pay/"+id,expires_at:new Date(Date.now()+900000).toISOString()};txs.set(id,tx);return Response.json({data:tx},{status:201});
+    }
+    const tx=txs.get(url.pathname.split("/").at(-1));assert.ok(tx);
+    return Response.json({data:{...tx,status:paid?"paid":"pending",amount_total:tx.amount_total-(wrong?1:0)}});
+  };
+  const made=await c.call("POST","/payments",{product:"starter-30d",keyId:item.id});assert.equal(made.status,201);
+  const p=made.data.payment;assert.equal(p.provider,"jktpg");assert.equal(p.amount,15037);assert.equal(p.uniqueCode,37);assert.match(p.qrisString,/^000201/);assert.equal(p.paymentUrl,"https://pg.jkt48connect.app/pay/trx_Test1");
+  assert.equal(JSON.parse(calls[0].body).reference,p.id);assert.ok(!calls[0].body.includes(bindings.JKTPG_API_KEY));
+  const qr=await accountResponse(new Request(ORIGIN+p.qrImage,{headers:{Cookie:c.cookie()}}),bindings);assert.equal(qr.status,200);assert.equal(qr.headers.get("Content-Type"),"image/svg+xml");
+  paid=true;wrong=true;DB.sqlite.prepare("UPDATE api_payments SET checked_at=0").run();assert.equal((await c.call("GET","/payments/"+p.id)).status,502);
+  assert.equal(DB.sqlite.prepare("SELECT fulfilled_at FROM api_payments WHERE id=?").get(p.id).fulfilled_at,null);
+  wrong=false;assert.equal((await c.call("GET","/payments/"+p.id)).data.payment.status,"SUCCESS");
+  const expiry=(await c.call("GET","/keys")).data.keys[0].planExpiresAt;
+  await c.call("GET","/payments/"+p.id);assert.equal((await c.call("GET","/keys")).data.keys[0].planExpiresAt,expiry);
+  paid=false;const topup=(await c.call("POST","/payments",{product:"topup-5k",keyId:item.id})).data.payment;
+  const stale=DB.sqlite.prepare("SELECT * FROM api_payments WHERE id=?").get(topup.id);paid=true;
+  const {refreshPayment}=await import("../src/accounts/payments.js");const originalNow=Date.now;const instant=originalNow();Date.now=()=>instant;
+  try{await Promise.all([refreshPayment(bindings,stale,{force:true}),refreshPayment(bindings,stale,{force:true})]);}finally{Date.now=originalNow;}
+  assert.equal(DB.sqlite.prepare("SELECT sum(requests) AS total FROM api_topups").get().total,5000,"two same-millisecond confirmations cannot credit twice");
+  const outsider=await signedUp(bindings,"other-pg@example.test");
+  assert.equal((await outsider.call("GET","/payments/"+p.id)).status,404);
+});
+
+test("JKT48Connect PG cancellation checks paid-during-cancel race", async () => {
+  const DB=d1(),bindings={DB,JKTPG_API_KEY:"pg-private"};const c=await signedUp(bindings);const {item}=(await c.call("POST","/keys",{name:"Cancel"})).data;
+  let tx, paid=false, race=false;
+  globalThis.fetch=async(input,init)=>{
+    const u=new URL(input);
+    if(u.pathname==="/api/v1/transactions"){const b=JSON.parse(init.body);tx={id:"trx_Cancel"+b.reference,reference:b.reference,amount:b.amount,unique_code:17,amount_total:b.amount+17,status:"pending",pay_url:"https://pg.jkt48connect.app/pay/trx_Cancel"+b.reference,expires_at:new Date(Date.now()+900000).toISOString()};return Response.json({data:tx},{status:201});}
+    if(u.pathname.endsWith("/cancel")){if(race){paid=true;return Response.json({error:"already paid"},{status:409})}tx.status="cancelled";return Response.json({data:tx});}
+    return Response.json({data:{...tx,status:paid?"paid":tx.status}});
+  };
+  let p=(await c.call("POST","/payments",{product:"topup-5k",keyId:item.id})).data.payment;
+  assert.equal((await c.call("POST","/payments/"+p.id+"/cancel",{})).data.payment.status,"CANCELLED");
+  assert.equal((await c.call("POST","/payments/"+p.id+"/cancel",{})).status,409);
+  p=(await c.call("POST","/payments",{product:"topup-5k",keyId:item.id})).data.payment;race=true;
+  assert.equal((await c.call("POST","/payments/"+p.id+"/cancel",{})).data.payment.status,"SUCCESS");
+  assert.equal(DB.sqlite.prepare("SELECT count(*) AS n FROM api_topups").get().n,1);
+});
+
+test("JKT48Connect PG webhook rejects stale/tampered data and credits once", async () => {
+  const DB=d1(),bindings={DB,JKTPG_API_KEY:"pg-private",JKTPG_WEBHOOK_SECRET:"webhook-private"};const c=await signedUp(bindings);const {item}=(await c.call("POST","/keys",{name:"Webhook"})).data;let tx,checks=0;
+  globalThis.fetch=async(input,init)=>{
+    if(init.method==="POST"){const b=JSON.parse(init.body);tx={id:"trx_Webhook",reference:b.reference,amount:b.amount,amount_total:b.amount+27,unique_code:27,status:"pending",pay_url:"https://pg.jkt48connect.app/pay/trx_Webhook",expires_at:new Date(Date.now()+900000).toISOString()};return Response.json({data:tx},{status:201});}
+    checks++;return Response.json({data:{...tx,status:"paid"}});
+  };
+  const p=(await c.call("POST","/payments",{product:"topup-5k",keyId:item.id})).data.payment;
+  const {createHmac}=await import("node:crypto");
+  async function hook({age=0,tamper=false,delta=0}={}){
+    const timestamp=String(Math.floor(Date.now()/1000)-age),body=JSON.stringify({event:"transaction.paid",data:{...tx,status:"paid",amount_total:tx.amount_total+delta}});
+    const signature="sha256="+createHmac("sha256",bindings.JKTPG_WEBHOOK_SECRET).update(timestamp+"."+body).digest("hex");
+    return accountResponse(new Request(ORIGIN+"/dashboard/api/payments/webhook/jktpg",{method:"POST",headers:{"Content-Type":"application/json","X-PG-Timestamp":timestamp,"X-PG-Signature":tamper?"sha256="+"0".repeat(64):signature},body}),bindings);
+  }
+  assert.equal((await hook({age:301})).status,401);assert.equal((await hook({tamper:true})).status,401);assert.equal((await hook({delta:1})).status,502);assert.equal(checks,0);
+  assert.equal((await hook()).status,200);assert.equal((await hook()).status,200);assert.equal(checks,1);
+  assert.equal(DB.sqlite.prepare("SELECT status FROM api_payments WHERE id=?").get(p.id).status,"SUCCESS");
+  assert.equal(DB.sqlite.prepare("SELECT sum(requests) AS n FROM api_topups").get().n,5000);
+});

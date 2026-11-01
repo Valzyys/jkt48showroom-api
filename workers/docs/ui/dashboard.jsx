@@ -1678,7 +1678,7 @@ export function PayPage({ id }) {
       } catch (e) {
         setError(e);
       }
-    }, 5000);
+    }, 4000);
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       clearInterval(poll);
