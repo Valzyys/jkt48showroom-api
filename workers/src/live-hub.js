@@ -1,11 +1,15 @@
+import { applyCollectorLive,liveRefreshMillis } from './collector/hub-live.js';
 import { effectiveBindings } from './control/settings.js';
 import { encode,decode } from 'cbor-x';
 import { runWithEnv, env as runtimeEnv } from './runtime/env.js';
 
 const groups=['jkt48','hinatazaka46'];
 export class LiveHub {
-  constructor(ctx,env) { this.ctx=ctx; this.env=env; this.refreshPromise=null; }
+  constructor(ctx,env) { this.ctx=ctx; this.env=env; this.refreshPromise=null; this.waiters=new Set(); }
   async lives() { return await this.ctx.storage.get('lives') || []; }
+  async schedule() { const next=Date.now()+liveRefreshMillis(runtimeEnv.LIVE_REFRESH_SECONDS||this.env.LIVE_REFRESH_SECONDS); const alarm=await this.ctx.storage.getAlarm(); if(alarm==null||alarm>next)await this.ctx.storage.setAlarm(next); }
+  async signal() { const revision=(await this.ctx.storage.get('eventRevision')||0)+1;await this.ctx.storage.put({eventRevision:revision});for(const wake of this.waiters)wake();this.waiters.clear(); }
+  async watch(after) { if((await this.ctx.storage.get('eventRevision')||0)<=after)await new Promise(resolve=>{let timer;const done=()=>{clearTimeout(timer);this.waiters.delete(done);resolve()};this.waiters.add(done);timer=setTimeout(done,20000);this.ctx.storage.get('eventRevision').then(value=>{if((value||0)>after)done()}).catch(done)});return Response.json({revision:await this.ctx.storage.get('eventRevision')||0}); }
   send(socket,message) { try { socket.send(encode(typeof message==='string'?message:JSON.stringify(message))); } catch {} }
   count() {
     const paths={}, sockets=this.ctx.getWebSockets(); let admins=0;
@@ -17,14 +21,14 @@ export class LiveHub {
     const lives=await this.lives();
     for(const socket of this.ctx.getWebSockets()) for(const group of socket.deserializeAttachment()?.groups||[]) this.send(socket,{type:group,data:lives.filter(live=>live.group===group)});
   }
-  async update(lives,group) {
-    const { CombinedLivesListZod }=await import('./library/combinedNowLive.js');
-    lives=CombinedLivesListZod.parse(lives);
+  async update(lives,group,validate=true) {
+    if(validate){const { CombinedLivesListZod }=await import('./library/combinedNowLive.js'); lives=CombinedLivesListZod.parse(lives);}
     if(group && !groups.includes(group)) throw new Error('Invalid group');
     const previous=await this.lives();
     const next=group?[...previous.filter(live=>live.group!==group),...lives.filter(live=>live.group===group)]:lives;
     await this.ctx.storage.put({lives:next,updatedAt:Date.now(),revision:(await this.ctx.storage.get('revision')||0)+1});
-    await this.ctx.storage.setAlarm(Date.now()+Number(runtimeEnv.LIVE_REFRESH_SECONDS||this.env.LIVE_REFRESH_SECONDS||300)*1000);
+    await this.schedule();
+    if(JSON.stringify(previous.map(l=>[l.type,l.room_id,l.slug,l.started_at]).sort())!==JSON.stringify(next.map(l=>[l.type,l.room_id,l.slug,l.started_at]).sort()))await this.signal();
     await this.broadcast();
   }
   async refresh() {
@@ -34,11 +38,16 @@ export class LiveHub {
       const revision=await this.ctx.storage.get('revision')||0;
       const previous=await this.lives();
       const results=await Promise.allSettled(groups.map(group=>fetchCombined(group,false)));
-      const lives=results.flatMap((result,i)=>result.status==='fulfilled'?result.value:previous.filter(live=>live.group===groups[i]));
+      let lives=results.flatMap((result,i)=>result.status==='fulfilled'?result.value:previous.filter(live=>live.group===groups[i]));
+      // Fresh collector observations take precedence over delayed provider lists.
+      if(runtimeEnv.DB){
+        const {results:notices}=await runtimeEnv.DB.prepare('SELECT snapshot,is_live FROM collector_live_notices WHERE updated_at>? AND is_preview=0').bind(Date.now()-180000).all();
+        for(const notice of notices){const n=JSON.parse(notice.snapshot);lives=applyCollectorLive(lives,{...n,url_key:n.type==='idn'?new URL(n.live_url).pathname.split('/')[1]:decodeURIComponent(new URL(n.live_url).pathname.split('/').pop()),live_id:n.data_id,idn:{slug:n.type==='idn'?decodeURIComponent(new URL(n.live_url).pathname.split('/').pop()):undefined},date:{start:n.started_at},capture:{status:notice.is_live?'live':'completed'}});}
+      }
       if((await this.ctx.storage.get('revision')||0)!==revision) return this.lives();
       await this.ctx.storage.put({lives,updatedAt:Date.now()});
       await this.broadcast();
-      await this.ctx.storage.setAlarm(Date.now()+Number(runtimeEnv.LIVE_REFRESH_SECONDS||this.env.LIVE_REFRESH_SECONDS||300)*1000);
+      await this.schedule();
       return lives;
     })().finally(()=>{this.refreshPromise=null;});
     return this.refreshPromise;
@@ -46,7 +55,10 @@ export class LiveHub {
   async fetch(request) {
     return runWithEnv(await effectiveBindings(this.env),this.ctx,async()=>{
       const path=new URL(request.url).pathname;
-      if(path==='/lives') { if(await this.ctx.storage.get('updatedAt')==null) await this.refresh(); return Response.json(await this.lives()); }
+      if(path==='/lives') { const updated=await this.ctx.storage.get('updatedAt'); if(updated==null||Date.now()-updated>liveRefreshMillis(runtimeEnv.LIVE_REFRESH_SECONDS)) await this.refresh(); return Response.json(await this.lives()); }
+      if(path==='/watch')return this.watch(Math.max(0,Number(new URL(request.url).searchParams.get('after'))||0));
+      if(path==='/signal'&&request.method==='POST'){await this.signal();return Response.json({ok:true});}
+      if(path==='/collector' && request.method==='POST') { const {row,member}=await request.json(); await this.update(applyCollectorLive(await this.lives(),row,member),'jkt48',false); return Response.json({ok:true}); }
       if(path==='/update' && request.method==='POST') { const data=await request.json(); await this.update(data.lives,data.group); return Response.json({ok:true}); }
       if(path==='/refresh' && request.method==='POST') { await this.refresh(); return Response.json({ok:true}); }
       if(path==='/ws' && request.headers.get('Upgrade')?.toLowerCase()==='websocket') {
@@ -88,5 +100,5 @@ export class LiveHub {
   }
   webSocketClose(socket,code) { socket.close(code); this.publishCount(); }
   webSocketError(socket) { socket.close(1011,'Connection error'); this.publishCount(); }
-  async alarm() { return runWithEnv(await effectiveBindings(this.env),this.ctx,async()=>{ try { await this.refresh(); } finally { await this.ctx.storage.setAlarm(Date.now()+Number(runtimeEnv.LIVE_REFRESH_SECONDS||this.env.LIVE_REFRESH_SECONDS||300)*1000); } }); }
+  async alarm() { return runWithEnv(await effectiveBindings(this.env),this.ctx,async()=>{ try { await this.refresh(); } finally { await this.schedule(); } }); }
 }

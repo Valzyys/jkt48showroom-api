@@ -1,4 +1,5 @@
 import ShowroomLog from '@/database/schema/showroom/ShowroomLog';
+import {showroomAvatar} from '../../runtime/showroom-avatar.js';
 import { StageList } from '@/database/showroomDB/StageList';
 import { createError } from '@/utils/errorResponse';
 export async function getStageList(c) {
@@ -23,7 +24,7 @@ export async function getStageList(c) {
         users.set(user.user_id, {
             id: user.user_id,
             name: user.name,
-            avatar_id: user.avatar_id
+            ...showroomAvatar(user)
         });
     }
     for (const stage_list of stageListData.stage_list){

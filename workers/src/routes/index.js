@@ -1,3 +1,7 @@
+import {publicInstagramFeed} from '../library/instagram-feed.js';
+import {youtubeVideo} from '../runtime/youtube-public.js';
+import {publicTikTokFeed} from '../library/tiktok-feed.js';
+import {publicXFeed} from '../library/x-feed.js';
 import {getTheaterRecordings} from '../collector/theater.js';
 import {getLiveNotifications,getLiveNotification,liveNotificationData} from '../collector/live-notifications.js';
 import { createHash } from 'node:crypto';
@@ -57,7 +61,7 @@ import sousenkyo from './sousenkyo';
 import user from './user';
 import { combinedLives } from './websocket';
 const app = new Hono();
-app.use('*', useCORS('self'));
+app.use('*', (c,next)=>useCORS(/^\/api\/jkt48_youtube(?:\/[A-Za-z0-9_-]{11}(?:\/comments)?)?$/.test(c.req.path)?'all':'self')(c,next));
 function loggerPrint(message, ...rest) {
     if (env.SHOW_IP) {
         console.log(message, ...rest);
@@ -118,12 +122,38 @@ app.get('/showroom_competition_top_fans', useCORS('self'), ...handler(getCompeti
     checkApiKey: true,
     devCache: true
 }));
+// Public social archives. Requests read VPS data without triggering source fetches.
+app.get('/instagram/status', ...handler(()=>publicInstagramFeed('/status'), {seconds:3}));
+app.get('/instagram/members', ...handler(()=>publicInstagramFeed('/members'), {seconds:5}));
+app.get('/instagram/posts', ...handler(c=>publicInstagramFeed('/posts',c.req.query()), {seconds:3}));
+app.get('/instagram/posts/:id', ...handler(c=>publicInstagramFeed('/post/'+c.req.param('id')), {seconds:3}));
+app.get('/instagram/members/:member/posts', ...handler(c=>publicInstagramFeed('/posts',{...c.req.query(),member:c.req.param('member')}), {seconds:3}));
+app.get('/instagram/members/:member/profile', ...handler(c=>publicInstagramFeed('/profile/'+c.req.param('member')), {seconds:5}));
+app.get('/instagram/updates', ...handler(c=>publicInstagramFeed('/updates',c.req.query()), {seconds:3}));
+app.get('/instagram/search', ...handler(c=>publicInstagramFeed('/search',c.req.query()), {seconds:3}));
+app.get('/tiktok/status', ...handler(()=>publicTikTokFeed('/status'), {seconds:3}));
+app.get('/tiktok/members', ...handler(()=>publicTikTokFeed('/members'), {seconds:5}));
+app.get('/tiktok/posts', ...handler(c=>publicTikTokFeed('/posts',c.req.query()), {seconds:3}));
+app.get('/tiktok/posts/:id', ...handler(c=>publicTikTokFeed('/post/'+c.req.param('id')), {seconds:3}));
+app.get('/tiktok/members/:member/posts', ...handler(c=>publicTikTokFeed('/posts',{...c.req.query(),member:c.req.param('member')}), {seconds:3}));
+app.get('/tiktok/updates', ...handler(c=>publicTikTokFeed('/updates',c.req.query()), {seconds:3}));
+app.get('/tiktok/search', ...handler(c=>publicTikTokFeed('/search',c.req.query()), {seconds:3}));
+app.get('/x/status', ...handler(()=>publicXFeed('/status'), {seconds:3}));
+app.get('/x/members', ...handler(()=>publicXFeed('/members'), {seconds:5}));
+app.get('/x/tweets', ...handler(c=>publicXFeed('/tweets',c.req.query()), {seconds:3}));
+app.get('/x/tweets/:id', ...handler(c=>{const id=c.req.param('id');if(!/^\d{1,19}$/.test(id))throw Object.assign(Error('Tweet ID tidak valid'),{status:400});return publicXFeed('/tweet/'+id)}, {seconds:5}));
+app.get('/x/members/:member/tweets', ...handler(c=>publicXFeed('/tweets',{...c.req.query(),member:c.req.param('member')}), {seconds:3}));
+app.get('/x/updates', ...handler(c=>publicXFeed('/updates',c.req.query()), {seconds:3}));
+app.get('/x/search', ...handler(c=>publicXFeed('/search',c.req.query()), {seconds:3}));
+
 app.get('/jkt48_youtube', ...handler(getJKT48YoutubeVideo, {
-    minutes: 30,
+    minutes: 3,
     useRateLimit: true,
     devCache: true,
     useSingleProcess: true
 }));
+app.get('/jkt48_youtube/:id/comments', ...handler(c=>youtubeVideo(c.req.param('id'),{comments:true,cursor:c.req.query('cursor')}), {seconds:120,useRateLimit:true}));
+app.get('/jkt48_youtube/:id', ...handler(c=>youtubeVideo(c.req.param('id')), {seconds:120,useRateLimit:true}));
 app.get('/jkt48v_live', ...handler(cachedJKT48VLive, {
     minutes: 5
 }));
@@ -216,19 +246,19 @@ app.get('/screenshots/:id', ...handler(getScreenshots, {
 app.get('/records', ...handler(getRecords, {
     hours: 12
 }));
-app.get('/next_schedule', ...handler(getSchedule, {
-    minutes: 15
-}));
+app.get('/next_schedule', ...handler(getSchedule, c=>({
+    name:c.req.url+'#public-cards-v2',seconds: 2
+})));
 app.get('/event', ...handler(getEvents, {
     minutes: 5
 }));
 app.get('/theater/recordings', ...handler(getTheaterRecordings, {seconds: 3}));
-app.get('/theater', ...handler(getTheater, {
-    minutes: 5
-}));
-app.get('/theater/:id', ...handler(getTheaterDetail, {
-    minutes: 5
-}));
+app.get('/theater', ...handler(getTheater, c=>({
+    name:c.req.url+'#public-cards-v2',seconds: 2
+})));
+app.get('/theater/:id', ...handler(getTheaterDetail, c=>({
+    name:c.req.url+'#public-cards-v2',seconds: 2
+})));
 app.get('/jkt48event', ...handler(getJKT48Event, {
     minutes: 5
 }));
@@ -239,7 +269,7 @@ app.get('/setlist', ...handler(getSetlist, {
     days: 1
 }));
 app.get('/news', ...handler(getNews, {
-    minutes: 5
+    seconds: 3
 }));
 app.get('/news/:id', ...handler((c)=>getNewsDetail(c.req.param('id')), {
     days: 1
@@ -267,21 +297,21 @@ app.get('/idn_lives', ...handler(()=>fetchIDN(false), {
     useSingleProcess: true
 }));
 app.get('/recent', ...handler(getRecents, {
-    minutes: 4,
+    seconds: 2,
     useRateLimit: true,
     checkSignature: true
 }));
 app.get('/recent/:id', ...handler(getRecentDetails, {
-    hours: 1,
+    seconds: 2,
     useRateLimit: true,
     checkSignature: true
 }));
-app.get('/recent/:data_id/gifts', ...handler(getGifts, {
-    days: 1
-}));
-app.get('/recent/:data_id/stagelist', ...handler(getStageList, {
-    days: 1
-}));
+app.get('/recent/:data_id/gifts', ...handler(getGifts, c => ({
+    days: 1, name: c.req.url + ':showroom-avatar-v1'
+})));
+app.get('/recent/:data_id/stagelist', ...handler(getStageList, c => ({
+    days: 1, name: c.req.url + ':showroom-avatar-v1'
+})));
 app.get('/client', ...handler(getClientInfo, {
     useSingleProcess: false,
     cacheClientOnly: true

@@ -2,6 +2,21 @@
 
 Rekap gift membantu menampilkan dukungan penggemar selama satu sesi. Gunakan unit platform dan status cakupan yang ada pada respons.
 
+## Avatar penonton Showroom
+
+Detail `/api/recent/:id` menyertakan `avatar_id` dan `avatar_url` pada `users[]` serta `fans[]`. Daftar user di `/api/recent/:data_id/gifts` dan `/api/recent/:data_id/stagelist` juga menyertakan URL avatar.
+
+```json
+{
+  "id": 12345,
+  "name": "Nama penonton",
+  "avatar_id": 84,
+  "avatar_url": "https://image.showroom-cdn.com/showroom-prod/image/avatar/84.png"
+}
+```
+
+Ini avatar karakter panggung Showroom, berbeda dari foto profil unggahan. Gunakan `avatar_url` langsung pada elemen `<img>`. URL dihitung lokal dari ID yang tersimpan, sehingga recent lama juga mendapatkannya tanpa scraping ulang atau hit tambahan ke profil user. Jika arsip lama tidak menyimpan ID/avatar, dipakai avatar bawaan Showroom ID 1; avatar historis yang tidak tercatat tidak ditebak. Avatar IDN tetap mengikuti data IDN.
+
 ## Satuan nilai
 
 - IDN menggunakan `idn_gold`.

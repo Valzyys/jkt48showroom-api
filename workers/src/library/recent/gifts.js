@@ -1,4 +1,5 @@
 import {recentGiftCatalog} from './gift-catalog';
+import {showroomAvatar} from '../../runtime/showroom-avatar.js';
 import {giftAvailability, presentGiftEvent} from './gift-presentation';
 import {idnGoldSummary} from '../../idn/ranking';
 import {giftCounts} from './gift-counts';
@@ -43,7 +44,7 @@ function getUserShowroom(data, gifts) {
             users.push({
                 id: u.user_id,
                 name: u.name,
-                avatar_id: u.avatar_id || 1,
+                ...showroomAvatar(u),
                 comments: u.comments
             });
         }

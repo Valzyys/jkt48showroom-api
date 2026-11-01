@@ -34,7 +34,7 @@
     "SHOWROOM_API": "https://www.showroom-live.com",
     "MAX_QUERY_DOCUMENTS": "10000",
     "UPSTREAM_TIMEOUT_MS": "15000",
-    "LIVE_REFRESH_SECONDS": "300",
+    "LIVE_REFRESH_SECONDS": "10",
     "ORIGINS": "http://localhost:3000",
     "DEFAULT_ORIGIN": "http://localhost:3000",
     "ADMIN_IDS": "",
@@ -48,12 +48,13 @@
     "JKT48_PROXY_URL": "",
     "JKT48_SCRAPER_URL": "https://scrape.jkt48connect.com/api/v1/",
     "JKT48_SYNC_SECONDS": "3600",
+    "JKT48_NEWS_SYNC_SECONDS": "15",
     "JKT48_NEWS_PAGES": "3",
     "JKT48_SCHEDULE_MONTHS": "3",
     "JKT48_DETAIL_LIMIT": "20",
     "COLLECTOR_ENABLED": "true",
     "COLLECTOR_RECORD_VIDEO": "true",
-    "COLLECTOR_POLL_SECONDS": "15",
+    "COLLECTOR_POLL_SECONDS": "3",
     "COLLECTOR_SCREENSHOT_SECONDS": "60",
     "COLLECTOR_SCREENSHOT_WIDTH": "640",
     "COLLECTOR_MAX_SESSIONS": "16",
@@ -61,11 +62,18 @@
     "HALF_SCREENSHOTS": "false",
     "ASSISTANT_ENABLED": "true",
     "MISTRAL_MODEL": "mistral-medium-latest",
+    "PIP_ENABLED": "true",
+    "PIP_REQUESTS_PER_MINUTE": "20",
+    "PIP_REQUESTS_PER_DAY": "500",
     "API_KEY_REQUIRED": "true",
     "API_FREE_MONTHLY_LIMIT": "1000",
     "API_MAX_KEYS": "3",
     "API_KEY_EXEMPT_ORIGINS": "",
-    "DASHBOARD_ADMIN_EMAILS": "storevalzy@gmail.com"
+    "DASHBOARD_ADMIN_EMAILS": "storevalzy@gmail.com",
+    "X_BOT_CONTROL_URL": "https://dash.jkt48connect.com/internal/x-bot",
+    "X_FEED_URL": "https://dash.jkt48connect.com/internal/x-feed",
+    "TIKTOK_FEED_URL": "https://dash.jkt48connect.com/internal/tiktok-feed",
+    "INSTAGRAM_FEED_URL": "https://dash.jkt48connect.com/internal/instagram-feed"
   },
   "d1_databases": [
     {
@@ -90,6 +98,14 @@
       {
         "name": "COORDINATOR",
         "class_name": "Coordinator"
+      },
+      {
+        "name": "SHOWROOM_COMMENTS",
+        "class_name": "ShowroomComments"
+      },
+      {
+        "name": "IDN_COMMENTS",
+        "class_name": "IdnComments"
       }
     ]
   },
@@ -101,14 +117,8 @@
         "Coordinator"
       ]
     },
-    {
-      "tag": "v2-showroom-comments",
-      "new_sqlite_classes": ["ShowroomComments"]
-    },
-    {
-      "tag": "v3-idn-comments",
-      "new_sqlite_classes": ["IdnComments"]
-    }
+    { "tag": "v2-showroom-comments", "new_sqlite_classes": ["ShowroomComments"] },
+    { "tag": "v3-idn-comments", "new_sqlite_classes": ["IdnComments"] }
   ],
   "triggers": {
     "crons": [

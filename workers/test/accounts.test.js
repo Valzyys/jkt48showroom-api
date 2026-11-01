@@ -277,6 +277,11 @@ test("metering enforces keys, counts the monthly quota, and records analytics", 
   const c = await signedUp(bindings);
   const { key } = (await c.call("POST", "/keys", { name: "Bot" })).data;
   assert.ok(isMetered("/api/news", "GET"));
+  assert.ok(isMetered("/api/jkt48_youtube", "GET"));
+  assert.ok(isMetered("/api/jkt48_youtube/hAHv54gxD60", "GET"));
+  assert.ok(isMetered("/api/jkt48_youtube/hAHv54gxD60/comments", "GET"));
+  assert.ok(isMetered("/api/jkt48_youtube/private", "GET"));
+  assert.ok(isMetered("/api/jkt48_youtube", "POST"));
   for (const path of [
     "/api/stream",
     "/api/auth/login",
@@ -317,8 +322,8 @@ test("metering enforces keys, counts the monthly quota, and records analytics", 
         bindings,
         work(),
       )
-    ).client.kind,
-    "app",
+    ).response.status,
+    401,
   );
   assert.equal(
     (
@@ -872,4 +877,10 @@ test("dashboard writes need the session CSRF token and same-site fetch metadata"
     (await admin.call("DELETE", "/account", { password: "rahasia123" })).status,
     403,
   );
+});
+
+test('public proxy auth matches router decoding; Origin alone is not authentication',async()=>{
+ for(const path of ['/api/jkt48_youtube','/%61pi/jkt48_youtube','/api/%6akt48_youtube','/%61pi/news'])assert.ok(isMetered(path,'GET'));
+ const request=apiRequest('/api/jkt48_youtube',{Origin:'https://jkt48connect.app'});
+ assert.equal((await meter(request,{API_KEY_REQUIRED:'true',API_KEY_EXEMPT_ORIGINS:'https://jkt48connect.app'},work())).response.status,401);
 });

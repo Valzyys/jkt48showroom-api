@@ -137,3 +137,9 @@ flowchart LR
 | `429` | Kuota bulanan key habis | Isi ulang atau upgrade paket, atau tunggu reset; lihat `Retry-After` |
 
 Pantau pemakaian, error, dan log setiap request di [dashboard](/dashboard).
+
+## Batas autentikasi API publik
+
+Daftar, detail, dan komentar YouTube memakai API key JKT48Connect, sama seperti endpoint data publik X, Instagram, TikTok, berita, dan member. GET dan HEAD tetap diperiksa saat data sudah ada di cache. Header Origin atau Referer saja bukan bukti autentikasi.
+
+API terautentikasi memakai `Cache-Control: private, no-store`; cache data di server tetap digunakan setelah pemeriksaan key. Login, admin, jalur internal, dan koneksi aplikasi memakai mekanisme yang sudah ada. URL playback YouTube memakai ticket bertanda tangan yang diterbitkan setelah daftar/detail diakses dengan kredensial valid; key tidak dimasukkan ke URL setiap segmen. Gambar untuk ditampilkan atau dibagikan tetap merupakan URL media, bukan endpoint data.

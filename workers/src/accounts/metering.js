@@ -1,3 +1,4 @@
+import {getPath} from 'hono/utils/url';
 import {
   day,
   keysRequired,
@@ -12,12 +13,13 @@ import { captureRequest, serializeDetails } from "./capture.js";
 
 // Every /api request outside the app's own session routes spends one request
 // of the caller's monthly quota. The first-party app keeps working through its
-// signed requests, the server key, or an explicitly exempt origin.
+// signed requests or the server key. Origin is never authentication.
 const EXEMPT = /^\/api\/(stream|beta|auth|user|showroom|admin|profile)(\/|$)/;
-export const isMetered = (pathname, method) =>
-  method !== "OPTIONS" &&
-  pathname.startsWith("/api/") &&
-  !EXEMPT.test(pathname);
+export const isMetered = (pathname, method) => {
+  // Match the router's decoding so encoded public API paths cannot skip authentication.
+  const route=getPath({url:'https://auth.invalid'+pathname});
+  return method !== "OPTIONS" && route.startsWith("/api/") && !EXEMPT.test(route);
+};
 
 const DASHBOARD = "/dashboard/keys";
 const GUIDE = "/docs/guide/autentikasi-dan-integrasi";
@@ -42,16 +44,7 @@ async function lookup(DB, hash, now) {
   return row;
 }
 
-const list = (value) =>
-  String(value || "")
-    .split(",")
-    .map((v) => v.trim())
-    .filter(Boolean);
-
 async function firstParty(request, bindings, verify) {
-  const origin = request.headers.get("Origin");
-  if (origin && list(bindings.API_KEY_EXEMPT_ORIGINS).includes(origin))
-    return true;
   const signature = request.headers.get("X-Signature"),
     nonce = request.headers.get("X-Nonce"),
     timestamp = Number(request.headers.get("X-Timestamp"));
@@ -99,7 +92,12 @@ function deny(request, status, message, extra = {}, headers = {}) {
   );
 }
 
-const pass = (client = null) => ({ client, finish: (response) => response });
+function privateResponse(response) {
+  if(response.status===101)return response;
+  const headers=new Headers(response.headers);headers.set('Cache-Control','private, no-store');
+  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+}
+const pass = (client = null) => ({ client, finish: (response) => client?privateResponse(response):response });
 
 // `verify` carries the app's own JWT and request-signature checks, passed in
 // by the Worker so this module stays free of its runtime aliases.
@@ -252,6 +250,7 @@ export async function meter(request, bindings, execution, verify = {}) {
       ]);
       if (status === 101) return response;
       const headers = new Headers(response.headers);
+      headers.set("Cache-Control", "private, no-store");
       headers.set("X-RateLimit-Limit", String(limit));
       headers.set(
         "X-RateLimit-Remaining",

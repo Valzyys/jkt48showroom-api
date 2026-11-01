@@ -1,0 +1,20 @@
+# Merge these sections into ~/.codex/config.toml; do not replace unrelated settings.
+model_provider = "pip"
+model = "pip-code"
+model_context_window = 120000
+model_auto_compact_token_limit = 90000
+web_search = "disabled"
+
+[model_providers.pip]
+name = "Pip by JKT48Connect (Mistral)"
+base_url = "https://api.jkt48connect.app/v1"
+env_key = "PIP_API_KEY"
+wire_api = "responses"
+requires_openai_auth = false
+request_max_retries = 1
+stream_max_retries = 1
+stream_idle_timeout_ms = 130000
+
+# The upstream accepts at most 128 tools; keep the coding profile focused.
+[features]
+apps = false

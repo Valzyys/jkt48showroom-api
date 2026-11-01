@@ -1,3 +1,4 @@
+import {showroomAvatar} from '../runtime/showroom-avatar.js';
 const fansMaxSize = 50;
 export const fansPointWeights = {
     stage: 0.5,
@@ -10,7 +11,7 @@ export function calculateFansPoints(usersData, stageList, giftLog = []) {
     for (const user of usersData){
         users.set(user.user_id, {
             name: user.name,
-            avatar_id: user.avatar_id || 1,
+            ...showroomAvatar(user),
             id: user.user_id
         });
         const currentPoint = fansRanks.get(user.user_id) ?? 0;
@@ -38,7 +39,7 @@ export function calculateFansPoints(usersData, stageList, giftLog = []) {
         return {
             id: Number(user_id),
             name: user.name,
-            avatar_id: user.avatar_id,
+            ...showroomAvatar(user),
             fans_point
         };
     }).sort((a, b)=>b.fans_point - a.fans_point).slice(0, fansMaxSize);

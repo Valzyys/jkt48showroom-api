@@ -1,3 +1,5 @@
+import {xBotControl} from './x-bot.js';
+import {discordBotControl} from './discord-bot.js';
 import {notificationAdmin} from '../licenses/notifications.js';
 import {theaterRecordings} from '../collector/theater.js';
 import {licenseAdmin} from '../licenses/index.js';
@@ -55,6 +57,8 @@ export async function controlResponse(request,bindings,execution){
    const data=await body(request);const changed=await saveSettings(bindings,data.changes);return json({ok:true,changed,message:'Pengaturan disimpan. Instance lain memperbarui konfigurasi dalam 10 detik.'});
   }
   const effective=await effectiveBindings(bindings);
+  if(url.pathname.startsWith('/control/api/x-bot/'))return json(await xBotControl(request,url,effective));
+  if(url.pathname.startsWith('/control/api/discord-bot/'))return json(await discordBotControl(request,url,effective));
   if(url.pathname==='/control/api/extension-notifications')return json(await notificationAdmin(url,request,effective,body));
   if(url.pathname==='/control/api/licenses'||url.pathname==='/control/api/licenses/generate'||url.pathname==='/control/api/licenses/package')return json(await licenseAdmin(url,request,effective,body));
   if(url.pathname==='/control/api/key'&&request.method==='GET')return json({key:effective.API_KEY||null});

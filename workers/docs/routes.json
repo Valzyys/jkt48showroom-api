@@ -49,7 +49,7 @@
       "path": "/api/now_live",
       "description": "`group=jkt48|hinatazaka46|all`, default jkt48; `debug` untuk upstream fallback/debug",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "group": "jkt48"
       },
@@ -67,7 +67,7 @@
       "path": "/api/next_live",
       "description": "Jadwal live Showroom berikutnya",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/next_live",
       "response": {
@@ -83,7 +83,7 @@
       "path": "/api/idn_lives",
       "description": "Daftar live IDN yang sesuai member",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/idn_lives",
       "response": null,
@@ -96,7 +96,7 @@
       "path": "/api/idn_user",
       "description": "`user_id`; profil upstream IDN",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "user_id": "USER_ID"
       },
@@ -111,7 +111,7 @@
       "path": "/api/watch/:id",
       "description": "`id` adalah room URL key; status, stream, komentar, gifts dan broadcast connection",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/watch/ID",
       "response": null,
@@ -124,7 +124,7 @@
       "path": "/api/watch/:id/idn",
       "description": "`id` adalah username IDN; live detail",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/watch/ID/idn",
       "response": null,
@@ -167,7 +167,7 @@
       "path": "/api/turn",
       "description": "Request kredensial TURN upstream Cloudflare; status ketersediaan mengikuti upstream",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/turn",
       "response": null,
@@ -180,7 +180,7 @@
       "path": "/api/member",
       "description": "`group`, default jkt48; array profil ringkas",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/member?group=jkt48",
       "response": {
@@ -1009,7 +1009,7 @@
       "path": "/api/member/:id",
       "description": "`id` slug member atau room URL key; profil lengkap dan ringkasan live",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/member/nama-member",
       "response": null,
@@ -1022,7 +1022,7 @@
       "path": "/api/member_profile_videos",
       "description": "Video profil member sesuai filter sumber",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/member_profile_videos",
       "response": {
@@ -1038,7 +1038,7 @@
       "path": "/api/48/member",
       "description": "`group`; daftar member database 48 group",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "group": "jkt48"
       },
@@ -1405,7 +1405,7 @@
       "path": "/api/birthday",
       "description": "`group`, default jkt48; ulang tahun bulan berjalan (WIB)",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "group": "jkt48"
       },
@@ -1464,7 +1464,7 @@
       "path": "/api/next_birthday",
       "description": "`group`, default jkt48; enam ulang tahun terdekat (WIB)",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "group": "jkt48"
       },
@@ -1519,7 +1519,7 @@
       "path": "/api/banner",
       "description": "Banner per grup",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/banner",
       "response": {
@@ -1533,14 +1533,93 @@
     {
       "method": "GET",
       "path": "/api/jkt48_youtube",
-      "description": "Video terbaru kanal JKT48/JKT48TV; perlu API YouTube",
+      "description": "Video terbaru dua kanal resmi dengan HLS dan komentar; memerlukan API key JKT48Connect, tanpa API key Google.",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/jkt48_youtube",
-      "response": null,
-      "responseLabel": "Belum diuji: output mengikuti handler atau upstream; lihat source.",
-      "tryEnabled": false,
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "id": "VIDEO_ID",
+            "title": "Judul video",
+            "channelTitle": "JKT48",
+            "url": "https://www.youtube.com/watch?v=VIDEO_ID",
+            "date": "2026-10-20T00:00:00.000Z",
+            "source": "youtube-public-feed",
+            "playback": {
+              "status": "on_demand",
+              "format": "m3u8",
+              "mime_type": "application/vnd.apple.mpegurl",
+              "includes_audio": true,
+              "url": "https://api.jkt48connect.app/media/youtube/VIDEO_ID/<ticket>/index.m3u8"
+            },
+            "comments_url": "https://api.jkt48connect.app/api/jkt48_youtube/VIDEO_ID/comments"
+          }
+        ]
+      },
+      "responseLabel": "Contoh struktur respons",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jkt48_youtube/:id",
+      "description": "Detail video resmi dan playlist HLS dengan audio; sumber diperiksa on-demand. URL sekitar 3 jam, kualitas mengikuti sumber.",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/jkt48_youtube/hAHv54gxD60",
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "hAHv54gxD60",
+          "duration": 7165,
+          "playback": {
+            "status": "ready",
+            "format": "m3u8",
+            "mime_type": "application/vnd.apple.mpegurl",
+            "includes_audio": true,
+            "qualities": [
+              360,
+              480,
+              720,
+              1080
+            ],
+            "url": "https://api.jkt48connect.app/media/youtube/hAHv54gxD60/<ticket>/index.m3u8"
+          }
+        }
+      },
+      "responseLabel": "Contoh struktur respons; URL ticket adalah ilustrasi",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jkt48_youtube/:id/comments",
+      "description": "Komentar publik tingkat pertama, maksimal 20 per halaman, sort top, balasan tidak diambil. Cursor opsional dari respons sebelumnya.",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "cursor": "Opsional; pakai next_cursor dari respons sebelumnya"
+      },
+      "examplePath": "/api/jkt48_youtube/hAHv54gxD60/comments",
+      "response": {
+        "status": 200,
+        "body": {
+          "video_id": "hAHv54gxD60",
+          "comments": [],
+          "status": "available",
+          "sort": "top",
+          "replies_included": false,
+          "total_count": 0,
+          "next_cursor": null,
+          "has_more": false
+        }
+      },
+      "responseLabel": "Contoh struktur respons; URL ticket adalah ilustrasi",
+      "tryEnabled": true,
       "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
     },
     {
@@ -1548,7 +1627,7 @@
       "path": "/api/jkt48v_live",
       "description": "YouTube live kanal `JKT48V_YT_IDS`; perlu API YouTube",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/jkt48v_live",
       "response": null,
@@ -1561,7 +1640,7 @@
       "path": "/api/leaderboard",
       "description": "Leaderboard Saweria upstream; perlu SAWERIA_KEY",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/leaderboard",
       "response": null,
@@ -1574,7 +1653,7 @@
       "path": "/api/weekly",
       "description": "`type`, `platform`, `format`, `api_key`; weekly gift/viewers/duration/follower/total-live/no-live/theater sesuai handler",
       "group": "Publik",
-      "auth": "API key dalam query",
+      "auth": "API key JKT48Connect",
       "query": {
         "type": "live",
         "platform": "all",
@@ -1599,7 +1678,7 @@
       "path": "/api/showroom_competition",
       "description": "Ranking kompetisi snapshot dari database",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/showroom_competition",
       "response": {
@@ -2112,7 +2191,7 @@
       "path": "/api/showroom_competition_detail",
       "description": "`room_id`; ranking/statistik member; API-key required",
       "group": "Publik",
-      "auth": "API key / JWT",
+      "auth": "API key JKT48Connect",
       "query": {
         "room_id": "ROOM_ID"
       },
@@ -2134,7 +2213,7 @@
       "path": "/api/showroom_competition_top_fans",
       "description": "`room_id`; kontribusi fans; API-key required",
       "group": "Publik",
-      "auth": "API key / JWT",
+      "auth": "API key JKT48Connect",
       "query": {
         "room_id": "ROOM_ID"
       },
@@ -2156,7 +2235,7 @@
       "path": "/api/first_data",
       "description": "Timestamp data live pertama",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/first_data",
       "response": {
@@ -2174,7 +2253,7 @@
       "path": "/api/records",
       "description": "Rekor viewers, durasi, gifts Showroom/IDN",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/records",
       "response": {
@@ -2190,7 +2269,7 @@
       "path": "/api/screenshots/:id",
       "description": "Screenshot dari log; `DISABLE_SCREENSHOTS`/`HALF_SCREENSHOTS` mempengaruhi hasil",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/screenshots/ID",
       "response": null,
@@ -2203,7 +2282,7 @@
       "path": "/api/recent",
       "description": "Signature/API-key; pagination/filter di bawah",
       "group": "Publik",
-      "auth": "API key / HMAC",
+      "auth": "API key JKT48Connect",
       "query": {
         "page": "1",
         "perpage": "10",
@@ -2230,7 +2309,7 @@
       "path": "/api/recent/:id",
       "description": "Signature/API-key; lookup `data_id` atau `live_id`",
       "group": "Publik",
-      "auth": "API key / HMAC",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/recent/ID",
       "response": {
@@ -2250,7 +2329,7 @@
       "path": "/api/recent/:data_id/gifts",
       "description": "`page`, `perpage`, `s` pencarian fans/gifts",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "page": "1",
         "perpage": "10",
@@ -2267,7 +2346,7 @@
       "path": "/api/recent/:data_id/stagelist",
       "description": "Riwayat stage users",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/recent/DATA_ID/stagelist",
       "response": null,
@@ -2280,7 +2359,7 @@
       "path": "/api/sitemap/recent",
       "description": "`year` 2020..tahun berjalan, `image_limit` 1..5; array sitemap entries",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "year": "2026",
         "image_limit": "1"
@@ -2299,7 +2378,7 @@
       "path": "/api/next_schedule",
       "description": "Jadwal berikutnya",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/next_schedule",
       "response": {
@@ -2396,7 +2475,7 @@
       "path": "/api/event",
       "description": "Ringkasan upcoming event/theater",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/event",
       "response": {
@@ -2640,7 +2719,7 @@
       "path": "/api/theater",
       "description": "`page`, `perpage`, `type`; theater/event schedule",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "page": "1",
         "perpage": "10",
@@ -2683,7 +2762,7 @@
       "path": "/api/theater/:id",
       "description": "ID/code schedule; detail dan member",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/theater/SHCD32",
       "response": {
@@ -2812,7 +2891,7 @@
       "path": "/api/jkt48event",
       "description": "`page`, `perpage`; daftar event",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "page": "1",
         "perpage": "10"
@@ -2844,7 +2923,7 @@
       "path": "/api/jkt48event/:id",
       "description": "Detail event dan member",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/jkt48event/ID",
       "response": null,
@@ -2857,7 +2936,7 @@
       "path": "/api/setlist",
       "description": "Daftar setlist",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/setlist",
       "response": {
@@ -2902,7 +2981,7 @@
       "path": "/api/news",
       "description": "`page`, `perpage`; daftar berita",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {
         "page": "1",
         "perpage": "10"
@@ -2935,7 +3014,7 @@
       "path": "/api/news/:id",
       "description": "News ID/link key; detail berita",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/news/1876",
       "response": {
@@ -2959,7 +3038,7 @@
       "path": "/api/client",
       "description": "User-agent dan status embedded; no-store",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/client",
       "response": null,
@@ -2972,7 +3051,7 @@
       "path": "/api/my_ip",
       "description": "IP dari `CF-Connecting-IP`",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/my_ip",
       "response": null,
@@ -3103,7 +3182,7 @@
       "path": "/api/live-notifications",
       "description": "Kartu notifikasi untuk sesi live aktif; dua tema, portrait dan banner.",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/live-notifications",
       "response": {
@@ -3120,7 +3199,7 @@
       "path": "/api/live-notifications/:id",
       "description": "Detail notifikasi live berdasarkan data_id, termasuk caption dan status empat PNG.",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/live-notifications/idn-example",
       "response": {
@@ -3173,7 +3252,7 @@
       "path": "/api/theater/recordings",
       "description": "Status rekaman theater, screenshot di R2, dan URL YouTube unlisted setelah unggahan berhasil.",
       "group": "Publik",
-      "auth": "Publik",
+      "auth": "API key JKT48Connect",
       "query": {},
       "examplePath": "/api/theater/recordings",
       "response": {
@@ -3185,6 +3264,407 @@
       },
       "responseLabel": "Contoh struktur respons",
       "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/x/status",
+      "description": "Status kolektor X publik tanpa akun X",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/x/status",
+      "response": null,
+      "responseLabel": "Struktur respons mengikuti arsip kolektor publik; lihat panduan X member.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/x/members",
+      "description": "Daftar member dan status timeline X publik",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/x/members",
+      "response": null,
+      "responseLabel": "Struktur respons mengikuti arsip kolektor publik; lihat panduan X member.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/x/tweets",
+      "description": "Arsip tweet member dari profil publik X",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/x/tweets",
+      "response": null,
+      "responseLabel": "Struktur respons mengikuti arsip kolektor publik; lihat panduan X member.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/x/members/:member/tweets",
+      "description": "Arsip tweet satu member",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/x/members/Gracie_JKT48/tweets",
+      "response": null,
+      "responseLabel": "Struktur respons mengikuti arsip kolektor publik; lihat panduan X member.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/x/tweets/:id",
+      "description": "Detail tweet yang sudah terarsip",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/x/tweets/ID_TWEET",
+      "response": null,
+      "responseLabel": "Struktur respons mengikuti arsip kolektor publik; lihat panduan X member.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/x/updates",
+      "description": "Feed update tweet baru dengan cursor",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/x/updates",
+      "response": null,
+      "responseLabel": "Struktur respons mengikuti arsip kolektor publik; lihat panduan X member.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/x/search",
+      "description": "Pencarian pada arsip tweet yang terkumpul",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/x/search",
+      "response": null,
+      "responseLabel": "Struktur respons mengikuti arsip kolektor publik; lihat panduan X member.",
+      "tryEnabled": false,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/tiktok/status",
+      "description": "Status collector TikTok publik, backoff dan arsip media",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/tiktok/status",
+      "response": null,
+      "responseLabel": "Lihat panduan TikTok member; data membaca arsip collector. API key JKT48Connect digunakan sesuai kebijakan akses.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/tiktok/members",
+      "description": "Member dan username TikTok resmi beserta status pengumpulan",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/tiktok/members",
+      "response": null,
+      "responseLabel": "Lihat panduan TikTok member; data membaca arsip collector. API key JKT48Connect digunakan sesuai kebijakan akses.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/tiktok/posts",
+      "description": "Posting TikTok tersimpan; tanpa memicu scrape baru",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "member": "fiony-alveria",
+        "limit": "10",
+        "before": "ID dari next_cursor"
+      },
+      "examplePath": "/api/tiktok/posts",
+      "response": null,
+      "responseLabel": "Lihat panduan TikTok member; data membaca arsip collector. API key JKT48Connect digunakan sesuai kebijakan akses.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/tiktok/posts/:id",
+      "description": "Detail posting TikTok yang sudah terarsip",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/tiktok/posts/7700566479925693716",
+      "response": null,
+      "responseLabel": "Lihat panduan TikTok member; data membaca arsip collector. API key JKT48Connect digunakan sesuai kebijakan akses.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/tiktok/members/:member/posts",
+      "description": "Posting TikTok satu member berdasarkan slug atau username",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "limit": "10"
+      },
+      "examplePath": "/api/tiktok/members/fiony-alveria/posts",
+      "response": null,
+      "responseLabel": "Lihat panduan TikTok member; data membaca arsip collector. API key JKT48Connect digunakan sesuai kebijakan akses.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/tiktok/updates",
+      "description": "Event posting TikTok baru dengan cursor persisten",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "after": "0",
+        "limit": "25"
+      },
+      "examplePath": "/api/tiktok/updates",
+      "response": null,
+      "responseLabel": "Lihat panduan TikTok member; data membaca arsip collector. API key JKT48Connect digunakan sesuai kebijakan akses.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/tiktok/search",
+      "description": "Cari teks dalam arsip posting TikTok",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "q": "JKT48",
+        "limit": "25"
+      },
+      "examplePath": "/api/tiktok/search",
+      "response": null,
+      "responseLabel": "Lihat panduan TikTok member; data membaca arsip collector. API key JKT48Connect digunakan sesuai kebijakan akses.",
+      "tryEnabled": true,
+      "source": "https://github.com/Valzyys/jkt48showroom-api/blob/main/workers/src/routes/index.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/status",
+      "description": "Status collector Instagram anonim dan arsip media",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/instagram/status",
+      "response": null,
+      "responseLabel": "Lihat panduan Instagram member. Gunakan API key JKT48Connect sesuai kebijakan akses.",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/members",
+      "description": "Username Instagram resmi dan status per member",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/instagram/members",
+      "response": null,
+      "responseLabel": "Lihat panduan Instagram member. Gunakan API key JKT48Connect sesuai kebijakan akses.",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/posts",
+      "description": "Posting Instagram yang sudah tersimpan",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "member": "fiony-alveria",
+        "limit": "10"
+      },
+      "examplePath": "/api/instagram/posts",
+      "response": null,
+      "responseLabel": "Lihat panduan Instagram member. Gunakan API key JKT48Connect sesuai kebijakan akses.",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/posts/:id",
+      "description": "Detail posting berdasarkan ID numerik atau shortcode",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/instagram/posts/De6Ba0ioCG1",
+      "response": null,
+      "responseLabel": "Lihat panduan Instagram member. Gunakan API key JKT48Connect sesuai kebijakan akses.",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/members/:member/posts",
+      "description": "Posting satu member JKT48",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "limit": "10"
+      },
+      "examplePath": "/api/instagram/members/fiony-alveria/posts",
+      "response": null,
+      "responseLabel": "Lihat panduan Instagram member. Gunakan API key JKT48Connect sesuai kebijakan akses.",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/members/:member/profile",
+      "description": "Profil Instagram publik terakhir yang tersimpan",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/instagram/members/fiony-alveria/profile",
+      "response": null,
+      "responseLabel": "Lihat panduan Instagram member. Gunakan API key JKT48Connect sesuai kebijakan akses.",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/updates",
+      "description": "Event posting Instagram baru menggunakan cursor",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "after": "0",
+        "limit": "25"
+      },
+      "examplePath": "/api/instagram/updates",
+      "response": null,
+      "responseLabel": "Lihat panduan Instagram member. Gunakan API key JKT48Connect sesuai kebijakan akses.",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/instagram/search",
+      "description": "Pencarian caption dalam arsip Instagram",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "q": "JKT48",
+        "limit": "25"
+      },
+      "examplePath": "/api/instagram/search",
+      "response": null,
+      "responseLabel": "Lihat panduan Instagram member. Gunakan API key JKT48Connect sesuai kebijakan akses.",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/v1/models",
+      "description": "Daftar profil Pip dan backend yang digunakan.",
+      "group": "Publik",
+      "auth": "Key AI privat (PIP_API_KEY), terpisah dari key data",
+      "query": {},
+      "examplePath": "/v1/models",
+      "tryEnabled": false,
+      "responseLabel": "Lihat panduan Pip AI API; membutuhkan key AI privat."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "description": "Pip AI: format OpenAI Chat Completions, JSON atau SSE.",
+      "group": "Publik",
+      "auth": "Key AI privat (PIP_API_KEY), terpisah dari key data",
+      "query": {},
+      "examplePath": "/v1/chat/completions",
+      "tryEnabled": false,
+      "responseLabel": "Lihat panduan Pip AI API; membutuhkan key AI privat."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/responses",
+      "description": "Pip AI: format Responses dengan tool call dan riwayat replay untuk Codex.",
+      "group": "Publik",
+      "auth": "Key AI privat (PIP_API_KEY), terpisah dari key data",
+      "query": {},
+      "examplePath": "/v1/responses",
+      "tryEnabled": false,
+      "responseLabel": "Lihat panduan Pip AI API; membutuhkan key AI privat."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/messages",
+      "description": "Pip AI: adapter Messages pihak ketiga untuk klien Anthropic.",
+      "group": "Publik",
+      "auth": "Key AI privat (PIP_API_KEY), terpisah dari key data",
+      "query": {},
+      "examplePath": "/v1/messages",
+      "tryEnabled": false,
+      "responseLabel": "Lihat panduan Pip AI API; membutuhkan key AI privat."
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom-comments/:room_id",
+      "description": "100 komentar live Showroom terakhir dari relay bersama, dengan cursor.",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "after": "Opsional: sequence terakhir yang sudah diterima."
+      },
+      "examplePath": "/api/showroom-comments/572591",
+      "response": null,
+      "responseLabel": "JSON snapshot; lihat panduan Komentar Showroom realtime.",
+      "tryEnabled": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/showroom-comments/:room_id/stream",
+      "description": "WebSocket JSON komentar realtime Showroom; memerlukan Upgrade: websocket.",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "after": "Opsional: sequence terakhir yang sudah diterima."
+      },
+      "examplePath": "/api/showroom-comments/572591/stream",
+      "response": null,
+      "responseLabel": "HTTP 101 lalu pesan snapshot/comments/status.",
+      "tryEnabled": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/idn-comments/:data_id",
+      "description": "100 komentar live IDN terakhir dari relay bersama, dengan cursor.",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "after": "Opsional: sequence terakhir yang sudah diterima."
+      },
+      "examplePath": "/api/idn-comments/idn-9366d38038bb64ea459f9ce1",
+      "response": null,
+      "responseLabel": "Lihat panduan Komentar IDN realtime.",
+      "tryEnabled": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/idn-comments/:data_id/stream",
+      "description": "WebSocket JSON komentar realtime IDN; memerlukan Upgrade: websocket.",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "after": "Opsional: sequence terakhir yang sudah diterima."
+      },
+      "examplePath": "/api/idn-comments/idn-9366d38038bb64ea459f9ce1/stream",
+      "response": null,
+      "responseLabel": "Lihat panduan Komentar IDN realtime.",
+      "tryEnabled": false
     }
   ]
 }

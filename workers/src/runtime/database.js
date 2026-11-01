@@ -139,22 +139,36 @@ async function readCollection(model, filter = {}, options = {}) {
   Object.defineProperty(rows,'pushedDown',{value:pushdown});
   return rows;
 }
-async function populate(model, document, config) {
+async function populateMany(model, documents, config) {
   const specification = typeof config === 'string' ? { path: config } : { ...config.options, ...config };
   const virtual = model.schema.virtuals.get(specification.path);
   const definition = pathDefinition(model.schema, specification.path);
   const ref = specification.model || virtual?.ref || definition?.ref || descriptor(Array.isArray(definition?.type) ? definition.type[0] : undefined).ref;
   const target = typeof ref === 'function' ? ref : registry.get(`${model.databaseName}:${ref}`);
   if (!target) throw fail(`Unknown populate model: ${String(ref)}`, 500);
-  const value = at(document, virtual?.localField || specification.path);
-  const justOne = virtual ? Boolean(virtual.justOne) : !Array.isArray(value);
-  if (value == null) { put(document, specification.path, justOne ? null : []); return; }
-  let request = target.find({ [virtual?.foreignField || '_id']: { $in: Array.isArray(value) ? value : [value] }, ...(specification.match || {}) });
-  if (specification.select) request = request.select(specification.select);
+  const localField=virtual?.localField||specification.path,foreignField=virtual?.foreignField||'_id';
+  const values=documents.flatMap(document=>{const value=at(document,localField);return value==null?[]:Array.isArray(value)?value:[value]});
+  let related=[];
+  let request = target.find({ [foreignField]: { $in: [...new Map(values.map(v=>[String(v),v])).values()] }, ...(specification.match || {}) });
+  const requested=specification.select?fields(specification.select):null;
+  const inclusion=requested&&Object.entries(requested).some(([k,v])=>k!=='_id'&&v===1);
+  // Retain the join key until grouping, even if the caller hides it.
+  if(requested){const queryFields={...requested};delete queryFields[foreignField];if(inclusion)queryFields[foreignField]=1;request=request.select(queryFields)}
   if (specification.populate) for (const nested of Array.isArray(specification.populate) ? specification.populate : [specification.populate]) request.populate(nested);
-  const related = await request.lean();
-  if (!virtual && Array.isArray(value)) related.sort((a,b) => value.map(String).indexOf(String(a._id)) - value.map(String).indexOf(String(b._id)));
-  put(document, specification.path, justOne ? related[0] || null : related);
+  if(values.length)related = await request.lean();
+  const index=new Map();
+  for(const item of related){const field=at(item,foreignField);for(const value of Array.isArray(field)?field:[field]){const key=String(value);if(!index.has(key))index.set(key,[]);index.get(key).push(item)}}
+  for(const document of documents){
+    const value=at(document,localField),justOne=virtual?Boolean(virtual.justOne):!Array.isArray(value);
+    const wanted=value==null?[]:Array.isArray(value)?value:[value];
+    const selected=[...new Set(wanted.flatMap(v=>index.get(String(v))||[]))];
+    // Each parent owns its populated values, as with separate queries.
+    const selectedCopy=structuredClone(justOne?selected[0]||null:selected);
+    if(requested&&(requested[foreignField]===0||requested[foreignField]===-1||inclusion&&requested[foreignField]!==1)){
+      for(const item of justOne?[selectedCopy]:selectedCopy)if(item){const parts=foreignField.split('.');const last=parts.pop();const parent=parts.reduce((v,k)=>v?.[k],item);if(parent)delete parent[last]}
+    }
+    put(document,specification.path,selectedCopy);
+  }
 }
 class RequestQuery {
   constructor(model, filter = {}, one = false, count = false) { Object.assign(this, { model, filter, one, count, populations: [], offset: 0, amount: 0 }); }
@@ -170,7 +184,7 @@ class RequestQuery {
     const pushedDown=rows.pushedDown;
     if (!pushedDown && this.order) rows = new Aggregator([{ $sort: this.order }]).run(rows);
     if(!pushedDown) rows = rows.slice(this.offset, this.one ? this.offset + 1 : this.amount ? this.offset + this.amount : undefined);
-    for (const row of rows) for (const config of this.populations) await populate(this.model, row, config);
+    for (const config of this.populations) await populateMany(this.model, rows, config);
     if (this.fields) {
       const projection = { ...this.fields }, inclusion = Object.entries(projection).some(([key,v]) => key !== '_id' && v === 1);
       if (inclusion) for (const p of this.populations) projection[typeof p === 'string' ? p : p.path] = 1;

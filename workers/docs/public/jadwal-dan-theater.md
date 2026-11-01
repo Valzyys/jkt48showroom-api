@@ -54,3 +54,10 @@ Gambar PNG disimpan di R2. Status `pending` berarti gambar sedang disiapkan; `fa
 
 
 Style `avonera48` tersedia sebagai pilihan ketiga, dengan desain playful tanpa tulisan brand Avonera48. Pilih `avonera48.portrait` atau `avonera48.banner` pada field desain yang sama. Gambar playful berukuran 1800 × 2400 (portrait) atau 2400 × 1350 (banner). Style `jkt48connect` menampilkan brand JKT48Connect dan latar pola sinyal.
+
+
+## Kesiapan gambar
+
+URL tujuan gambar sudah tersedia saat status `pending`. Simpan URL tersebut, tetapi tampilkan atau unduh gambar setelah status menjadi `ready`. URL yang belum selesai dibuat dapat mengembalikan HTTP 404 dengan `Cache-Control: no-store`; jangan menganggapnya sebagai gambar siap pakai. Periksa ulang metadata sekitar setiap 2–3 detik selama pending dan hentikan setelah ready.
+
+File yang sudah siap disimpan di R2 dan menggunakan URL versi yang dapat di-cache. Membuka file PNG tidak merender ulang gambar. Gunakan URL terbaru dari respons apabila data sumber berubah.

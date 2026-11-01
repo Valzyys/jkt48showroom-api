@@ -8008,3 +8008,5 @@ a.fb-chip:hover {
 .ctl-notice-preview p {white-space:pre-wrap;line-height:1.75;margin:0 0 20px}
 .ctl-notice-preview small {display:block;margin-top:20px;color:var(--muted)}
 .ctl-notice-excerpt {max-width:400px;white-space:pre-wrap;color:var(--muted);font-size:12px;max-height:5em;overflow:auto;margin:8px 0 0}
+
+.xbot-terminal{background:#111315;color:#d1e9d9;border-radius:16px;padding:20px;max-height:420px;overflow:auto;font:12px/1.8 var(--mono,monospace);white-space:pre-wrap;overflow-wrap:anywhere}.xbot-history{padding:18px 0;border-bottom:1px solid var(--line)}.xbot-history>div{display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}.xbot-history>div span{font-size:12px;opacity:.65}.xbot-history>p{white-space:pre-wrap;overflow-wrap:anywhere}

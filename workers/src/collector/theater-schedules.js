@@ -29,7 +29,7 @@ export async function theaterScheduleDesigns(b,codes,origin){
   const snapshot=scheduleSnapshot(data,people),version=createHash('sha256').update('theater-v3:'+JSON.stringify(snapshot)).digest('hex').slice(0,24),now=Date.now();
   await b.DB.prepare('INSERT INTO collector_theater_schedules(code,source_version,snapshot,start_at,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(code) DO UPDATE SET source_version=excluded.source_version,snapshot=excluded.snapshot,start_at=excluded.start_at,updated_at=excluded.updated_at').bind(data.code,version,JSON.stringify(snapshot),Date.parse(snapshot.date),now).run();
   const {results}=await b.DB.prepare('SELECT * FROM collector_theater_schedule_images WHERE code=? AND source_version=?').bind(data.code,version).all();
-  const designs={};for(const theme of themes){designs[theme]={};for(const layout of layouts){const row=results.find(r=>r.theme===theme&&r.layout===layout);designs[theme][layout]={status:row?.state==='ready'?'ready':row?.state==='error'?'failed':'pending',url:row?.state==='ready'?origin+'/media/'+row.object_key:null,width:layout==='banner'?2400:1800,height:layout==='banner'?1350:2400,format:'png'};}}
+  const designs={};for(const theme of themes){designs[theme]={};for(const layout of layouts){const row=results.find(r=>r.theme===theme&&r.layout===layout);designs[theme][layout]={status:row?.state==='ready'?'ready':row?.state==='error'?'failed':'pending',url:origin+'/media/theater-schedules/v1/'+theme+'/'+data.code+'/'+version+(layout==='banner'?'-banner':'')+'.png',width:layout==='banner'?2400:1800,height:layout==='banner'?1350:2400,format:'png'};}}
   output.set(data.code,designs);
  }
  return output;
@@ -61,6 +61,6 @@ export async function theaterScheduleOperation(request,b){
 export async function serveTheaterSchedule(request,b){
  const url=new URL(request.url);if(!url.pathname.startsWith('/media/theater-schedules/'))return null;
  if(!/^\/media\/theater-schedules\/v1\/(photobook|jkt48connect|avonera48)\/[a-zA-Z0-9_-]{1,80}\/[a-f0-9]{24}(-banner)?\.png$/.test(url.pathname)||url.search)return new Response('Invalid path',{status:400});if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405});
- const object=await b.IMAGES_BUCKET.get(url.pathname.slice(7));if(!object)return new Response('Image not ready',{status:404});const headers={'Content-Type':'image/png','Content-Length':String(object.size),'Cache-Control':'public, max-age=31536000, immutable',ETag:object.httpEtag,'X-Media-Storage':'r2','X-Content-Type-Options':'nosniff','Access-Control-Allow-Origin':'*'};
+ const object=await b.IMAGES_BUCKET.get(url.pathname.slice(7));if(!object)return new Response('Image not ready',{status:404,headers:{'Cache-Control':'no-store','Retry-After':'2'}});const headers={'Content-Type':'image/png','Content-Length':String(object.size),'Cache-Control':'public, max-age=31536000, immutable',ETag:object.httpEtag,'X-Media-Storage':'r2','X-Content-Type-Options':'nosniff','Access-Control-Allow-Origin':'*'};
  if(request.headers.get('If-None-Match')===object.httpEtag)return new Response(null,{status:304,headers});return new Response(request.method==='HEAD'?null:object.body,{headers});
 }

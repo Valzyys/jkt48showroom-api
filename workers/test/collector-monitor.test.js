@@ -17,3 +17,12 @@ test('monitor distinguishes stale VPS, stalled media, disabled recording and pen
  assert.equal(collectorMonitor(null,{},{},now).online,false);
  const buffering=collectorMonitor({...collector,telemetry:{...collector.telemetry,sessions:[{...session,video:{...session.video,last_part:0,bytes:0,parts:0}}]}},{},{},now);assert.equal(buffering.sessions[0].record.status,'waiting');
 });
+
+test('recent successful archives distinguish a transient retry from a persistent failure',()=>{
+ const view=last_archive=>collectorMonitor({...collector,telemetry:{...collector.telemetry,archive_errors:7,sessions:[{...session,archive_error:true,last_archive}]}},{},{},now);
+ const retry=view(now-30000);assert.equal(retry.sessions[0].archive.status,'warning');assert.equal(retry.recent.status,'warning');assert.equal(retry.archiveErrors,7);
+ const failed=view(now-90000);assert.equal(failed.sessions[0].archive.status,'error');assert.equal(failed.recent.status,'error');
+ assert.equal(view(0).sessions[0].archive.status,'error');
+ const firstRetry=collectorMonitor({...collector,telemetry:{...collector.telemetry,sessions:[{...session,last_archive:0,archive_error:true,archive_error_since:now-10000}]}},{},{},now);assert.equal(firstRetry.sessions[0].archive.status,'warning');
+ const recovered=collectorMonitor({...collector,telemetry:{...collector.telemetry,archive_errors:7}},{},{},now);assert.equal(recovered.sessions[0].archive.status,'ok');assert.equal(recovered.recent.status,'ok');assert.equal(recovered.archiveErrors,7);
+});

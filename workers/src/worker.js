@@ -1,3 +1,6 @@
+import {instagramMedia} from './runtime/instagram-media.js';
+import {youtubeMedia} from './runtime/youtube-public.js';
+import {tiktokMedia} from './runtime/tiktok-media.js';
 import {serveTheaterScreenshot} from './collector/theater.js';
 import {licenseResponse} from './licenses/index.js';
 import {serveGiftImage} from './runtime/gift-media';
@@ -15,9 +18,13 @@ import { runWithEnv, env } from './runtime/env.js';
 import { streamProxy } from './runtime/proxy-core.js';
 import { ensureJKT48 } from './library/jkt48/scraper/sync.js';
 import { publicSyncError } from './runtime/sync-errors.js';
+import { aiResponse } from './ai/index.js';
+import { publicShowroomComments } from './showroom-comments.js';
+import { publicIdnComments } from './idn-comments.js';
+export { ShowroomComments } from './showroom-comments.js';
+export { IdnComments } from './idn-comments.js';
 export { LiveHub } from './live-hub.js';
 export { Coordinator } from './coordinator.js';
-export { ShowroomComments, IdnComments } from './legacy-comment-objects.js';
 
 let appPromise;
 export function getApp() {
@@ -38,6 +45,7 @@ export function getApp() {
     app.route('/webhook',webhook);
     app.notFound(c=>c.json({status:404,message:'Endpoint not found!',path:c.req.path},404));
     app.onError((error,c)=>{
+      if(error.code==='YOUTUBE_FEED_UNAVAILABLE'){c.header('Cache-Control','no-store');c.header('Retry-After','30');return c.json({status:502,message:error.message,path:c.req.path},502);}
       const sourceError=publicSyncError(error,c.req.path);
       if(sourceError){c.header('Cache-Control','no-store');if(error.retryAfter)c.header('Retry-After',String(error.retryAfter));return c.json(sourceError,error.status);}
       const status=error instanceof ApiError?error.data.status:error.status||error.statusCode||500;
@@ -62,6 +70,9 @@ function cors(response,request,bindings) {
 export default {
   async fetch(request,bindings,execution) {
     const incoming=new URL(request.url);if(incoming.hostname==='apitest.jkt48connect.com'&&!incoming.pathname.startsWith('/internal/collector/')){incoming.hostname='api.jkt48connect.app';return new Response(null,{status:308,headers:{Location:incoming.href,'Cache-Control':'no-store'}});}
+    const youtube=await youtubeMedia(request,bindings);if(youtube)return youtube;
+    const instagram=await instagramMedia(request,bindings);if(instagram)return instagram;
+    const tiktok=await tiktokMedia(request,bindings);if(tiktok)return tiktok;
     const collector = await collectorResponse(request,bindings,execution);
     if (collector) return collector;
     const docs = await documentation(request,bindings);
@@ -69,6 +80,7 @@ export default {
     const control = await controlResponse(request,bindings,execution);
     if (control) return rewriteMediaResponse(control,request);
     bindings = await effectiveBindings(bindings);
+    const ai = await aiResponse(request,bindings,execution);if(ai)return ai;
     const theaterScreenshot=await serveTheaterScreenshot(request,bindings);if(theaterScreenshot)return theaterScreenshot;
     const license = await licenseResponse(request,bindings);if(license)return license;
     const account = await accountResponse(request,bindings);
@@ -96,6 +108,10 @@ export default {
           return cors(await streamProxy(request,bindings),request,bindings);
         }
         for(const name of ['SECRET','AUTH_SECRET','JWT_SECRET','API_KEY']) if(!bindings[name]) return Response.json({status:503,message:'Worker secrets are not configured',path:url.pathname},{status:503});
+        const comments = await publicShowroomComments(request,bindings,metered.client);
+        if(comments)return comments;
+        const idnComments = await publicIdnComments(request,bindings,metered.client);
+        if(idnComments)return idnComments;
         if(request.method==='GET') {
           if(/^\/api\/news(?:\/|$)/.test(url.pathname))await ensureJKT48('news');
           if(/^\/api\/(theater|event|jkt48event|next_schedule|setlist)(?:\/|$)/.test(url.pathname))await ensureJKT48('schedules');
@@ -119,7 +135,7 @@ export default {
   },
   async scheduled(event,bindings,execution) {
     bindings = await effectiveBindings(bindings);
-    return runWithEnv({...bindings,REQUEST_ORIGIN:new URL(request.url).origin},execution,async()=>{
+    return runWithEnv({...bindings,REQUEST_ORIGIN:'https://api.jkt48connect.app'},execution,async()=>{
       execution.waitUntil(bindings.LIVE_HUB.get(bindings.LIVE_HUB.idFromName('global')).fetch('https://live.internal/refresh',{method:'POST'}));
       execution.waitUntil(cleanupCollectorUploads(bindings));
       execution.waitUntil(bindings.DB.prepare('DELETE FROM cache_entries WHERE expires_at<=?').bind(Date.now()).run());

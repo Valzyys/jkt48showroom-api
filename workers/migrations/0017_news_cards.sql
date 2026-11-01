@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS collector_news_cards (news_id TEXT PRIMARY KEY,source_version TEXT NOT NULL,snapshot TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',render_token TEXT,lease_until INTEGER NOT NULL DEFAULT 0,pages TEXT NOT NULL DEFAULT '{}',page_count INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL,last_error TEXT);
+CREATE INDEX IF NOT EXISTS news_cards_pending ON collector_news_cards(state,lease_until);

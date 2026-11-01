@@ -14,6 +14,7 @@ import EventDetail from '@/database/showroomDB/jkt48/EventDetail';
 import { getJKT48Headers } from './headers';
 import { createJKT48Transport } from '@/runtime/scrape-target';
 import { createSourceStore } from '@/runtime/source-store';
+import { syncDelayMs } from '@/runtime/news-refresh';
 
 const identity=(kind,id)=>createHash('sha256').update(`jkt48:${kind}:${id}`).digest('hex').slice(0,24);
 const upsert=(model,key,data)=>model.updateOne(key,{$set:data,$setOnInsert:{_id:identity(model.modelName,Object.values(key)[0])}},{upsert:true});
@@ -66,8 +67,7 @@ const models={news:News,schedules:Schedule,members:IdolMember};
 export async function synchronize(dataset,storage,{force=false}={}) {
   if(!models[dataset])throw Object.assign(new Error('Unknown JKT48 dataset'),{status:400});
   const state=await storage.get('jkt48-sync')||{};
-  const ttl=boundedInteger(env.JKT48_SYNC_SECONDS,3600,300,86400)*1000;
-  if(!force&&state.attemptedAt&&Date.now()-state.attemptedAt<(state.error?300000:ttl)) {
+  if(!force&&state.attemptedAt&&Date.now()-state.attemptedAt<syncDelayMs(dataset,state,env)) {
     if(state.error&&!await models[dataset].countDocuments({}))throw unavailable(state);
     return state;
   }
@@ -75,18 +75,20 @@ export async function synchronize(dataset,storage,{force=false}={}) {
   try {
     const repository=await createRepository(dataset);
     const client=await sourceClient();phase='source';
-    const result=await syncJKT48Dataset(dataset,{client,repository,state,options:{newsPages:env.JKT48_NEWS_PAGES,scheduleMonths:env.JKT48_SCHEDULE_MONTHS,detailLimit:env.JKT48_DETAIL_LIMIT}});
+    const result=await syncJKT48Dataset(dataset,{client,repository,state,options:{newsHeadOnly:dataset==='news'&&!force&&Boolean(state.newsFingerprint),newsPages:env.JKT48_NEWS_PAGES,scheduleMonths:env.JKT48_SCHEDULE_MONTHS,detailLimit:env.JKT48_DETAIL_LIMIT}});
     phase='persist';
     await repository.flush();
-    const next={...result,attemptedAt:Date.now(),error:null,issue:null};
+    const next={...result,attemptedAt:Date.now(),error:null,issue:null,failures:0};
     phase='cache';
     // Empty responses from the old deployment must not survive successful sync.
-    await binding('DB').prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/news%' OR key LIKE '%/api/theater%' OR key LIKE '%/api/event%' OR key LIKE '%/api/jkt48event%' OR key LIKE '%/api/next_schedule%' OR key LIKE '%/api/setlist%' OR key LIKE '%/api/member%' OR key LIKE '%/api/48/member%' OR key LIKE '%/api/birthday%' OR key LIKE '%/api/next_birthday%' OR key LIKE '%memberv8' OR key LIKE '%birthday'").run();
+    if(dataset==='news'){
+      if(!result.unchanged)await binding('DB').prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/news%'").run();
+    }else await binding('DB').prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/news%' OR key LIKE '%/api/theater%' OR key LIKE '%/api/event%' OR key LIKE '%/api/jkt48event%' OR key LIKE '%/api/next_schedule%' OR key LIKE '%/api/setlist%' OR key LIKE '%/api/member%' OR key LIKE '%/api/48/member%' OR key LIKE '%/api/birthday%' OR key LIKE '%/api/next_birthday%' OR key LIKE '%memberv8' OR key LIKE '%birthday'").run();
     await storage.put('jkt48-sync',next);
     return next;
   } catch(error) {
     const issue=syncIssue(error,phase);
-    const next={...state,attemptedAt:Date.now(),error:issue.message,issue};await storage.put('jkt48-sync',next);
+    const next={...state,attemptedAt:Date.now(),error:issue.message,issue,failures:(state.failures||0)+1};await storage.put('jkt48-sync',next);
     console.error({event:'jkt48-sync-failed',dataset,...issue,errorName:error.name});
     if(!await models[dataset].countDocuments({}))throw unavailable(next);
     return next;

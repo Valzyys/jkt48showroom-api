@@ -1,3 +1,4 @@
+import {newsImages,ensureNewsCard} from '../../../collector/news-cards.js';
 import JKT48NewNews from '@/database/showroomDB/jkt48/JKT48NewNews';
 import News from '@/database/showroomDB/jkt48/News';
 import { notFound } from '@/utils/errorResponse';
@@ -27,7 +28,9 @@ export async function getNewsDetail(id) {
         delete news.__v;
         return news;
     }
+    await ensureNewsCard(env.DB,data);
     return {
+        news_image:(await newsImages(env.DB,[String(data.news_id)],env.REQUEST_ORIGIN||'https://api.jkt48connect.app')).get(String(data.news_id)),
         date: new Date(data.valid_date_from ?? 0),
         id: String(data.news_id),
         title: data.title,

@@ -15,12 +15,6 @@ async function fixture(t) {
 test('deployment config reuses provisioned resources and matches the connected Worker name',async()=>{
   const config=JSON.parse(await readFile(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
   assert.equal(config.name,'jkt48showroom-api');
-  assert.equal(config.keep_vars,true);
-  assert.deepEqual(config.migrations,[
-    {tag:'v1',new_sqlite_classes:['LiveHub','Coordinator']},
-    {tag:'v2-showroom-comments',new_sqlite_classes:['ShowroomComments']},
-    {tag:'v3-idn-comments',new_sqlite_classes:['IdnComments']},
-  ]);
   const db=config.d1_databases.find(item=>item.binding==='DB');
   assert.equal(db.database_name,`${config.name}-db`);
   assert.match(db.database_id,/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);

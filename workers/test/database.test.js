@@ -67,3 +67,18 @@ test('document size limit counts encoded bytes for non-ASCII payloads',async()=>
     await assert.rejects(Model.create({name:'\u3042'.repeat(610000)}),error=>error.status===413);
   });DB.sqlite.close();
 });
+
+test('populate batches nested references and preserves hidden join keys and parent isolation',async()=>{
+ const DB=database();await runWithEnv({DB},null,async()=>{
+  const People=model('BatchPerson',new Schema({name:String}));
+  const Rooms=model('BatchRoom',new Schema({room_id:Number,name:String,person:{type:String,ref:People}}));
+  const parentSchema=new Schema({room_id:Number});parentSchema.virtual('room',{ref:Rooms,localField:'room_id',foreignField:'room_id',justOne:true});
+  const Parents=model('BatchParent',parentSchema);
+  const person=await People.create({name:'Member'});await Rooms.create({room_id:42,name:'Room',person:person._id});
+  await Parents.create(Array.from({length:50},()=>({room_id:42})));await Parents.create({room_id:99});
+  let reads=0;const prepare=DB.prepare.bind(DB);DB.prepare=sql=>{if(/^SELECT .*document/.test(sql))reads++;return prepare(sql)};
+  const found=await Parents.find().populate({path:'room',select:'-_id name person -room_id',populate:{path:'person',select:'-_id name'}}).lean();
+  assert.equal(found[0].room.name,'Room');assert.equal(found[0].room.person.name,'Member');assert.equal(found[0].room.room_id,undefined);assert.equal(found[0].room._id,undefined);assert.equal(found.at(-1).room,null);
+  found[0].room.name='Changed';assert.equal(found[1].room.name,'Room');assert.equal(reads,3,'one read per relation level, independent of parent count');
+ });DB.sqlite.close();
+});

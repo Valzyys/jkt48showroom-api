@@ -1,3 +1,8 @@
+import {newsCardOperation,serveNewsCard} from './news-cards.js';
+import {recentYouTubeOperation,recentYouTubeMap,youtubeReady,youtubeReplayEligible} from './recent-youtube.js';
+import { publishShowroomComments } from '../showroom-comments.js';
+import { publishIdnComments } from '../idn-comments.js';
+import { showroomAvatar } from '../runtime/showroom-avatar.js';
 import {theaterScheduleOperation,serveTheaterSchedule} from './theater-schedules.js';
 import {theaterOperation} from './theater.js';
 import {serveLiveNotification,liveNotificationOperation,saveLiveNotification} from './live-notifications.js';
@@ -10,6 +15,7 @@ import { z } from 'zod';
 import { effectiveBindings } from '../control/settings.js';
 import { runWithEnv } from '../runtime/env.js';
 import { createSourceStore } from '../runtime/source-store.js';
+import { createHash } from 'node:crypto';
 import IdolMember from '../database/schema/48group/IdolMember.js';
 import Showroom from '../database/schema/showroom/Showroom.js';
 import LiveLog from '../database/live/schema/LiveLog.js';
@@ -26,6 +32,7 @@ const schema=z.object({data_id:ident,live_id:z.union([z.string().max(200),z.numb
 function equal(a,b){if(a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0;}
 function json(data,status=200){return Response.json(data,{status,headers:{'Cache-Control':'no-store'}});}
 export async function collectorResponse(request,bindings,execution){
+ const newsImage=await serveNewsCard(request,bindings);if(newsImage)return newsImage;
  const scheduleImage=await serveTheaterSchedule(request,bindings);if(scheduleImage)return scheduleImage;
  const notice=await serveLiveNotification(request,bindings);if(notice)return notice;
  const leaderboard=await serveLeaderboard(request,bindings);if(leaderboard)return leaderboard;
@@ -37,6 +44,13 @@ export async function collectorResponse(request,bindings,execution){
   const match=/^\/media\/live\/([a-zA-Z0-9_-]{1,160})\/(\d{1,13}\.jpg|video-\d{1,13}\.(?:mp4|m3u8))$/.exec(url.pathname);
   if(!match||(url.search&&(url.searchParams.size!==1||url.searchParams.get('v')!=='2'||!match[2].endsWith('.mp4'))))return json({message:'Invalid screenshot path'},400);
   if(!['GET','HEAD'].includes(request.method))return json({message:'Method not allowed'},405);
+  if(match[2].endsWith('.m3u8')){
+   const run=/video-(\d+)\.m3u8$/.exec(match[2])?.[1];
+   const replay=(await recentYouTubeMap(bindings.DB,[match[1]],{origin:url.origin,secret:bindings.JKT48_SCRAPER_TOKEN})).get(match[1]);
+   const video=replay?.videos.find(v=>v.run===run);
+   const source=await bindings.DB.prepare("SELECT json_extract(document,'$.live_info.date.start') started_at FROM documents WHERE database_name='liveDB' AND collection_name='livelogs' AND json_extract(document,'$.data_id')=?").bind(match[1]).first();
+   if(youtubeReplayEligible(source)&&youtubeReady(video))return new Response(null,{status:302,headers:{Location:video.stream_url,'Cache-Control':'private, no-store','Access-Control-Allow-Origin':'*'}});
+  }
   const key='live-screenshots/'+match[1]+'/'+match[2].replace(/\.m3u8$/,'.mp4');
   const metadata=await bindings.IMAGES_BUCKET.head(key);if(!metadata)return json({message:'Media not found'},404);
   if(match[2].endsWith('.m3u8')){
@@ -56,6 +70,11 @@ export async function collectorResponse(request,bindings,execution){
  const env=await effectiveBindings(bindings),expected='Bearer '+String(env.COLLECTOR_TOKEN||'');
  if(!env.COLLECTOR_TOKEN||!equal(request.headers.get('Authorization')||'',expected))return json({message:'Unauthorized'},401);
  try{return await runWithEnv({...env,REQUEST_ORIGIN:url.origin},execution,async()=>{
+  const comments=await publishShowroomComments(request,bindings);if(comments)return comments;
+  const idnComments=await publishIdnComments(request,bindings);if(idnComments)return idnComments;
+  const recentYouTube=await recentYouTubeOperation(request,bindings);if(recentYouTube)return recentYouTube;
+  if(url.pathname==='/internal/collector/watch'&&request.method==='GET'){const hub=bindings.LIVE_HUB.get(bindings.LIVE_HUB.idFromName('global'));return hub.fetch('https://live.internal/watch?after='+encodeURIComponent(url.searchParams.get('after')||'0'));}
+  const newsCard=await newsCardOperation(request,bindings);if(newsCard)return newsCard;
   const schedule=await theaterScheduleOperation(request,env);if(schedule)return schedule;
   const theater=await theaterOperation(request,env);if(theater)return theater;
   const notice=await liveNotificationOperation(request,bindings);if(notice)return notice;
@@ -74,7 +93,7 @@ export async function collectorResponse(request,bindings,execution){
    store.upsert(LiveLog,{data_id:data.data_id},{'gift_data.provider_ranking':ranking,total_gifts:summary.total_gold,c_gift:summary.total_gold});await store.flush();await bindings.DB.prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/recent%'").run();return json({ok:true,users:ranking.users.length,observed_gold:summary.observed_gold,reported_gold:summary.reported_gold,total_gold:summary.total_gold});
   }
   if(url.pathname==='/internal/collector/heartbeat'&&request.method==='POST'){
-   const value=z.object({active:z.number().int().nonnegative(),pending:z.number().int().nonnegative(),showroom_ok:z.boolean(),idn_ok:z.boolean(),version:z.string().max(40),telemetry:z.object({pid:z.number().int().positive(),uptime_seconds:z.number().nonnegative(),last_archive:z.number().nonnegative(),last_completed:z.number().nonnegative(),archive_errors:z.number().int().nonnegative(),sessions:z.array(z.object({data_id:ident,name:z.string().max(300),type:z.enum(['showroom','idn']),completed:z.boolean(),last_seen:z.number(),last_screenshot:z.number(),screenshot_errors:z.number().int().nonnegative(),screenshots_allowed:z.boolean(),stream_available:z.boolean(),video:z.object({status:z.enum(['waiting','starting','recording','finalizing','completed','error']),bytes:z.number().nonnegative(),parts:z.number().int().nonnegative(),last_part:z.number(),errors:z.number().int().nonnegative(),retrying:z.boolean().optional(),last_error:z.string().max(60).optional(),duration_ms:z.number().nonnegative().optional(),last_progress:z.number().nonnegative().optional()}),last_archive:z.number(),archive_error:z.boolean(),chat_status:z.string().max(30).optional(),last_gift_event:date.nullable().optional(),last_ranking:date.nullable().optional(),ranking_error:z.string().max(80).nullable().optional(),observed_events:z.number().int().nonnegative().optional(),event_lag_ms:z.number().nonnegative().nullable().optional(),ranking_users:z.number().int().nonnegative().optional(),reported_gold:z.number().nonnegative().nullable().optional(),observed_gold:z.number().nonnegative().optional()})).max(100)}).optional()}).parse(await request.json());
+   const value=z.object({active:z.number().int().nonnegative(),pending:z.number().int().nonnegative(),showroom_ok:z.boolean(),idn_ok:z.boolean(),version:z.string().max(40),telemetry:z.object({pid:z.number().int().positive(),uptime_seconds:z.number().nonnegative(),last_archive:z.number().nonnegative(),last_completed:z.number().nonnegative(),archive_errors:z.number().int().nonnegative(),sessions:z.array(z.object({data_id:ident,name:z.string().max(300),type:z.enum(['showroom','idn']),completed:z.boolean(),last_seen:z.number(),last_screenshot:z.number(),screenshot_errors:z.number().int().nonnegative(),screenshots_allowed:z.boolean(),stream_available:z.boolean(),video:z.object({status:z.enum(['waiting','starting','recording','finalizing','completed','error']),bytes:z.number().nonnegative(),parts:z.number().int().nonnegative(),last_part:z.number(),errors:z.number().int().nonnegative(),retrying:z.boolean().optional(),last_error:z.string().max(60).optional(),duration_ms:z.number().nonnegative().optional(),last_progress:z.number().nonnegative().optional()}),last_archive:z.number(),archive_error:z.boolean(),archive_error_since:z.number().nonnegative().nullable().optional(),archive_error_at:z.number().nonnegative().nullable().optional(),archive_error_code:z.string().max(60).nullable().optional(),chat_status:z.string().max(30).optional(),last_gift_event:date.nullable().optional(),last_ranking:date.nullable().optional(),ranking_error:z.string().max(80).nullable().optional(),observed_events:z.number().int().nonnegative().optional(),event_lag_ms:z.number().nonnegative().nullable().optional(),ranking_users:z.number().int().nonnegative().optional(),reported_gold:z.number().nonnegative().nullable().optional(),observed_gold:z.number().nonnegative().optional()})).max(100)}).optional()}).parse(await request.json());
    await bindings.DB.prepare('INSERT INTO collector_state(name,value,updated_at) VALUES(?,?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at').bind('vps',JSON.stringify(value),Date.now()).run();return json({ok:true});
   }
   if(url.pathname==='/internal/collector/video/state'&&request.method==='POST'){
@@ -104,7 +123,7 @@ export async function collectorResponse(request,bindings,execution){
   if(url.pathname==='/internal/collector/archive'&&request.method==='PUT'){
    if(Number(request.headers.get('Content-Length'))>2000000)return json({message:'Archive too large'},413);
    const text=await request.text();if(text.length>2000000)return json({message:'Archive too large'},413);
-   const row=schema.parse(JSON.parse(text));const store=createSourceStore(bindings.DB);
+   const row=schema.parse(JSON.parse(text));if(row.type==='showroom')row.users=row.users.map(u=>({...u,...showroomAvatar(u)}));const store=createSourceStore(bindings.DB);
    const end=new Date(row.date.end),start=new Date(row.date.start);if(end<start)return json({message:'Invalid session dates'},400);
    let member=row.member_id?await IdolMember.findById(row.member_id).lean():null;
    if(member&&member.group!=='jkt48')return json({message:'Invalid member'},400);
@@ -115,19 +134,25 @@ export async function collectorResponse(request,bindings,execution){
    for(const item of row.catalog){if(row.type==='showroom')store.upsert(ShowroomGift,{gift_id:Number(item.id)},{gift_name:item.name,point:item.point||0,free:item.free,image:item.img});else store.upsert(IDNGift,{slug:String(item.id)},{...(item.name&&item.name!=='Gift'?{name:item.name}:{}),...(item.gold!=null||item.point!=null?{gold:item.gold??item.point}:{}),...(item.img?{image_url:item.img}:{})});}
    const previous=await LiveLog.findOne({data_id:row.data_id}).select({capture:1,recordings:1,'gift_data.provider_ranking':1}).lean();
    if(previous?.capture?.status==='completed'&&row.capture.status==='live')return json({message:'Session already completed'},409);
-   // Publish live presence before persisting gifts, users and recordings.
-   // Completed recents remain visible only after archive persistence succeeds.
-   if(row.capture.status==='live')await saveLiveNotification(bindings,row,member);
+   // Publish a newly observed live before persisting gifts, users and recordings.
+   // Recent remains visible only after its completed archive has been committed.
+   if(row.capture.status==='live'){
+    await saveLiveNotification(bindings,row,member);
+   }
    const total=row.type==='idn'?idnGoldSummary(row.gift_log,row.provider_ranking||previous?.gift_data?.provider_ranking,row.users).total_gold:row.gift_log.reduce((n,user)=>n+user.total,0);
    const screenshot={folder:'live-screenshots/'+row.data_id,format:'jpg',list:row.frames,base_url:url.origin+'/media/live/'+row.data_id};
-   store.upsert(LiveLog,{data_id:row.data_id},{live_id:row.live_id,room_id:row.room_id,type:row.type,is_dev:false,created_at:row.date.end,total_gifts:total,c_gift:total,gift_rate:row.type==='showroom'?1:0,...(row.idn?{idn:row.idn}:{}),capture:row.capture,recordings:row.recordings.sort((a,b)=>(a.started_at||a.run).localeCompare(b.started_at||b.run)).map(r=>({...r,bytes:Math.max(r.bytes,previous?.recordings?.find(old=>old.run===r.run)?.bytes||0),url:url.origin+'/media/live/'+row.data_id+'/video-'+r.run+'.mp4',stream_url:r.index_available===false?null:url.origin+'/media/live/'+row.data_id+'/video-'+r.run+'.m3u8',player_url:url.origin+'/replay/'+row.data_id+'/'+r.run})),live_info:{date:row.date,duration:end-start,viewers:{peak:row.viewers,active:row.viewers},comments:{num:row.comments,users:row.users.filter(u=>u.comments>0).length},screenshots:screenshot},gift_data:{...(row.provider_ranking?{provider_ranking:row.provider_ranking}:{}),gift_log:row.gift_log,gift_id_list:row.catalog.map(g=>g.id),free_gifts:[]}});
+   // Video finalization updates must not invalidate an already rendered recap.
+   // Only fields visible in the artwork determine its immutable source version.
+   const visualVersion=Number.parseInt(createHash('sha256').update(JSON.stringify({date:row.date,viewers:row.viewers,users:row.users,gifts:row.gift_log,catalog:row.catalog,ranking:row.provider_ranking||previous?.gift_data?.provider_ranking,frames:row.frames,name:row.name,img:row.img})).digest('hex').slice(0,12),16);
+   store.upsert(LiveLog,{data_id:row.data_id},{leaderboard_source_version:visualVersion,live_id:row.live_id,room_id:row.room_id,type:row.type,is_dev:false,created_at:row.date.end,total_gifts:total,c_gift:total,gift_rate:row.type==='showroom'?1:0,...(row.idn?{idn:row.idn}:{}),capture:row.capture,recordings:row.recordings.sort((a,b)=>(a.started_at||a.run).localeCompare(b.started_at||b.run)).map(r=>({...r,bytes:Math.max(r.bytes,previous?.recordings?.find(old=>old.run===r.run)?.bytes||0),url:url.origin+'/media/live/'+row.data_id+'/video-'+r.run+'.mp4',stream_url:r.index_available===false?null:url.origin+'/media/live/'+row.data_id+'/video-'+r.run+'.m3u8',player_url:url.origin+'/replay/'+row.data_id+'/'+r.run})),live_info:{date:row.date,duration:end-start,viewers:{peak:row.viewers,active:row.viewers},comments:{num:row.comments,users:row.users.filter(u=>u.comments>0).length},screenshots:screenshot},gift_data:{...(row.provider_ranking?{provider_ranking:row.provider_ranking}:{}),gift_log:row.gift_log,gift_id_list:row.catalog.map(g=>g.id),free_gifts:[]}});
    store.upsert(UserLog,{data_id:row.data_id},{users:row.users,created_at:row.date.end});await store.flush();
    if(row.capture.status!=='live')await saveLiveNotification(bindings,row,member);
    await bindings.DB.prepare("DELETE FROM cache_entries WHERE key LIKE '%/api/recent%' OR key LIKE '%/api/screenshots%' OR key LIKE '%/api/member%' OR key LIKE '%memberv8'").run();
+   if(bindings.LIVE_HUB){const hub=bindings.LIVE_HUB.get(bindings.LIVE_HUB.idFromName('global'));const response=await hub.fetch('https://live.internal/collector',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({row:{name:row.name,img:row.img,url_key:row.url_key,room_id:row.room_id,type:row.type,live_id:row.live_id,idn:row.idn,date:row.date,capture:{status:row.capture.status}},member:member?{name:member.name,info:{img:member.info?.img,is_graduate:member.info?.is_graduate}}:null})});if(!response.ok)return json({message:'Hub update failed',status:response.status},502);}
    return json({ok:true,data_id:row.data_id,status:row.capture.status,frames:row.frames.length});
   }
   return json({message:'Endpoint not found'},404);
- });}catch(error){return json({message:error instanceof z.ZodError?'Invalid collector payload':'Collector operation failed'},error instanceof z.ZodError||error instanceof SyntaxError?400:500);}
+ });}catch(error){console.error('Collector operation failure',error.name,error.message);return json({message:error instanceof z.ZodError?'Invalid collector payload':'Collector operation failed'},error instanceof z.ZodError||error instanceof SyntaxError?400:500);}
 }
 export async function cleanupCollectorUploads(bindings){
  const {results}=await bindings.DB.prepare('SELECT id,object_key,upload_id FROM collector_video_uploads WHERE updated_at<? LIMIT 20').bind(Date.now()-86400000).all();

@@ -72,7 +72,7 @@ test("public catalog documents consumer APIs and excludes operational routes", a
     );
     if (route.tryEnabled) {
       assert.equal(route.method, "GET");
-      assert.equal(route.auth, "Publik");
+      assert.ok(["Publik", "Publik tanpa API key", "API key JKT48Connect"].includes(route.auth));
     }
   }
 });

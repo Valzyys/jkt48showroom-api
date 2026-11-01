@@ -1,3 +1,7 @@
+import {leaderboardImageMap} from '../../runtime/leaderboard-images.js';
+import {recentYouTubeMap,recentRecordings,recentPlayback} from '../../collector/recent-youtube.js';
+import {recordingSession} from '../../collector/recording-session.js';
+import {recentPage} from '../../runtime/recent-list.js';
 import {leaderboardImages} from '../../collector/leaderboards';
 import { env } from '@/runtime/env';
 import ShowroomLog from '@schema/showroom/ShowroomLog';
@@ -12,7 +16,7 @@ export async function getRecents(c) {
     if (type === 'all') type = undefined;
     let page = 1;
     const maxPerpage = 30;
-    const perpage = Math.min(Number(qq?.perpage || 10), maxPerpage);
+    let perpage = Math.max(1, Math.min(Math.floor(Number(qq?.perpage) || 10), maxPerpage));
     const query = qq ?? {};
     if (query.page) page = Number(query.page) ?? 1;
     if (page < 1) page = 1;
@@ -37,6 +41,9 @@ export async function getRecents(c) {
     let logs = [];
     let total = 0;
     let members = [];
+    const fast = await recentPage(env.DB, qq, env.NODE_ENV === 'development',true);
+    if(fast){logs=fast.logs;total=fast.total;page=fast.page;perpage=fast.perpage;}
+    else {
     const options = {'capture.status':{$ne:'live'}};
     if (type) options.type = type;
     if (env.NODE_ENV !== 'development') options.is_dev = false;
@@ -102,6 +109,8 @@ export async function getRecents(c) {
                 date: 1
             },
             data_id: 1,
+            recordings: 1,
+            capture: 1,
             total_gifts: 1,
             created_at: 1,
             room_id: 1,
@@ -118,10 +127,19 @@ export async function getRecents(c) {
         }).lean();
         total = await LiveLog.countDocuments(options);
     }
-    const images=await leaderboardImages(env.DB,logs.map(i=>i.data_id),new URL(c.req.url).origin);
+    }
+    const images=fast?leaderboardImageMap(fast.cards,new URL(c.req.url).origin):await leaderboardImages(env.DB,logs.map(i=>i.data_id),new URL(c.req.url).origin);
+    const youtube=await recentYouTubeMap(env.DB,logs.map(i=>i.data_id),{origin:new URL(c.req.url).origin,secret:env.JKT48_SCRAPER_TOKEN});
+    const playbackFor=i=>{
+        const replay=youtube.get(i.data_id),recordings=recentRecordings(i.recordings||[],replay,Date.now(),i);
+        return recentPlayback(i,recordingSession({...i,recordings},new URL(c.req.url).origin),replay);
+    };
+    if(fast)c.header?.('Server-Timing','recent_db;dur='+Number(fast.sqlMs).toFixed(2));
     return {
         recents: logs.map((i)=>({
+                ...playbackFor(i),
                 _id: i._id,
+                youtube_replay:youtube.get(i.data_id)||null,
                 leaderboard_designs: images.get(i.data_id),
                 data_id: i.data_id,
                 idn: i.idn,

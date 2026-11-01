@@ -1,3 +1,4 @@
+import {showroomAvatar} from '../../runtime/showroom-avatar.js';
 import IdolMember from '@/database/schema/48group/IdolMember';
 import { getCommentLog, getGiftList, getGiftLog, getLiveInfo, getProfile, getRoomStatus, getStreamingURL } from '@/utils/api/showroom';
 import { createError } from '@/utils/errorResponse';
@@ -69,7 +70,7 @@ async function getData(room_key) {
                     name: i.name,
                     comment: i.comment,
                     created_at: i.created_at,
-                    avatar_id: i.avatar_id
+                    ...showroomAvatar(i)
                 };
             })
         };

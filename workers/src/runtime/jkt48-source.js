@@ -72,13 +72,17 @@ export async function syncJKT48Dataset(dataset,{client,repository,state={},now=n
   let count=0,detailFailures=0,cursor=state.cursor||0;
   const detail=async(resource,query)=>{try{return detailData(await client(resource,query));}catch{detailFailures++;return null;}};
   if(dataset==='news') {
-    const pages=boundedInteger(options.newsPages,3,1,10);
+    const pages=options.newsHeadOnly?1:boundedInteger(options.newsPages,3,1,10);let headFingerprint;const pending=[];
     for(let page=1;page<=pages;page++) {
       const payload=await client('news',{page});
       const rows=listData(payload);
-      for(const row of rows){if(!Number.isSafeInteger(Number(row.news_id))||Number(row.news_id)<1||!row.link||typeof row.title!=='string')throw failure('Invalid JKT48 news record');await repository.news({...row,news_id:Number(row.news_id)});count++;}
+      for(const row of rows){if(!Number.isSafeInteger(Number(row.news_id))||Number(row.news_id)<1||!row.link||typeof row.title!=='string')throw failure('Invalid JKT48 news record');pending.push({...row,news_id:Number(row.news_id)});count++;}
+      if(page===1){const bytes=new TextEncoder().encode(JSON.stringify(rows));headFingerprint=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('')}
       if(!rows.length||page>=Number(payload._meta?.total_page||page))break;
     }
+    const unchanged=Boolean(options.newsHeadOnly&&headFingerprint===state.newsFingerprint);
+    if(!unchanged)for(const row of pending)await repository.news(row);
+    return {count,detailFailures,cursor,syncedAt:now.toISOString(),newsFingerprint:headFingerprint,unchanged};
   } else if(dataset==='schedules') {
     const months=boundedInteger(options.scheduleMonths,3,1,6);
     const local=new Date(now.getTime()+7*3600000),rows=new Map();

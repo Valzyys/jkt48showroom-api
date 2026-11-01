@@ -1,4 +1,6 @@
 import {idnGoldSummary} from '../../idn/ranking.js';
+import {recentYouTubeMap,recentRecordings,recentPlayback} from '../../collector/recent-youtube.js';
+import {showroomAvatar} from '../../runtime/showroom-avatar.js';
 import {recordingSession} from '../../collector/recording-session';
 import {leaderboardImages} from '../../collector/leaderboards';
 import {recentGiftCatalog} from './gift-catalog';
@@ -14,11 +16,16 @@ import { createError } from '@/utils/errorResponse';
 import { calculateFansPoints } from '../fansPoints';
 export async function parseBase(data) {
     const leaderboard_designs=(await leaderboardImages(env.DB,[data.data_id],env.REQUEST_ORIGIN||'https://api.jkt48connect.app')).get(data.data_id);
+    const youtube_replay=(await recentYouTubeMap(env.DB,[data.data_id],{origin:env.REQUEST_ORIGIN||'https://api.jkt48connect.app',secret:env.JKT48_SCRAPER_TOKEN})).get(data.data_id)||null;
+    const recordings=recentRecordings(data.recordings||[],youtube_replay,Date.now(),data);
+    const recording_session=recordingSession({...data,recordings},env.REQUEST_ORIGIN||'https://api.jkt48connect.app');
     return {
+        ...recentPlayback(data,recording_session,youtube_replay),
+        youtube_replay,
         leaderboard_designs,
-        recording_session:recordingSession(data,env.REQUEST_ORIGIN||'https://api.jkt48connect.app'),
+        recording_session,
         point_unit: data.type==='idn'?'idn_gold':'showroom_points',
-        recordings: (data.recordings||[]).map(r=>({...r,stream_url:r.index_available===false?null:r.stream_url||r.url?.replace(/\.mp4(?:\?.*)?$/,'.m3u8'),player_url:r.player_url||r.url?.replace(/\/media\/live\/([^/]+)\/video-(\d+)\.mp4(?:\?.*)?$/,'/replay/$1/$2')})),
+        recordings,
         capture: data.capture,
         data_id: data.data_id,
         live_id: data.live_id,
@@ -58,7 +65,7 @@ export async function parseShowroom(data) {
         return {
             id: i.user_id,
             name: i.name,
-            avatar_id: i.avatar_id || 1,
+            ...showroomAvatar(i),
             comments: i.comments
         };
     });
@@ -78,7 +85,7 @@ export async function parseShowroom(data) {
                     id: u.user_id,
                     comments: u.comments,
                     name: u.name,
-                    avatar_id: u.avatar_id || 1
+                    ...showroomAvatar(u)
                 });
             }
         }
