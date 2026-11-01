@@ -19,6 +19,8 @@ import { forgetKey } from "./metering.js";
 import { developerAdmin } from "./admin.js";
 import {
   cancelPayment,
+  paymentsEnabled,
+  paymentWebhook,
   createPayment,
   publicPayment,
   qrImage,
@@ -384,6 +386,7 @@ export async function accountResponse(request, bindings) {
     if (!DB) fail(503, "Database belum siap");
     if (!["GET", "POST", "PUT", "DELETE"].includes(request.method))
       fail(405, "Method tidak diizinkan");
+    if (route === "/payments/webhook/jktpg") return json(await paymentWebhook(request, bindings));
     guardRequest(request, url);
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
     const monthPlans = plans(bindings),
@@ -398,7 +401,7 @@ export async function accountResponse(request, bindings) {
           id,
           ...p,
         })),
-        payments: Boolean(bindings.MYPG_API_KEY),
+        payments: paymentsEnabled(bindings),
       });
 
     if (route === "/register" && request.method === "POST") {
@@ -886,13 +889,13 @@ export async function accountResponse(request, bindings) {
       let rows = await paymentsOf();
       // Opening billing settles orders that were paid while nobody watched.
       const pending = rows.filter((r) => r.status === "PENDING").slice(0, 3);
-      if (pending.length && bindings.MYPG_API_KEY) {
+      if (pending.length && paymentsEnabled(bindings)) {
         for (const row of pending)
           await refreshPayment(bindings, row).catch(() => null);
         rows = await paymentsOf();
       }
       return json({
-        enabled: Boolean(bindings.MYPG_API_KEY),
+        enabled: paymentsEnabled(bindings),
         products: Object.entries(catalog).map(([id, p]) => ({ id, ...p })),
         payments: rows.map((r) => publicPayment(r, catalog)),
       });

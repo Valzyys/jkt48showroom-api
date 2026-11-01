@@ -22,7 +22,7 @@ test('replay playback migrates only a processed, verified and byte-matched recor
  await db.prepare('INSERT INTO collector_recent_youtube VALUES(?,?,?,?)').bind(id,'123',JSON.stringify(raw),now).run();
  const replay=(await recentYouTubeMap(db,[id],{secret:'private-synthetic-secret',origin:'https://api.test',now})).get(id);
  const original={run:'123',bytes:20,url:'https://api.test/media/live/sr-playback/video-123.mp4'};
- const data={live_info:{date:{start:'2026-10-29T00:00:00+07:00'}}};
+ const data={live_info:{date:{start:'2026-11-01T00:00:00+07:00'}}};
  let clips=recentRecordings([original],replay,now,data);
  assert.equal(clips[0].storage,'youtube');assert.equal(clips[0].youtube_id,raw.youtube_id);assert.equal(clips[0].youtube_url,'https://www.youtube.com/watch?v=abcdefghijk');assert.equal(clips[0].url,clips[0].stream_url);assert.match(clips[0].stream_url,/\/media\/youtube\/abcdefghijk\//);assert.ok(!JSON.stringify(clips).includes('private-synthetic-secret'));
  assert.equal(recentRecordings([{...original,bytes:21}],replay,now,data)[0].storage,'r2');

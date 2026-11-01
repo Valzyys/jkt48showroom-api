@@ -2,8 +2,8 @@ import {z} from 'zod';
 import {playback,youtubeMedia} from '../runtime/youtube-public.js';
 const identifier=z.string().regex(/^(?:sr|idn)-[a-zA-Z0-9_-]{1,150}$/);
 const run=z.string().regex(/^\d{1,13}$/);
-// 29 October 2026 00:00 WIB. Historical recording URLs stay on R2.
-export const YOUTUBE_REPLAY_CUTOFF=Date.parse('2026-10-28T17:00:00.000Z');
+// 1 November 2026 00:00 WIB. Historical recording URLs stay on R2.
+export const YOUTUBE_REPLAY_CUTOFF=Date.parse('2026-10-31T17:00:00.000Z');
 export function youtubeReplayEligible(data){
  const start=data?.live_info?.date?.start??data?.started_at;
  return start!=null&&Number.isFinite(new Date(start).getTime())&&new Date(start).getTime()>=YOUTUBE_REPLAY_CUTOFF;
