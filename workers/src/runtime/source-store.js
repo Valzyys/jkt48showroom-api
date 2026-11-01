@@ -16,13 +16,14 @@ export function createSourceStore(DB) {
     group.rows.set(String(keyValue),mergeWith(row,patch,key,(_old,value)=>Array.isArray(value)?value:undefined));
   }
   async function flush() {
+    const statements=[];
     for(const {model,field,defaults,rows}of pending.values()) {
       const items=[...rows.values()];
       for(let offset=0;offset<items.length;offset+=100) {
         const json=JSON.stringify(items.slice(offset,offset+100));
         // One set-based write per collection/batch; preserve imported IDs and
         // unrelated fields atomically rather than reading and rewriting rows.
-        await DB.prepare(`INSERT INTO documents(database_name,collection_name,id,document)
+        statements.push(DB.prepare(`INSERT INTO documents(database_name,collection_name,id,document)
           SELECT ?,?,COALESCE(old.id,json_extract(item.value,'$._id')),
             json_set(json_patch(CASE WHEN old.id IS NULL THEN ? ELSE '{}' END,item.value),'$._id',COALESCE(old.id,json_extract(item.value,'$._id')))
           FROM json_each(?) AS item LEFT JOIN documents AS old
@@ -30,9 +31,11 @@ export function createSourceStore(DB) {
           WHERE true
           ON CONFLICT(database_name,collection_name,id) DO UPDATE SET
             document=json_patch(documents.document,excluded.document),version=documents.version+1`)
-          .bind(model.databaseName,model.collection.name,JSON.stringify({__v:0,...defaults}),json,model.databaseName,model.collection.name,`$.${field}`,`$.${field}`).run();
+          .bind(model.databaseName,model.collection.name,JSON.stringify({__v:0,...defaults}),json,model.databaseName,model.collection.name,`$.${field}`,`$.${field}`));
       }
     }
+    // Commit related room, gift, user and live records together in one round trip.
+    if(statements.length)await DB.batch(statements);
     pending.clear();
   }
   return {upsert,flush};

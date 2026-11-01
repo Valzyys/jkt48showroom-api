@@ -19,8 +19,14 @@ test('source batching deduplicates records and merges list/detail data with arra
 });
 test('hundreds of source records use bounded set-based writes instead of per-row queries',async t=>{
   const DB=database();t.after(()=>DB.sqlite.close());let writes=0;
-  const counted={prepare(sql){writes++;return DB.prepare(sql);}};
+  const counted={prepare(sql){writes++;return DB.prepare(sql);},batch:statements=>DB.batch(statements)};
   const store=createSourceStore(counted);
   for(let id=1;id<=250;id++)store.upsert(model,{news_id:id},{title:'News '+id});
   await store.flush();assert.equal(writes,3);assert.equal((await DB.prepare('SELECT count(*) AS total FROM documents').first()).total,250);
+});
+
+test('archive collections commit in one batch and failed flushes can be retried',async()=>{
+ const seen=[];let fail=true;const DB={prepare(sql){return {bind(...args){return {sql,args}}}},async batch(statements){seen.push(statements);if(fail)throw Error('temporary database failure')}};
+ const store=createSourceStore(DB);store.upsert(model,{news_id:1},{title:'one'});store.upsert({databaseName:'liveDB',collection:{name:'livelogs'}},{data_id:'sr-test'},{capture:{status:'completed'}});
+ await assert.rejects(store.flush(),/temporary/);assert.equal(seen[0].length,2);fail=false;await store.flush();assert.equal(seen[1].length,2);await store.flush();assert.equal(seen.length,2);
 });
