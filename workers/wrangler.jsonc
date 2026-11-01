@@ -7,6 +7,7 @@
     "nodejs_compat"
   ],
   "workers_dev": true,
+  "keep_vars": true,
   "assets": {
     "directory": "./public-docs",
     "binding": "DOCS_ASSETS",
@@ -99,6 +100,14 @@
         "LiveHub",
         "Coordinator"
       ]
+    },
+    {
+      "tag": "v2-showroom-comments",
+      "new_sqlite_classes": ["ShowroomComments"]
+    },
+    {
+      "tag": "v3-idn-comments",
+      "new_sqlite_classes": ["IdnComments"]
     }
   ],
   "triggers": {
