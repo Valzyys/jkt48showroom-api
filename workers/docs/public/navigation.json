@@ -82,5 +82,9 @@
   {
     "slug": "pip-ai-api",
     "title": "Pip AI API"
+  },
+  {
+    "slug": "music",
+    "title": "Musik & lirik sinkron"
   }
 ]

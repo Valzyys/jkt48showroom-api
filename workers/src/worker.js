@@ -1,3 +1,4 @@
+import {musicAPI,musicMedia,musicDocumentation} from './runtime/music.js';
 import {instagramMedia} from './runtime/instagram-media.js';
 import {youtubeMedia} from './runtime/youtube-public.js';
 import {tiktokMedia} from './runtime/tiktok-media.js';
@@ -71,10 +72,12 @@ export default {
   async fetch(request,bindings,execution) {
     const incoming=new URL(request.url);if(incoming.hostname==='apitest.jkt48connect.com'&&!incoming.pathname.startsWith('/internal/collector/')){incoming.hostname='api.jkt48connect.app';return new Response(null,{status:308,headers:{Location:incoming.href,'Cache-Control':'no-store'}});}
     const youtube=await youtubeMedia(request,bindings);if(youtube)return youtube;
+    const musicAudio=await musicMedia(request,bindings);if(musicAudio)return musicAudio;
     const instagram=await instagramMedia(request,bindings);if(instagram)return instagram;
     const tiktok=await tiktokMedia(request,bindings);if(tiktok)return tiktok;
     const collector = await collectorResponse(request,bindings,execution);
     if (collector) return collector;
+    const musicDocs=musicDocumentation(request);if(musicDocs)return musicDocs;
     const docs = await documentation(request,bindings);
     if (docs) return docs;
     const control = await controlResponse(request,bindings,execution);
@@ -103,6 +106,7 @@ export default {
       if(metered.client?.kind==='key')request=withoutKeyParams(request);
       return metered.finish(await (async()=>{
       try {
+        const music=await musicAPI(request,bindings);if(music)return music;
         if(url.pathname==='/api/stream') {
           if(request.method==='OPTIONS') return cors(new Response(null,{status:204}),request,bindings);
           return cors(await streamProxy(request,bindings),request,bindings);

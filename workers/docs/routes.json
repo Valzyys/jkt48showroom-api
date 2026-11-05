@@ -3665,6 +3665,42 @@
       "response": null,
       "responseLabel": "Lihat panduan Komentar IDN realtime.",
       "tryEnabled": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/music/search",
+      "description": "Cari audio lintas artis dari judul, artis, potongan lirik, atau URL track Spotify. Audio berasal dari sumber publik YouTube.",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "q": "Kueri pencarian (2–240 karakter)",
+        "mode": "auto, title, atau lyrics"
+      },
+      "examplePath": "/api/music/search?q=Adele%20Hello",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/music/:id",
+      "description": "Resolve lagu penuh ke audio M4A/AAC atau WebM/Opus tanpa track video. URL siap hanya diberikan sesudah byte audio diverifikasi.",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {},
+      "examplePath": "/api/music/hLQl3WQQoQ0",
+      "tryEnabled": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/music/:id/lyrics",
+      "description": "Lirik LRC terstruktur dengan timestamp detik dan peringatan perbedaan versi audio.",
+      "group": "Publik",
+      "auth": "API key JKT48Connect",
+      "query": {
+        "track": "Opsional: koreksi judul",
+        "artist": "Opsional: koreksi artis"
+      },
+      "examplePath": "/api/music/hLQl3WQQoQ0/lyrics",
+      "tryEnabled": true
     }
   ]
 }

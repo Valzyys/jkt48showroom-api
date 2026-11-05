@@ -1,0 +1,27 @@
+[Unit]
+Description=JKT48Connect anonymous audio-only music API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jkt48-music
+Group=jkt48-music
+WorkingDirectory=/opt/jkt48-music-api
+EnvironmentFile=/etc/jkt48-scraper.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+LoadCredential=spotify-cookies:/etc/jkt48-spotify-cookies.txt
+ExecStart=/opt/jkt48-music-api/.venv/bin/uvicorn audio_server:app --host 127.0.0.1 --port 8815 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CPUQuota=75%
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

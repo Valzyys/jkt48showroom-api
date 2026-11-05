@@ -291,3 +291,11 @@ maintenance instructions to these public documents.
 `npm run build` and `npm run deploy` generate `public-docs/` automatically. Worker
 Static Assets serves the frontend through the `DOCS_ASSETS` binding; existing API,
 media, and protected application routes continue through the Worker handler.
+
+## Musik dari YouTube dan lirik sinkron
+
+Route `GET /api/music/search`, `GET /api/music/:id`, dan `GET /api/music/:id/lyrics` dipasang langsung di `src/worker.js`, setelah autentikasi dan metering. Media `/media/music/…/audio.m4a` atau `.webm` memakai signature terbatas waktu dan mendukung Range/seek. Token relay tetap server-side. Dokumentasi publik ada di `/docs/guide/music` dan `/docs/music.md`.
+
+Layanan Python terpisah tersedia di `../music-scraper/`; lihat README di sana. Worker memakai `JKT48_SCRAPER_URL` dan `JKT48_SCRAPER_TOKEN` yang sudah ada. Audio berasal dari sumber publik YouTube, sedangkan lirik memakai LRCLIB dan fallback Spotify yang dikonfigurasi privat. Aplikasi pengguna tidak memerlukan login Spotify/YouTube.
+
+Uji setelah build: `node --test test/music.test.js test/integration/music.test.js test/auth-boundary.test.js`. Tes integrasi memastikan route musik dan dokumentasi tetap ikut deployment serta request anonim tidak mencapai relay.
