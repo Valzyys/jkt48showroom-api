@@ -1,3 +1,4 @@
+import {youtubeOauthPublic} from './control/youtube-oauth.js';
 import {musicAPI,musicMedia,musicDocumentation} from './runtime/music.js';
 import {instagramMedia} from './runtime/instagram-media.js';
 import {youtubeMedia} from './runtime/youtube-public.js';
@@ -71,6 +72,7 @@ function cors(response,request,bindings) {
 export default {
   async fetch(request,bindings,execution) {
     const incoming=new URL(request.url);if(incoming.hostname==='apitest.jkt48connect.com'&&!incoming.pathname.startsWith('/internal/collector/')){incoming.hostname='api.jkt48connect.app';return new Response(null,{status:308,headers:{Location:incoming.href,'Cache-Control':'no-store'}});}
+    const oauth=await youtubeOauthPublic(request,bindings);if(oauth)return oauth;
     const youtube=await youtubeMedia(request,bindings);if(youtube)return youtube;
     const musicAudio=await musicMedia(request,bindings);if(musicAudio)return musicAudio;
     const instagram=await instagramMedia(request,bindings);if(instagram)return instagram;

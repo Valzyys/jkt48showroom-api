@@ -1,3 +1,4 @@
+import {youtubeOauthAdmin} from './youtube-oauth.js';
 import {xBotControl} from './x-bot.js';
 import {discordBotControl} from './discord-bot.js';
 import {notificationAdmin} from '../licenses/notifications.js';
@@ -49,6 +50,7 @@ export async function controlResponse(request,bindings,execution){
   // Every authenticated write carries the session's CSRF token.
   const csrf=devAdmin?await csrfFor(devAdmin.token_hash):await controlCsrf(request,bindings);
   if(request.method!=='GET'){const sent=request.headers.get('X-CSRF-Token')||'';if(!csrf||sent.length!==csrf.length||[...sent].reduce((d,c,i)=>d|(c.charCodeAt(0)^csrf.charCodeAt(i)),0))return json({message:'Token keamanan tidak valid. Muat ulang halaman.'},403);}
+  const youtubeOauth=await youtubeOauthAdmin(request,bindings);if(youtubeOauth)return youtubeOauth;
   if(url.pathname==='/control/api/developers'||url.pathname.startsWith('/control/api/developers/'))return json(await developerAdmin(url,request,bindings,body));
   if(url.pathname==='/control/api/session'&&request.method==='GET')return json({email:devAdmin?.email||bindings.CONTROL_ADMIN_EMAIL,developer:Boolean(devAdmin),csrf});
   if(url.pathname==='/control/api/logout'&&request.method==='POST')return json({ok:true},200,{'Set-Cookie':devAdmin?await endSession(bindings.DB,devAdmin):logoutCookie()});
