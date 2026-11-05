@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ -z "${PIP_API_KEY:-}" ]]; then
+if [[ -z "${API_KEY:-}" ]]; then
   keyfile="${XDG_CONFIG_HOME:-$HOME/.config}/jkt48connect-ai/gateway.env"
   if [[ -f "$keyfile" ]]; then
     set -a
@@ -8,14 +8,14 @@ if [[ -z "${PIP_API_KEY:-}" ]]; then
     set +a
   fi
 fi
-: "${PIP_API_KEY:?Export PIP_API_KEY or configure the private gateway.env file}"
+: "${API_KEY:?Export API_KEY or configure the private gateway.env file}"
 exec codex \
   -c 'model_provider="pip"' -c 'model="pip-code"' \
   -c 'model_context_window=120000' -c 'model_auto_compact_token_limit=90000' \
   -c 'web_search="disabled"' -c 'features.apps=false' \
   -c 'model_providers.pip.name="Pip (Mistral)"' \
   -c 'model_providers.pip.base_url="https://api.jkt48connect.app/v1"' \
-  -c 'model_providers.pip.env_key="PIP_API_KEY"' \
+  -c 'model_providers.pip.env_key="API_KEY"' \
   -c 'model_providers.pip.wire_api="responses"' \
   -c 'model_providers.pip.requires_openai_auth=false' \
   -c 'model_providers.pip.request_max_retries=1' \

@@ -3571,44 +3571,44 @@
       "path": "/v1/models",
       "description": "Daftar profil Pip dan backend yang digunakan.",
       "group": "Publik",
-      "auth": "Key AI privat (PIP_API_KEY), terpisah dari key data",
+      "auth": "API key developer (jkc_…) atau key server (API_KEY)",
       "query": {},
       "examplePath": "/v1/models",
       "tryEnabled": false,
-      "responseLabel": "Lihat panduan Pip AI API; membutuhkan key AI privat."
+      "responseLabel": "Lihat panduan Pip AI API; menggunakan API key yang sama dengan API data."
     },
     {
       "method": "POST",
       "path": "/v1/chat/completions",
       "description": "Pip AI: format OpenAI Chat Completions, JSON atau SSE.",
       "group": "Publik",
-      "auth": "Key AI privat (PIP_API_KEY), terpisah dari key data",
+      "auth": "API key developer (jkc_…) atau key server (API_KEY)",
       "query": {},
       "examplePath": "/v1/chat/completions",
       "tryEnabled": false,
-      "responseLabel": "Lihat panduan Pip AI API; membutuhkan key AI privat."
+      "responseLabel": "Lihat panduan Pip AI API; menggunakan API key yang sama dengan API data."
     },
     {
       "method": "POST",
       "path": "/v1/responses",
       "description": "Pip AI: format Responses dengan tool call dan riwayat replay untuk Codex.",
       "group": "Publik",
-      "auth": "Key AI privat (PIP_API_KEY), terpisah dari key data",
+      "auth": "API key developer (jkc_…) atau key server (API_KEY)",
       "query": {},
       "examplePath": "/v1/responses",
       "tryEnabled": false,
-      "responseLabel": "Lihat panduan Pip AI API; membutuhkan key AI privat."
+      "responseLabel": "Lihat panduan Pip AI API; menggunakan API key yang sama dengan API data."
     },
     {
       "method": "POST",
       "path": "/v1/messages",
       "description": "Pip AI: adapter Messages pihak ketiga untuk klien Anthropic.",
       "group": "Publik",
-      "auth": "Key AI privat (PIP_API_KEY), terpisah dari key data",
+      "auth": "API key developer (jkc_…) atau key server (API_KEY)",
       "query": {},
       "examplePath": "/v1/messages",
       "tryEnabled": false,
-      "responseLabel": "Lihat panduan Pip AI API; membutuhkan key AI privat."
+      "responseLabel": "Lihat panduan Pip AI API; menggunakan API key yang sama dengan API data."
     },
     {
       "method": "GET",

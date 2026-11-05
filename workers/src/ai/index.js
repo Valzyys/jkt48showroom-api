@@ -2,17 +2,11 @@ import { MODELS } from './profile.js';
 import { normalize, fail } from './protocol.js';
 import { openUpstream } from './upstream.js';
 import { generate, errorBody } from './output.js';
+import { meter } from '../accounts/metering.js';
 
 const HEADERS = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'X-Accel-Buffering': 'no' };
 const digest = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map(b => b.toString(16).padStart(2, '0')).join('');
 const limit = (v, fallback, max) => /^\d+$/.test(String(v)) && Number(v) > 0 ? Math.min(max, Number(v)) : fallback;
-async function authorized(request, bindings) {
-  const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get('Authorization') || '')?.[1];
-  const token = bearer || request.headers.get('X-API-Key');
-  if (!bindings.PIP_API_KEY || bindings.PIP_API_KEY.length < 32) throw fail('Pip API is not configured.', 503, 'service_unavailable');
-  if (!token || token.length > 256 || await digest(token) !== await digest(bindings.PIP_API_KEY)) throw fail('A valid Pip API key is required. Data API keys and website sessions do not grant AI access.', 401, 'invalid_api_key');
-  return digest(token);
-}
 async function bodyJSON(request) {
   if (!request.headers.get('content-type')?.includes('application/json')) throw fail('Use Content-Type: application/json.', 415);
   const max = 1024 * 1024;
@@ -45,9 +39,24 @@ export async function aiResponse(request, bindings, execution) {
   const path = new URL(request.url).pathname;
   if (!path.startsWith('/v1/')) return null;
   const protocol = path.startsWith('/v1/messages') ? 'messages' : path === '/v1/responses' ? 'responses' : 'chat';
+  try {
+    const metered = await meter(request, bindings, execution, {}, { keyOnly: true });
+    if (metered.response) {
+      const response = metered.response, detail = await response.json();
+      const error = fail(detail.message, response.status, response.status === 401 ? 'invalid_api_key' : response.status === 429 ? 'rate_limit_exceeded' : 'service_unavailable');
+      return Response.json(errorBody(error, protocol), { status: response.status, headers: { ...Object.fromEntries(response.headers), ...HEADERS } });
+    }
+    const token = /^Bearer\s+(\S+)$/i.exec(request.headers.get('Authorization') || '')?.[1] || request.headers.get('X-API-Key');
+    return metered.finish(await inference(request, bindings, execution, await digest(token)));
+  } catch (error) {
+    return Response.json(errorBody(error, protocol), { status: error.status || 502, headers: HEADERS });
+  }
+}
+async function inference(request, bindings, execution, hash) {
+  const path = new URL(request.url).pathname;
+  const protocol = path.startsWith('/v1/messages') ? 'messages' : path === '/v1/responses' ? 'responses' : 'chat';
   let slot, controller, timer, cleanup = () => {};
   try {
-    const hash = await authorized(request, bindings);
     if (bindings.PIP_ENABLED === 'false') throw fail('Pip API is disabled.', 503, 'service_unavailable');
     if (path === '/v1/models' || /^\/v1\/models\/[^/]+$/.test(path)) {
       if (request.method !== 'GET') throw fail('Use GET for models.', 405);

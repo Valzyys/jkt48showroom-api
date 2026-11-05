@@ -5,15 +5,20 @@ import { Miniflare } from 'miniflare';
 import { aiResponse, reserve } from '../src/ai/index.js';
 import { normalize } from '../src/ai/protocol.js';
 import { events, upstreamSpec, openUpstream } from '../src/ai/upstream.js';
+import { meter, forgetKey } from '../src/accounts/metering.js';
+import { sha256, period } from '../src/accounts/core.js';
 const realFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = realFetch; });
+afterEach(() => { globalThis.fetch = realFetch; forgetKey(); });
 const mf = new Miniflare({ modules: true, script: 'export default { fetch(){ return new Response("ok") } }', d1Databases: ['DB'], compatibilityDate: '2026-07-01' });
 const pendingWrites = [];
 after(async () => { await Promise.all(pendingWrites); await mf.dispose(); });
 const DB = await mf.getD1Database('DB');
 await DB.prepare(await readFile(new URL('../migrations/0016_pip_ai_usage.sql', import.meta.url), 'utf8')).run();
-const key = 'pip_test_' + 'a'.repeat(40);
-const bindings = { PIP_API_KEY: key, MISTRAL_COOKIE: 'private_session=never_echo', DB, PIP_REQUESTS_PER_MINUTE: '120', PIP_REQUESTS_PER_DAY: '10000' };
+for (const file of ['0008_api_accounts.sql', '0009_request_details.sql']) {
+  for (const sql of (await readFile(new URL('../migrations/' + file, import.meta.url), 'utf8')).split(';').filter(s => s.trim())) await DB.prepare(sql).run();
+}
+const key = 'server_test_' + 'a'.repeat(40);
+const bindings = { API_KEY: key, MISTRAL_COOKIE: 'private_session=never_echo', DB, PIP_REQUESTS_PER_MINUTE: '120', PIP_REQUESTS_PER_DAY: '10000' };
 function sse(list, split = false) {
   const data = list.map(e => 'data: ' + (typeof e === 'string' ? e : JSON.stringify(e)) + '\r\n\r\n').join('');
   const bytes = new TextEncoder().encode(data);
@@ -22,7 +27,7 @@ function sse(list, split = false) {
 const textEvents = [{ type: 'message.output.delta', content: 'Halo 🌸' }, { type: 'conversation.response.done', usage: { prompt_tokens: 12, completion_tokens: 3 } }];
 const ask = (path, body, extra = {}, auth = 'Bearer ' + key) => aiResponse(new Request('https://api.test' + path, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', ...(auth ? { authorization: auth } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }), { ...bindings, ...extra }, { waitUntil(promise) { pendingWrites.push(promise); } });
 
-test('AI key is separate, mandatory, header-only, and unknown models fail', async () => {
+test('AI uses the shared server key, requires header authentication, and unknown models fail', async () => {
   for (const auth of ['', 'Bearer jkc_public', 'Bearer wrong']) assert.equal((await ask('/v1/models', null, {}, auth)).status, 401);
   assert.equal((await ask('/v1/models?api_key=' + key, null, {}, '')).status, 401);
   const r = await ask('/v1/models'); assert.equal(r.status, 200);
@@ -31,6 +36,37 @@ test('AI key is separate, mandatory, header-only, and unknown models fail', asyn
   assert.equal((await ask('/v1/models/bogus')).status, 404);
   assert.equal((await ask('/v1/responses', { model: 'bogus', input: 'Hello' })).status, 404);
   assert.equal((await ask('/v1/models', null, { PIP_ENABLED: 'false' })).status, 503);
+});
+test('developer keys work across all AI protocols and share the data API quota', async () => {
+  const token = 'jkc_' + 'b'.repeat(40), hash = await sha256(token);
+  await DB.prepare('INSERT INTO api_keys(id,account_id,name,prefix,last4,key_hash,monthly_limit,created_at) VALUES(?,?,?,?,?,?,?,?)').bind('pip-dev', 'dev', 'shared', token.slice(0, 10), token.slice(-4), hash, 5, Date.now()).run();
+  globalThis.fetch = async () => sse(textEvents);
+  for (const [path, body] of [['/v1/chat/completions', { messages: [{ role: 'user', content: 'halo' }] }], ['/v1/responses', { input: 'halo' }], ['/v1/messages', { messages: [{ role: 'user', content: 'halo' }] }]]) {
+    const r = await ask(path, body, { API_KEY: undefined }, 'Bearer ' + token);
+    assert.equal(r.status, 200, await r.clone().text()); await r.json();
+    assert.equal(r.headers.get('X-RateLimit-Limit'), '5');
+  }
+  const execution = { waitUntil(p) { pendingWrites.push(p); } };
+  const data = await meter(new Request('https://api.test/api/member', { headers: { 'X-API-Key': token } }), bindings, execution);
+  assert.equal(data.client.used, 4); data.finish(Response.json({ ok: true }));
+  const header = await aiResponse(new Request('https://api.test/v1/models', { headers: { 'X-API-Key': token } }), bindings, execution);
+  assert.equal(header.status, 200); assert.equal(header.headers.get('X-RateLimit-Remaining'), '0');
+  const exhausted = await ask('/v1/models', null, {}, 'Bearer ' + token);
+  assert.equal(exhausted.status, 429); assert.equal((await exhausted.json()).error.code, 'rate_limit_exceeded'); assert.ok(exhausted.headers.get('Retry-After'));
+  assert.equal((await DB.prepare('SELECT used FROM api_key_usage WHERE key_id=? AND period=?').bind('pip-dev', period()).first()).used, 5);
+  await Promise.all(pendingWrites);
+  const log = await DB.prepare("SELECT key_source,details FROM api_request_log WHERE key_id=? AND path='/v1/responses'").bind('pip-dev').first();
+  assert.equal(log.key_source, 'header'); assert.doesNotMatch(log.details, new RegExp(token)); assert.doesNotMatch(log.details, /halo/);
+  await DB.prepare('UPDATE api_keys SET revoked_at=? WHERE id=?').bind(Date.now(), 'pip-dev').run(); forgetKey(hash);
+  assert.equal((await ask('/v1/models', null, {}, 'Bearer ' + token)).status, 401);
+});
+test('missing keys and website sessions cannot bypass AI authentication when data keys are optional', async () => {
+  const cfg = { ...bindings, API_KEY_REQUIRED: 'false' };
+  for (const headers of [{}, { Cookie: 'session=fake' }, { 'X-API-Key': 'wrong' }, { Authorization: 'Bearer jkc_' + 'c'.repeat(40) }]) {
+    const response = await aiResponse(new Request('https://api.test/v1/models', { headers }), cfg);
+    assert.equal(response.status, 401); assert.equal((await response.json()).error.code, 'invalid_api_key');
+  }
+  assert.equal((await aiResponse(new Request('https://api.test/v1/models', { headers: { 'X-API-Key': key } }), cfg)).status, 200);
 });
 test('all three JSON protocols preserve content and usage', async () => {
   globalThis.fetch = async () => sse(textEvents, true);

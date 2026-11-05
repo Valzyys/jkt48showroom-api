@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ -z "${PIP_API_KEY:-}" ]]; then
+if [[ -z "${API_KEY:-}" ]]; then
   task_key_file="${XDG_CONFIG_HOME:-$HOME/.config}/jkt48connect-ai/gateway.env"
   if [[ ! -f "$task_key_file" ]]; then
-    echo 'Set PIP_API_KEY or prepare the private jkt48connect-ai/gateway.env file.' >&2
+    echo 'Set API_KEY or prepare the private jkt48connect-ai/gateway.env file.' >&2
     exit 1
   fi
   set -a
@@ -11,7 +11,7 @@ if [[ -z "${PIP_API_KEY:-}" ]]; then
   set +a
 fi
 export ANTHROPIC_BASE_URL="https://api.jkt48connect.app"
-export ANTHROPIC_AUTH_TOKEN="$PIP_API_KEY"
+export ANTHROPIC_AUTH_TOKEN="$API_KEY"
 export ANTHROPIC_MODEL="pip-code"
 export ANTHROPIC_DEFAULT_OPUS_MODEL="pip-code"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="pip-code"

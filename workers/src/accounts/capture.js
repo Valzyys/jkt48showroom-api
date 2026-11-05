@@ -18,7 +18,7 @@ export function mask(value) {
 }
 
 export const keySource = (request, url) =>
-  request.headers.get("X-API-Key")
+  request.headers.get("X-API-Key") || (url.pathname.startsWith('/v1/') && /^Bearer\s+\S+$/i.test(request.headers.get("Authorization") || ""))
     ? "header"
     : url.searchParams.get("api_key") || url.searchParams.get("apikey")
       ? "query"

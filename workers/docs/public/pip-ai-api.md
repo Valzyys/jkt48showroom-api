@@ -1,6 +1,6 @@
 # Pip AI API
 
-Pip dapat dipanggil sebagai REST API menggunakan key AI privat milik pemilik layanan. Key developer `jkc_…` untuk data JKT48 tidak memberikan akses AI. Jangan menaruh key AI dalam JavaScript publik atau aplikasi mobile.
+Pip menggunakan API key yang sama dengan API data: key developer `jkc_…` dari dashboard atau key server `API_KEY`. Kirim lewat `Authorization: Bearer …` atau `X-API-Key`. Key wajib dikirim lewat header; sesi website dan query key tidak digunakan untuk Pip. Request developer memakai kuota bulanan yang sama dengan API data. Simpan key di server atau environment klien CLI.
 
 ## Endpoint dan model
 
@@ -15,11 +15,11 @@ Profil `pip` untuk umum, `pip-code` untuk pekerjaan kode, dan `pip-docs` untuk j
 
 ## Request pertama
 
-Simpan key dalam environment variable `PIP_API_KEY` pada mesin yang menjalankan klien.
+Simpan key developer yang sudah dimiliki dalam environment variable `API_KEY` pada mesin yang menjalankan klien. Pemilik Worker juga dapat memakai key server yang sudah dikonfigurasi; tidak perlu membuat key khusus Pip.
 
 ```bash
 curl https://api.jkt48connect.app/v1/chat/completions \
-  -H "Authorization: Bearer $PIP_API_KEY" \
+  -H "Authorization: Bearer $API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"model":"pip","messages":[{"role":"user","content":"Halo Pip"}],"stream":false}'
 ```
@@ -30,7 +30,7 @@ Respons memuat `id`, `object: "chat.completion"`, `model`, `choices[].message.co
 import os
 from openai import OpenAI
 client = OpenAI(base_url="https://api.jkt48connect.app/v1",
-                api_key=os.environ["PIP_API_KEY"])
+                api_key=os.environ["API_KEY"])
 response = client.responses.create(model="pip-code", input="Jelaskan fungsi async di Python.")
 print(response.output_text)
 ```
@@ -49,7 +49,7 @@ web_search = "disabled"
 [model_providers.pip]
 name = "Pip by JKT48Connect (Mistral)"
 base_url = "https://api.jkt48connect.app/v1"
-env_key = "PIP_API_KEY"
+env_key = "API_KEY"
 wire_api = "responses"
 requires_openai_auth = false
 request_max_retries = 1
@@ -70,7 +70,7 @@ Claude Code memakai Messages, sehingga base URL-nya tidak ditambah `/v1`:
 
 ```bash
 export ANTHROPIC_BASE_URL="https://api.jkt48connect.app"
-export ANTHROPIC_AUTH_TOKEN="$PIP_API_KEY"
+export ANTHROPIC_AUTH_TOKEN="$API_KEY"
 export ANTHROPIC_MODEL="pip-code"
 export CLAUDE_CODE_MAX_OUTPUT_TOKENS=8192
 export CLAUDE_CODE_MAX_CONTEXT_TOKENS=120000
@@ -89,14 +89,14 @@ Ini adapter backend Mistral pihak ketiga, bukan Claude dan bukan jaminan dukunga
 
 Gateway mendukung teks, function call, hasil tool, streaming, dan respons JSON. Gambar, audio, file, embeddings, pelatihan model, server tools, dan structured output belum didukung; request tersebut ditolak dengan error yang jelas.
 
-Batas awal: 20 request inferensi per menit dan 500 per hari UTC, body 1 MiB, output maksimal 16384 token, deadline upstream 300 detik. Satu tugas agent bisa memakai beberapa request. Model yang tercantum tidak menjamin kemampuan penalaran setara model lain.
+Batas awal per key: 20 request inferensi per menit dan 500 per hari UTC, body 1 MiB, output maksimal 16384 token, deadline upstream 300 detik. Satu tugas agent bisa memakai beberapa request. Model yang tercantum tidak menjamin kemampuan penalaran setara model lain.
 
-Gateway hanya menyimpan statistik penggunaan agregat, tanpa isi prompt atau kode. Isi request dikirim ke Mistral; aturan retensi provider tetap berlaku. Jangan sertakan secret proyek. Sesi upstream dapat kedaluwarsa dan membutuhkan pembaruan oleh pemilik.
+Gateway menyimpan statistik penggunaan dan metadata request yang disamarkan untuk key developer, tanpa isi prompt atau kode. Isi request dikirim ke Mistral; aturan retensi provider tetap berlaku. Jangan sertakan secret proyek. Sesi upstream dapat kedaluwarsa dan membutuhkan pembaruan oleh pemilik.
 
 | Status | Arti |
 | --- | --- |
 | 400 | Input atau fitur tidak didukung |
-| 401 | Key AI tidak valid |
+| 401 | API key tidak valid atau sudah dicabut |
 | 413 | Body terlalu besar, ringkas konteks |
 | 429 | Batas gateway atau upstream tercapai |
 | 501 | Penghitungan token persis tidak tersedia |

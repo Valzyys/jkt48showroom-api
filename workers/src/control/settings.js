@@ -11,11 +11,10 @@ const vars = {
   API_KEY_REQUIRED:['Developer API','Wajibkan API key developer di semua endpoint /api: true/false'],API_FREE_MONTHLY_LIMIT:['Developer API','Kuota bulanan key Free, 1–1000000 request'],API_MAX_KEYS:['Developer API','Maksimal key aktif per akun, 1–20'],API_KEY_EXEMPT_ORIGINS:['Developer API','Origin frontend sendiri yang boleh tanpa key, dipisahkan koma'],API_PRICES:['Developer API','Harga produk dalam rupiah, JSON {"starter-30d":15000}'],API_FANBASE_MONTHLY_LIMIT:['Developer API','Kuota bulanan paket Fanbase, 1–10000000 request'],FANBASE_X_HANDLE:['Developer API','Akun X yang wajib di-follow pemohon program fanbase, tanpa @']
 };
 const secrets={
-  PIP_API_KEY:['Pip AI API','Key khusus AI, minimal 32 karakter; terpisah dari key API data. Perubahan membatalkan key sebelumnya.'],
   LOVABLE_LICENSE_API_KEY:['Lovable license','API key penyedia untuk generate lisensi; hanya digunakan server.'],
   IDN_WEB_CLIENT_KEY:['IDN authentication','Client key web IDN untuk membaca katalog gift resmi.'],IDN_REFRESH_TOKEN:['IDN authentication','Refresh token Cognito milik akun IDN; JWT diperbarui otomatis di server.'],IDN_COGNITO_CLIENT_ID:['IDN authentication','Client ID Cognito harus sama dengan aplikasi yang menerbitkan refresh token.'],
   COLLECTOR_TOKEN:['Live collector','Token privat VPS collector; harus sama dengan token pada VPS.'],
-  API_KEY:['API key & token','Key server untuk recent, weekly dan collector. Mengubah key membatalkan key sebelumnya.'],
+  API_KEY:['API key & token','Key server untuk recent, weekly, collector dan Pip AI. Mengubah key membatalkan key sebelumnya.'],
   AUTH_SECRET:['API key & token','Secret JWT user; perubahan membatalkan token user lama.'],JWT_SECRET:['API key & token','Secret JWT/signature; perubahan membatalkan token JWT lama.'],SECRET:['API key & token','Kunci aplikasi AES, tepat 32 karakter ASCII; perubahan berdampak pada data terenkripsi.'],
   JKT48_SCRAPER_TOKEN:['JKT48 & scraper','Harus sama dengan token pada VPS; panel tidak mengubah token VPS.'],
   CLOUDINARY_API_KEY:['Media & layanan','API key Cloudinary'],CLOUDINARY_API_SECRET:['Media & layanan','API secret Cloudinary'],YOUTUBE_KEY:['Media & layanan','API key YouTube'],YOUTUBE_JKT48:['Media & layanan','Konfigurasi kanal YouTube JKT48'],SAWERIA_KEY:['Media & layanan','Secret Saweria'],SIGNATURE_SECRETS:['API key & token','source:secret,... untuk HMAC per source'],JKTPG_API_KEY:['Developer API','API key JKT48Connect PG untuk pembayaran paket dan isi ulang'],JKTPG_WEBHOOK_SECRET:['Developer API','Secret HMAC webhook JKT48Connect PG; hanya di server'],MYPG_API_KEY:['Developer API','Key MYPG lama untuk memeriksa dan membatalkan tagihan lama'],SR_ID:['Showroom & live','Session Showroom opsional']
@@ -51,7 +50,6 @@ export async function settingsView(bindings){
 }
 function validate(name,value){
   if(name==='PIP_ENABLED'&&!['true','false'].includes(value))throw Object.assign(new Error('Gunakan true atau false'),{status:400});
-  if(name==='PIP_API_KEY'&&(value.length<32||value.length>256||!/^[\x21-\x7e]+$/.test(value)))throw Object.assign(new Error('Key AI harus 32–256 karakter ASCII tanpa spasi'),{status:400});
   if(['PIP_REQUESTS_PER_MINUTE','PIP_REQUESTS_PER_DAY'].includes(name)&&(!/^\d+$/.test(value)||Number(value)<1||Number(value)>(name==='PIP_REQUESTS_PER_MINUTE'?120:10000)))throw Object.assign(new Error('Batas request AI di luar rentang'),{status:400});
   if(name==='LOVABLE_LICENSE_PREFIX'&&!/^[A-Z][A-Z0-9]{1,15}$/.test(value))throw Object.assign(new Error('Prefix harus 2–16 huruf/angka kapital'),{status:400});
   const definition=specification.get(name);

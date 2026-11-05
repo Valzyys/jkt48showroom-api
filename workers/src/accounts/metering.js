@@ -101,26 +101,28 @@ const pass = (client = null) => ({ client, finish: (response) => client?privateR
 
 // `verify` carries the app's own JWT and request-signature checks, passed in
 // by the Worker so this module stays free of its runtime aliases.
-export async function meter(request, bindings, execution, verify = {}) {
+export async function meter(request, bindings, execution, verify = {}, { keyOnly = false } = {}) {
   const url = new URL(request.url);
-  if (!isMetered(url.pathname, request.method)) return pass();
+  if (!keyOnly && !isMetered(url.pathname, request.method)) return pass();
   // Keys work from the X-API-Key header or the api_key / apikey query.
-  const token =
+  // AI clients use header-only keys, with Bearer support for compatible SDKs.
+  const token = keyOnly ?
+    /^Bearer\s+(\S+)$/i.exec(request.headers.get('Authorization') || '')?.[1] || request.headers.get('X-API-Key') || '' :
     request.headers.get("X-API-Key") ||
     url.searchParams.get("api_key") ||
     url.searchParams.get("apikey") ||
     "";
-  const required = keysRequired(bindings);
+  const required = keyOnly || keysRequired(bindings);
   if (bindings.API_KEY && token === bindings.API_KEY)
     return pass({ kind: "server" });
   if (!looksLikeKey(token)) {
     if (
-      token &&
+      !keyOnly && token &&
       bindings.JWT_SECRET &&
       verify.jwt?.(token, bindings.JWT_SECRET)
     )
       return pass({ kind: "app" });
-    if (await firstParty(request, bindings, verify))
+    if (!keyOnly && await firstParty(request, bindings, verify))
       return pass({ kind: "app" });
     // Without enforcement, unknown values stay with the route (e.g. weekly).
     if (!required) return pass();
@@ -130,7 +132,9 @@ export async function meter(request, bindings, execution, verify = {}) {
         401,
         token
           ? "API key tidak valid. Gunakan key jkc_… dari dashboard."
-          : "API key diperlukan. Buat API key gratis di dashboard lalu kirim lewat header X-API-Key atau query ?apikey=.",
+          : keyOnly
+            ? "API key diperlukan. Gunakan key dari dashboard atau key server lewat Authorization: Bearer atau X-API-Key."
+            : "API key diperlukan. Buat API key gratis di dashboard lalu kirim lewat header X-API-Key atau query ?apikey=.",
       ),
     };
   }

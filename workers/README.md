@@ -248,6 +248,14 @@ Vars (also editable in the control panel): `API_KEY_REQUIRED` (`true` in `wrangl
 signed requests), `API_PRICES` (JSON, rupiah), `FANBASE_X_HANDLE` and
 `DASHBOARD_ADMIN_EMAILS`.
 
+#### Pip AI API
+
+Endpoint `/v1/*` memakai key developer `jkc_…` yang sama dengan API data atau
+key server `API_KEY`, melalui `Authorization: Bearer …` atau `X-API-Key`.
+Tidak perlu key khusus Pip. Key developer mengikuti kuota bulanan API data,
+serta batas inferensi Pip per key. Kredensial upstream Mistral tetap diperlukan.
+Lihat `docs/public/pip-ai-api.md` untuk konfigurasi klien.
+
 #### Pip, the docs assistant
 
 `POST /docs/assistant` streams answers from Mistral for the floating **Pip** chat on
