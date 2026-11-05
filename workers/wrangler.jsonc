@@ -61,7 +61,7 @@
     "DISABLE_SCREENSHOTS": "false",
     "HALF_SCREENSHOTS": "false",
     "ASSISTANT_ENABLED": "true",
-    "MISTRAL_MODEL": "mistral-medium-latest",
+    "MISTRAL_MODEL": "mistral-large-4",
     "PIP_ENABLED": "true",
     "PIP_REQUESTS_PER_MINUTE": "20",
     "PIP_REQUESTS_PER_DAY": "500",
