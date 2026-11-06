@@ -20,8 +20,10 @@ from zoneinfo import ZoneInfo
 sys.path.insert(0, os.environ.get('THEATER_CODE_DIR', '/opt/jkt48-theater-recorder'))
 from recorder import YouTube, Failure
 from curl_cffi.requests import AsyncSession
+from curl_cffi.const import CurlHttpVersion
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from playlist_manager import PlaylistManager
+from oauth_credentials import read_credentials, sync_credentials
 
 log = logging.getLogger('recent-youtube')
 CHUNK = 8 * 1024 * 1024
@@ -42,6 +44,34 @@ class UploadLimit(Failure):
 
 
 class RecentYouTube(YouTube):
+    async def token(self):
+        if not hasattr(self, '_credential_lock'):
+            self._credential_lock = asyncio.Lock()
+        async with self._credential_lock:
+            if self.access and self.until > time.time():
+                return self.access
+            root = os.environ.get('RECENT_YOUTUBE_STATE_DIR', '/var/lib/jkt48-recent-youtube')
+            channel = os.environ.get('RECENT_YOUTUBE_CHANNEL_ID', 'UCTyCC-_QhsV01cN2CAzN3Fg')
+            saved = await asyncio.to_thread(read_credentials, root, channel)
+            credentials = saved['credentials'] if saved else {
+                'client_id': os.environ['YOUTUBE_CLIENT_ID'],
+                'client_secret': os.environ['YOUTUBE_CLIENT_SECRET'],
+                'refresh_token': os.environ['YOUTUBE_REFRESH_TOKEN']}
+            try:
+                r = await self.client.post('https://oauth2.googleapis.com/token',
+                    data={**credentials, 'grant_type': 'refresh_token'}, timeout=25, allow_redirects=False)
+                data = r.json()
+                if r.status_code != 200 or not data.get('access_token'):
+                    code = data.get('error')
+                    raise Failure('oauth_' + code if code in ('invalid_grant', 'unauthorized_client', 'invalid_client') else 'oauth_error')
+                self.access, self.until = data['access_token'], time.time() + int(data.get('expires_in', 3600)) - 120
+                self.auth_status, self.auth_error = 'ready', None
+                return self.access
+            except Exception as error:
+                self.auth_status = 'error'
+                self.auth_error = str(error) if isinstance(error, Failure) else 'oauth_network'
+                raise Failure(self.auth_error) from None
+
     def reject(self, response):
         try:
             body = response.json().get('error', {})
@@ -175,6 +205,7 @@ class Uploader:
         if u.scheme != 'https' or u.hostname != 'api.jkt48connect.app' or u.path or u.username or u.password:
             raise Failure('transport_invalid')
         self.client = None
+        self.media_client = None
         self.youtube = None
         self.stop = asyncio.Event()
         self.scanned = False
@@ -307,6 +338,20 @@ class Uploader:
             else:
                 row.update(youtube_id=video, status='needs_review', error='youtube_orphan_processing')
             self.store.save(row)
+        recovered = 0
+        for row in self.rows.values():
+            if (upload_eligible(row) and row['status'] == 'needs_review'
+                    and row.get('error') == 'youtube_session_creation_unknown'
+                    and row.get('_insert_pending') and not row.get('_upload_url')
+                    and not row.get('youtube_id') and not row.get('_transfer_complete')
+                    and not row.get('_upload_offset') and row['id'] not in seen):
+                # Without a session URL no video bytes could have been sent.
+                # Completed remote uploads were recovered by their markers above.
+                row.update(status='pending', error=None, _insert_pending=False, _retry_at=0)
+                self.store.save(row)
+                recovered += 1
+        if recovered:
+            log.info('reconciled-zero-byte-session-jobs count=%s', recovered)
         self.scanned = True
 
     def result(self, row, response):
@@ -322,7 +367,9 @@ class Uploader:
     async def source(self, row, start, length):
         end = start + length - 1
         url = self.base + '/media/live/' + row['data_id'] + '/video-' + row['run'] + '.mp4'
-        async with self.client.stream('GET', url, headers={'Range': f'bytes={start}-{end}'},
+        # Keep large body transfers out of the control/playlist connection pool.
+        media_client = self.media_client or self.client
+        async with media_client.stream('GET', url, headers={'Range': f'bytes={start}-{end}'},
                                       timeout=90, allow_redirects=False) as r:
             if r.status_code != 206:
                 raise Failure('source_http_' + str(r.status_code))
@@ -446,6 +493,8 @@ class Uploader:
             count = sum(r.get('_insert_count', 0) for r in self.rows.values() if r.get('_insert_day') == day)
             if count >= 90:
                 raise UploadLimit('youtube_daily_budget', 'local_budget', 0, pacific_reset())
+            # Reject expired credentials before marking a session insertion.
+            await self.youtube.token()
             row['_insert_count'] = row.get('_insert_count', 0) + 1 if row.get('_insert_day') == day else 1
             row['_insert_day'] = day
             row['_insert_pending'] = True
@@ -456,7 +505,11 @@ class Uploader:
             try:
                 r = await self.youtube.request('POST', 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status&notifySubscribers=false',
                     headers={'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Length': str(size), 'X-Upload-Content-Type': 'video/mp4'}, data=json.dumps(body))
-            except Exception:
+            except Exception as error:
+                if isinstance(error, Failure) and str(error).startswith('oauth_'):
+                    row['_insert_pending'] = False
+                    self.store.save(row)
+                    raise
                 row['status'] = 'needs_review'
                 raise Failure('youtube_session_creation_unknown') from None
             if r.status_code not in (200, 201):
@@ -573,14 +626,42 @@ class Uploader:
                 self.store.save(row)
             await self.wait(20)
 
+    async def sync_oauth(self):
+        try:
+            expected = os.environ.get('RECENT_YOUTUBE_CHANNEL_ID', 'UCTyCC-_QhsV01cN2CAzN3Fg')
+            version = await sync_credentials(self.client, self.root, self.base, expected)
+            if version and self.store.control('oauth_version').get('version') != version:
+                recovered = 0
+                for row in self.rows.values():
+                    if (upload_eligible(row) and str(row.get('error') or '').startswith('oauth_')
+                            and row['status'] != 'needs_review'):
+                        row.update(error=None, status='uploaded' if row.get('_transfer_complete') else 'pending', _retry_at=0)
+                        self.store.save(row)
+                        recovered += 1
+                self.global_retry = self.store.control('backoff').get('until', 0)
+                self.youtube.access, self.youtube.until = None, 0
+                self.store.control('oauth_version', {'version': version})
+                log.info('oauth-credentials-updated retryable-jobs=%s', recovered)
+        except Exception as error:
+            code = str(error)
+            if not re.fullmatch(r'oauth_sync_[a-z_0-9]{1,80}', code):
+                code = 'oauth_sync_unavailable'
+            log.warning('oauth-sync-error code=%s', code)
+
+    async def oauth_updates(self):
+        while not self.stop.is_set():
+            await self.sync_oauth()
+            await self.wait(30)
+
     async def run(self):
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, self.stop.set)
-        async with AsyncSession(max_clients=6) as client:
-            self.client = client
+        async with AsyncSession(max_clients=6) as client, AsyncSession(max_clients=4, http_version=CurlHttpVersion.V1_1) as media_client:
+            self.client, self.media_client = client, media_client
             self.youtube = RecentYouTube(client, self.store.save)
-            await asyncio.gather(self.housekeeping(), self.uploads(), self.uploads(), self.playback_checks(), PlaylistManager(self).run())
+            await self.sync_oauth()
+            await asyncio.gather(self.oauth_updates(), self.housekeeping(), self.uploads(), self.uploads(), self.playback_checks(), PlaylistManager(self).run())
 
 
 if __name__ == '__main__':

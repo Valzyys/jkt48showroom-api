@@ -10,6 +10,7 @@ WorkingDirectory=/opt/jkt48-recent-youtube
 EnvironmentFile=/etc/jkt48-live-collector.env
 EnvironmentFile=/etc/jkt48-theater-recorder.env
 EnvironmentFile=-/etc/jkt48-recent-youtube-oauth.env
+LoadCredential=youtube-oauth-worker-token:/etc/jkt48-youtube-oauth-worker-token
 Environment=PYTHONUNBUFFERED=1
 Environment=RECENT_YOUTUBE_STATE_DIR=/var/lib/jkt48-recent-youtube
 Environment=RECENT_YOUTUBE_API_TRANSPORT_URL=https://api.jkt48connect.app:8443
