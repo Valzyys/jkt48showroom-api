@@ -141,7 +141,7 @@ export async function qrImage(row) {
   try {
     response = await fetch(url, {
       headers: { Accept: "image/*" },
-      redirect: row.provider === "jktpg" ? "error" : "follow",
+      redirect: row.provider === "jktpg" ? "manual" : "follow",
       signal: AbortSignal.timeout(10000),
     });
   } catch {

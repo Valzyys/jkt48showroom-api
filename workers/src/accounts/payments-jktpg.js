@@ -21,7 +21,8 @@ export async function jktpg(bindings, action, fields) {
   }
   let response, json;
   try {
-    response = await fetch(ORIGIN + path, { method, headers: { "X-API-Key": bindings.JKTPG_API_KEY, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), redirect: "error", signal: AbortSignal.timeout(15000) });
+    response = await fetch(ORIGIN + path, { method, headers: { "X-API-Key": bindings.JKTPG_API_KEY, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), // Workers supports follow/manual only. Do not follow redirects with a merchant key.
+      redirect: "manual", signal: AbortSignal.timeout(15000) });
   } catch { fail(502, "Gateway pembayaran tidak dapat dihubungi"); }
   try { json = await response.json(); } catch { fail(502, "Respons gateway pembayaran tidak valid"); }
   if (!response.ok) {

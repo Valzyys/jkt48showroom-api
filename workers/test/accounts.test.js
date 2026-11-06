@@ -892,6 +892,7 @@ test("JKT48Connect PG uses unique total, private credentials and exactly-once fu
   globalThis.fetch = async (input, init) => {
     const url = new URL(input); calls.push({url: url.href, method: init.method, headers: init.headers, body: init.body});
     assert.equal(url.hostname, "pg.jkt48connect.app");
+    assert.equal(init.redirect, "manual", "Cloudflare Workers supports manual redirects; never forward the merchant key");
     if (url.pathname.endsWith("/qr.svg")) return new Response('<svg xmlns="http://www.w3.org/2000/svg"/>', {headers:{"Content-Type":"image/svg+xml"}});
     assert.equal(init.headers["X-API-Key"], "pg-private-test");
     if (url.pathname === "/api/v1/transactions") {
@@ -954,4 +955,16 @@ test("JKT48Connect PG webhook rejects stale/tampered data and credits once", asy
   assert.equal((await hook()).status,200);assert.equal((await hook()).status,200);assert.equal(checks,1);
   assert.equal(DB.sqlite.prepare("SELECT status FROM api_payments WHERE id=?").get(p.id).status,"SUCCESS");
   assert.equal(DB.sqlite.prepare("SELECT sum(requests) AS n FROM api_topups").get().n,5000);
+});
+
+test("JKT48Connect PG rejects redirects instead of forwarding merchant credentials", async () => {
+  const { jktpg } = await import("../src/accounts/payments-jktpg.js");
+  let calls = 0;
+  globalThis.fetch = async (_url, init) => {
+    calls++;
+    assert.equal(init.redirect, "manual");
+    return new Response(null, { status: 302, headers: { Location: "https://other.example/collect" } });
+  };
+  await assert.rejects(jktpg({ JKTPG_API_KEY: "private-test" }, "createpayment", { amount: 15000, ref_id: "JKC-test" }), { status: 502 });
+  assert.equal(calls, 1);
 });
