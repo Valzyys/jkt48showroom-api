@@ -45,3 +45,5 @@ Uploader mengambil token dari alur admin `/control/youtube-oauth` yang sama deng
 Setelah pemindaian playlist upload selesai, job sesi yang tidak pernah memperoleh URL resumable dan belum mengirim byte dapat dicoba lagi. Video selesai dikenali lewat marker; job yang sudah punya URL, ID video, atau byte terkirim tetap dipertahankan untuk mencegah duplikat. Preflight autentikasi dilakukan sebelum menandai pembuatan sesi. Batas tanggal 1 November, IDN unlisted 72 jam dan Showroom public tetap berlaku. Transfer tetap memakai potongan RAM; tidak mengunduh file replay ke disk VPS.
 
 Transfer Range R2 memakai pool HTTP/1.1 terpisah dari polling, OAuth dan playlist. Ini membatasi unduhan media hingga empat request serta mencegah antrean body besar pada satu koneksi HTTP/2 menahan request kontrol.
+
+Potongan upload kini 2 MiB (kelipatan 256 KiB) agar checkpoint dan retry lebih cepat pada koneksi tidak stabil. PUT resumable YouTube juga memakai HTTP/1.1, sehingga body video tidak berbagi koneksi HTTP/2 metadata.

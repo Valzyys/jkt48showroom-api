@@ -26,7 +26,7 @@ from playlist_manager import PlaylistManager
 from oauth_credentials import read_credentials, sync_credentials
 
 log = logging.getLogger('recent-youtube')
-CHUNK = 8 * 1024 * 1024
+CHUNK = 2 * 1024 * 1024
 EMBARGO = 72 * 3600
 WIB = timezone(timedelta(hours=7))
 MARKER = 'JKT48Connect-Replay: '
@@ -71,6 +71,12 @@ class RecentYouTube(YouTube):
                 self.auth_status = 'error'
                 self.auth_error = str(error) if isinstance(error, Failure) else 'oauth_network'
                 raise Failure(self.auth_error) from None
+
+    async def request(self, method, url, **kwargs):
+        # Resumable video bodies must not share the HTTP/2 metadata connection.
+        if method.upper() == 'PUT' and urlparse(url).path.startswith('/upload/'):
+            kwargs.setdefault('http_version', CurlHttpVersion.V1_1)
+        return await super().request(method, url, **kwargs)
 
     def reject(self, response):
         try:
