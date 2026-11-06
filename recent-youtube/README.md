@@ -47,3 +47,5 @@ Setelah pemindaian playlist upload selesai, job sesi yang tidak pernah memperole
 Transfer Range R2 memakai pool HTTP/1.1 terpisah dari polling, OAuth dan playlist. Ini membatasi unduhan media hingga empat request serta mencegah antrean body besar pada satu koneksi HTTP/2 menahan request kontrol.
 
 Potongan upload kini 2 MiB (kelipatan 256 KiB) agar checkpoint dan retry lebih cepat pada koneksi tidak stabil. PUT resumable YouTube juga memakai HTTP/1.1, sehingga body video tidak berbagi koneksi HTTP/2 metadata.
+
+Publikasi status recent berjalan terpisah setiap tiga detik, mendahulukan unggahan selesai terbaru dari November ke atas. Pemindaian arsip, pembaruan privasi dan playlist tidak menahan ID/link YouTube yang baru selesai. Pengiriman ulang idempotent; penanda dirty hanya dihapus jika snapshot yang dikirim masih sama dengan state terbaru.

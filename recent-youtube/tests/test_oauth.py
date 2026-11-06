@@ -84,3 +84,15 @@ class OAuthTests(unittest.IsolatedAsyncioTestCase):
    u.client=Control();u.media_client=Media()
    self.assertEqual(await u.source(r,0,4),b'data');self.assertEqual(u.media_client.range,'bytes=0-3')
    u.store.db.close();u.store.lock.close()
+
+ async def test_new_completed_replay_is_published_ahead_of_old_backlog(self):
+  with tempfile.TemporaryDirectory() as root,patch.dict(os.environ,{'RECENT_YOUTUBE_STATE_DIR':root}):
+   u=m.Uploader();old=row();old.update(id='idn-old:1',data_id='idn-old',started_at='2026-10-25T12:00:00Z',ended_at='2026-10-25T13:00:00Z',status='uploaded',youtube_id='abcdefghijk')
+   new=row();new.update(id='idn-new:1',data_id='idn-new',status='uploaded',youtube_id='123456789ab');u.rows={r['id']:r for r in [old,new]}
+   for r in [old,new]:u.store.save(r)
+   sent=[]
+   async def api(path,data):sent.append(data['data_id']);u.stop.set();return {}
+   u.api=api;await u.state_updates()
+   self.assertEqual(sent[0],'idn-new');self.assertEqual(u.rows[new['id']]['_dirty'],False)
+   self.assertEqual(json.loads(u.store.db.execute('SELECT value FROM jobs WHERE id=?',(new['id'],)).fetchone()[0])['_dirty'],False)
+   u.store.db.close();u.store.lock.close()

@@ -600,15 +600,6 @@ class Uploader:
                             await self.visibility(row)
                         except Exception as e:
                             self.failed(row, e)
-                # Publish privacy changes first. Do not issue one pending-state POST
-                # for every backlog entry or let progress reports delay deadlines.
-                dirty = [r for r in self.rows.values() if r.get('_dirty') and r['status'] != 'pending'][:10]
-                for row in dirty:
-                    if row.get('_dirty'):
-                        await self.api('state', self.public(row))
-                        row['_dirty'] = False
-                        self.store.db.execute('UPDATE jobs SET value=? WHERE id=?', (json.dumps(row), row['id']))
-                        self.store.db.commit()
             except Exception as e:
                 log.warning('housekeeping-error code=%s', str(e) if isinstance(e, Failure) else 'network_error')
             await self.wait(30)
@@ -616,6 +607,24 @@ class Uploader:
     async def wait(self, seconds):
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(self.stop.wait(), seconds)
+
+    async def state_updates(self):
+        # Publish independently of channel scans, processing and playlist work.
+        while not self.stop.is_set():
+            dirty = [r for r in self.rows.values() if r.get('_dirty') and r['status'] != 'pending']
+            dirty.sort(key=lambda r: (not upload_eligible(r), r['status'] != 'uploaded', -(epoch(r.get('ended_at')) or 0)))
+            for row in dirty[:10]:
+                snapshot = self.public(row)
+                try:
+                    await self.api('state', snapshot)
+                    if snapshot == self.public(row):
+                        row['_dirty'] = False
+                        self.store.db.execute('UPDATE jobs SET value=? WHERE id=?', (json.dumps(row), row['id']))
+                        self.store.db.commit()
+                except Exception as error:
+                    log.warning('replay-state-publish-error code=%s', str(error) if isinstance(error, Failure) else 'network_error')
+                    break
+            await self.wait(3)
 
     async def playback_checks(self):
         # Anonymous playback checks never block uploads, privacy deadlines or state publication.
@@ -667,7 +676,7 @@ class Uploader:
             self.client, self.media_client = client, media_client
             self.youtube = RecentYouTube(client, self.store.save)
             await self.sync_oauth()
-            await asyncio.gather(self.oauth_updates(), self.housekeeping(), self.uploads(), self.uploads(), self.playback_checks(), PlaylistManager(self).run())
+            await asyncio.gather(self.oauth_updates(), self.state_updates(), self.housekeeping(), self.uploads(), self.uploads(), self.playback_checks(), PlaylistManager(self).run())
 
 
 if __name__ == '__main__':
