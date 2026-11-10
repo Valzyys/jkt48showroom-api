@@ -1,3 +1,4 @@
+import {hikariInfo} from './hikari-info.js';
 import {youtubeOauthPublic} from './control/youtube-oauth.js';
 import {musicAPI,musicMedia,musicDocumentation} from './runtime/music.js';
 import {instagramMedia} from './runtime/instagram-media.js';
@@ -108,6 +109,7 @@ export default {
       if(metered.client?.kind==='key')request=withoutKeyParams(request);
       return metered.finish(await (async()=>{
       try {
+        if(url.pathname==='/api/hikari/info'&&request.method==='GET')return Response.json(await hikariInfo(bindings.DB),{headers:{'Cache-Control':'no-store'}});
         const music=await musicAPI(request,bindings);if(music)return music;
         if(url.pathname==='/api/stream') {
           if(request.method==='OPTIONS') return cors(new Response(null,{status:204}),request,bindings);

@@ -1,3 +1,4 @@
+import {HikariInformation as HikariInformationForm} from './hikari-info.jsx';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMotionEnabled } from "./motion.js";
 import { Copy, gsap, Icon, Link, useLiquid } from "./shared.jsx";
@@ -43,6 +44,7 @@ async function ctl(path, { method = "GET", body } = {}) {
   return data;
 }
 const developerCall = (path, options) => ctl("developers" + path, options);
+const HikariInformation=()=> <HikariInformationForm call={ctl}/>;
 
 const SECTIONS = [
   ["", "Ringkasan", "grid"],
@@ -53,6 +55,7 @@ const SECTIONS = [
   ["developers", "Developer API", "user"],
   ["licenses", "Lovable license", "key"],
   ["extension-notifications", "Notifikasi ekstensi", "list"],
+  ["hikari-info", "Info Hikari", "list"],
   ["settings", "Pengaturan", "bars"],
   ["key", "Key server", "key"],
   ["data", "Data & cache", "list"],
@@ -1179,6 +1182,7 @@ export function ControlPanel({ search }) {
           ))}
         {section === "licenses" && <LicensePanel />}
         {section === "extension-notifications" && <ExtensionNotifications />}
+        {section === "hikari-info" && <HikariInformation />}
         {section === "key" && <ServerKey />}
         {section === "data" && <Data status={status} />}
       </main>
