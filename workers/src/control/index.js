@@ -1,3 +1,4 @@
+import {hikariInfoAdmin} from '../hikari-info.js';
 import {youtubeOauthAdmin} from './youtube-oauth.js';
 import {xBotControl} from './x-bot.js';
 import {discordBotControl} from './discord-bot.js';
@@ -53,6 +54,7 @@ export async function controlResponse(request,bindings,execution){
   const youtubeOauth=await youtubeOauthAdmin(request,bindings);if(youtubeOauth)return youtubeOauth;
   if(url.pathname==='/control/api/developers'||url.pathname.startsWith('/control/api/developers/'))return json(await developerAdmin(url,request,bindings,body));
   if(url.pathname==='/control/api/session'&&request.method==='GET')return json({email:devAdmin?.email||bindings.CONTROL_ADMIN_EMAIL,developer:Boolean(devAdmin),csrf});
+  if(url.pathname==='/control/api/hikari-info')return json(await hikariInfoAdmin(request,bindings,body));
   if(url.pathname==='/control/api/logout'&&request.method==='POST')return json({ok:true},200,{'Set-Cookie':devAdmin?await endSession(bindings.DB,devAdmin):logoutCookie()});
   if(url.pathname==='/control/api/settings'&&request.method==='GET')return json({settings:await settingsView(bindings)});
   if(url.pathname==='/control/api/settings'&&request.method==='PUT'){
