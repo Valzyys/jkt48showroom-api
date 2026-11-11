@@ -9,6 +9,7 @@ import {licenseResponse} from './licenses/index.js';
 import {serveGiftImage} from './runtime/gift-media';
 import { collectorResponse, cleanupCollectorUploads } from './collector/index.js';
 import { controlResponse } from './control/index.js';
+import { hikariBannerPublic } from './hikari-banner.js';
 import { effectiveBindings } from './control/settings.js';
 import { serveMedia, rewriteMediaResponse } from './runtime/jkt48-media.js';
 import { documentation } from './docs/index.js';
@@ -85,6 +86,8 @@ export default {
     if (docs) return docs;
     const control = await controlResponse(request,bindings,execution);
     if (control) return rewriteMediaResponse(control,request);
+    const hikariBanner = await hikariBannerPublic(request,bindings);
+    if (hikariBanner) return hikariBanner;
     bindings = await effectiveBindings(bindings);
     const ai = await aiResponse(request,bindings,execution);if(ai)return ai;
     const theaterScreenshot=await serveTheaterScreenshot(request,bindings);if(theaterScreenshot)return theaterScreenshot;
