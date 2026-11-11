@@ -1,4 +1,5 @@
 import {hikariInfoAdmin} from '../hikari-info.js';
+import {hikariBannerAdmin,hikariBannerPage} from '../hikari-banner.js';
 import {youtubeOauthAdmin} from './youtube-oauth.js';
 import {xBotControl} from './x-bot.js';
 import {discordBotControl} from './discord-bot.js';
@@ -24,6 +25,7 @@ async function body(request){if(Number(request.headers.get('Content-Length'))>20
 export async function controlResponse(request,bindings,execution){
  const url=new URL(request.url);
  if(url.pathname!=='/control/admin'&&!url.pathname.startsWith('/control/'))return null;
+ const bannerPage=hikariBannerPage(url.pathname,request.method,securityHeaders);if(bannerPage)return bannerPage;
  // The panel is a view of the developer app; its page is the same SPA shell.
  if(url.pathname==='/control/admin'||url.pathname==='/control/admin/'){
   if(!['GET','HEAD'].includes(request.method))return json({message:'Method tidak diizinkan'},405,{Allow:'GET, HEAD'});
@@ -55,6 +57,7 @@ export async function controlResponse(request,bindings,execution){
   if(url.pathname==='/control/api/developers'||url.pathname.startsWith('/control/api/developers/'))return json(await developerAdmin(url,request,bindings,body));
   if(url.pathname==='/control/api/session'&&request.method==='GET')return json({email:devAdmin?.email||bindings.CONTROL_ADMIN_EMAIL,developer:Boolean(devAdmin),csrf});
   if(url.pathname==='/control/api/hikari-info')return json(await hikariInfoAdmin(request,bindings,body));
+  if(url.pathname==='/control/api/hikari-banner')return hikariBannerAdmin(request,bindings);
   if(url.pathname==='/control/api/logout'&&request.method==='POST')return json({ok:true},200,{'Set-Cookie':devAdmin?await endSession(bindings.DB,devAdmin):logoutCookie()});
   if(url.pathname==='/control/api/settings'&&request.method==='GET')return json({settings:await settingsView(bindings)});
   if(url.pathname==='/control/api/settings'&&request.method==='PUT'){
