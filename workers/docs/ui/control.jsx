@@ -1158,6 +1158,7 @@ export function ControlPanel({ search }) {
                 "Variable dan secret server. Perubahan berlaku di semua instance dalam 10 detik.",
               licenses: "Pembuatan lisensi, prefix, durasi dan batas perangkat.",
               "extension-notifications": "Tulis, pratinjau dan terbitkan informasi untuk pengguna ekstensi.",
+              "hikari-info": "Tulis, terbitkan, dan kelola pengumuman untuk aplikasi Hikari.",
               key: "Key server untuk backend sendiri.",
               data: "Isi database dan cache respons.",
             }[section]
